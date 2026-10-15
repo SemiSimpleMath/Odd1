@@ -3,6 +3,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  desktop = config.odd1.desktop.enable;
   python = pkgs.python3.withPackages (p: [ p.pyatspi p.pygobject3 p.pillow p.tkinter ]);
 in {
   system.stateVersion = "25.05";
@@ -21,54 +22,95 @@ in {
     settings = { PasswordAuthentication = false; PermitRootLogin = "no"; };
   };
 
-  # The screen: a headless X display :0 (1280x800), a window manager, and the accessibility bus, all in the
-  # agent's user session. Anything run over SSH as agent sees the same display.
-  # (The unit names are kept from the VM this was ported from; they change with the Remote Desktop switch.)
+  # The screen: X display :0 and the accessibility bus, in the agent's user session; anything run over SSH as agent
+  # sees the same display. `odd1.desktop.enable` (components/desktop) switches it from the fixed-size Xvfb with
+  # openbox and noVNC (units named after the VM this was ported from) to Xvnc with the Odd1 desktop and Remote
+  # Desktop.
   services.gnome.at-spi2-core.enable = true;
   fonts.packages = with pkgs; [ dejavu_fonts liberation_ttf noto-fonts ];
-  systemd.user.services.orbit-display = {
-    description = "Headless X display :0";
-    wantedBy = [ "default.target" ];
-    serviceConfig = {
-      ExecStart = "${pkgs.xorg.xorgserver}/bin/Xvfb :0 -screen 0 1280x800x24 -nolisten tcp";
-      Restart = "always";
-    };
-  };
-  systemd.user.services.orbit-wm = {
-    description = "Window manager on :0";
-    wantedBy = [ "default.target" ];
-    after = [ "orbit-display.service" ];
-    requires = [ "orbit-display.service" ];
-    environment.DISPLAY = ":0";
-    serviceConfig = {
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 1";
-      ExecStart = "${pkgs.openbox}/bin/openbox";
-      Restart = "always";
-    };
-  };
-  # The person's view: VNC on the display, served to a web browser by noVNC on port 6080.
-  systemd.user.services.orbit-vnc = {
-    description = "VNC server on display :0";
-    wantedBy = [ "default.target" ];
-    after = [ "orbit-display.service" ];
-    requires = [ "orbit-display.service" ];
-    serviceConfig = {
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
-      ExecStart = "${pkgs.x11vnc}/bin/x11vnc -display :0 -forever -shared -localhost -nopw -rfbport 5900 -quiet";
-      Restart = "always";
-    };
-  };
-  systemd.user.services.orbit-novnc = {
-    description = "noVNC web viewer on port 6080";
-    wantedBy = [ "default.target" ];
-    after = [ "orbit-vnc.service" ];
-    serviceConfig = {
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
-      ExecStart = "${pkgs.python3Packages.websockify}/bin/websockify --web ${pkgs.novnc}/share/webapps/novnc 6080 localhost:5900";
-      Restart = "always";
-    };
-  };
   networking.firewall.allowedTCPPorts = [ 6080 ];
+  systemd.user.services = lib.mkMerge [
+    (lib.mkIf (!desktop) {
+      # Until the switch: a fixed-size Xvfb, openbox, and x11vnc for noVNC.
+      orbit-display = {
+        description = "Headless X display :0";
+        wantedBy = [ "default.target" ];
+        serviceConfig = {
+          ExecStart = "${pkgs.xorg.xorgserver}/bin/Xvfb :0 -screen 0 1280x800x24 -nolisten tcp";
+          Restart = "always";
+        };
+      };
+      orbit-wm = {
+        description = "Window manager on :0";
+        wantedBy = [ "default.target" ];
+        after = [ "orbit-display.service" ];
+        requires = [ "orbit-display.service" ];
+        environment.DISPLAY = ":0";
+        serviceConfig = {
+          ExecStartPre = "${pkgs.coreutils}/bin/sleep 1";
+          ExecStart = "${pkgs.openbox}/bin/openbox";
+          Restart = "always";
+        };
+      };
+      # The person's view: VNC on the display, served to a web browser by noVNC on port 6080.
+      orbit-vnc = {
+        description = "VNC server on display :0";
+        wantedBy = [ "default.target" ];
+        after = [ "orbit-display.service" ];
+        requires = [ "orbit-display.service" ];
+        serviceConfig = {
+          ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
+          ExecStart = "${pkgs.x11vnc}/bin/x11vnc -display :0 -forever -shared -localhost -nopw -rfbport 5900 -quiet";
+          Restart = "always";
+        };
+      };
+      orbit-novnc = {
+        description = "noVNC web viewer on port 6080";
+        wantedBy = [ "default.target" ];
+        after = [ "orbit-vnc.service" ];
+        serviceConfig = {
+          ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
+          ExecStart = "${pkgs.python3Packages.websockify}/bin/websockify --web ${pkgs.novnc}/share/webapps/novnc 6080 localhost:5900";
+          Restart = "always";
+        };
+      };
+    })
+    (lib.mkIf desktop {
+      # The screen is Xvnc: an X server with VNC built in that resizes to whatever its viewer asks for (Remote
+      # Desktop's window, noVNC's). VNC itself only listens on localhost; people come in through xrdp or noVNC.
+      odd1-display = {
+        description = "The person's screen: X display :0 (Xvnc, resizes with the viewer)";
+        wantedBy = [ "default.target" ];
+        serviceConfig = {
+          ExecStart = "${pkgs.tigervnc}/bin/Xvnc :0 -geometry 1280x800 -depth 24 -rfbport 5900 -localhost "
+            + "-SecurityTypes None -AcceptSetDesktopSize -AlwaysShared -nolisten tcp -desktop Odd1";
+          Restart = "always";
+        };
+      };
+      odd1-novnc = {
+        description = "noVNC web viewer on port 6080 (fallback to Remote Desktop)";
+        wantedBy = [ "default.target" ];
+        after = [ "odd1-display.service" ];
+        serviceConfig = {
+          ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
+          ExecStart = "${pkgs.python3Packages.websockify}/bin/websockify --web ${pkgs.novnc}/share/webapps/novnc 6080 localhost:5900";
+          Restart = "always";
+        };
+      };
+    })
+  ];
+  # Remote Desktop (RDP, port 3389) straight onto the person's screen: xrdp connects every client to :0's VNC, and
+  # passes the client's window size on, so the screen always matches the viewer pixel for pixel.
+  services.xrdp = lib.mkIf desktop {
+    enable = true;
+    openFirewall = true;
+    extraConfDirCommands = ''
+      awk '/^\[Xorg\]/{exit} {print}' $out/xrdp.ini > $out/xrdp.ini.odd1
+      mv $out/xrdp.ini.odd1 $out/xrdp.ini
+      sed -i 's/^autorun=.*/autorun=Odd1/' $out/xrdp.ini
+      printf '%s\n' '[Odd1]' 'name=Odd1' 'lib=libvnc.so' 'ip=127.0.0.1' 'port=5900' 'username=na' 'password=' >> $out/xrdp.ini
+    '';
+  };
 
   environment.sessionVariables = {
     DISPLAY = ":0";

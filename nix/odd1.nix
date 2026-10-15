@@ -43,8 +43,8 @@ in {
     "x-scheme-handler/https" = "firefox.desktop";
   };
 
-  # A taskbar, so the person sees every open window (each Claude Code session included) and switches with a click.
-  systemd.user.services.odd1-taskbar = {
+  # Until the Odd1 desktop is switched on: a taskbar, so the person sees every open window (each Claude Code session included) and switches with a click.
+  systemd.user.services.odd1-taskbar = lib.mkIf (!config.odd1.desktop.enable) {
     description = "Odd1 taskbar (tint2) on :0";
     wantedBy = [ "default.target" ];
     after = [ "orbit-wm.service" ];

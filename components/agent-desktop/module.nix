@@ -36,7 +36,7 @@ in {
   systemd.user.services.odd1-agent-desktop = {
     description = "Odd1 agent desktop (Xephyr :1 on :0)";
     wantedBy = [ "default.target" ];
-    after = [ "orbit-wm.service" ];
+    after = [ "orbit-wm.service" "odd1-desktop-wm.service" ];
     environment.DISPLAY = ":0";
     serviceConfig = {
       ExecStart = "${pkgs.xorg.xorgserver}/bin/Xephyr :1 -screen 1280x720 -resizeable -title \"Agent desktop\" -nolisten tcp -br";
