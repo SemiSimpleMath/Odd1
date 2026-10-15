@@ -18,6 +18,19 @@ components/<name>/
 ```
 The README's first line is a one-sentence purpose; the next names the ROADMAP.md milestone it serves (M1-M4 or ★). `tools/check.py` puts both on the component map. A component that serves no milestone has to justify itself.
 
+## Agent entry point
+A component that lets agents drive a program or use a capability exposes it as an MCP server (the standard
+agent-to-software protocol) plus a CLI for people and scripts. Register the server in its module.nix as
+`odd1.mcpServers.<name> = { command = ...; args = [ ]; };`; Odd1 lists it in /etc/odd1/mcp-servers.json and
+registers it with Claude Code, so every agent on the machine can use it. Tools are named `<program>_<verb>`
+(e.g. `calc_read`), take plain JSON arguments and return JSON. A friendly program gets a thin adapter over its own
+interface; an unfriendly one gets an adapter built from the deeper layers (accessibility, draw calls, vision), but
+agents see the same kind of entry point.
+
+## Language
+Python by default for components and adapters. Nix for the system, Bash for small glue, C or Rust only where
+required (LD_PRELOAD hooks, eBPF, drivers; Rust preferred for new low-level code). Another language needs a reason.
+
 ## How things get onto a VM
 Only from a commit of this repository, through `nix/odd1.nix` (which imports each component's `module.nix`), applied
 with `nixos-rebuild switch`. No hand-copied files, no `/tmp` staging, no edits that exist only on the VM. If you

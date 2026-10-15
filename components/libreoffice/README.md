@@ -3,6 +3,8 @@ Drive LibreOffice (Calc first) through its own object model, UNO, on the visible
 Milestone: ★ (any app, through interfaces agents write themselves). This is the first per-app adapter and the pattern for more.
 
 ## Use
+- Agents: the MCP server `libreoffice` (registered for every agent): `calc_open`, `calc_read`, `calc_write`,
+  `calc_formula`, `calc_save`, `calc_close`. Documents are named by their file path.
 - Command line: `odd1-calc read FILE [--range A1:C9]`, `odd1-calc write FILE SHEET '[["a",1]]' --save OUT`,
   `odd1-calc formula FILE SHEET D2 '=AVERAGE(B2:B9)'`, `odd1-calc open FILE` (leaves it on screen).
 - Python: `PYTHONPATH=$ODD1_OFFICE_PYTHONPATH python3`, then `from odd1_office.calc import Calc`;

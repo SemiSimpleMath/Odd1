@@ -10,8 +10,21 @@ let
     (map (name: components + "/${name}/module.nix")
       (builtins.filter (name: builtins.pathExists (components + "/${name}/module.nix"))
         (builtins.attrNames (lib.filterAttrs (_: kind: kind == "directory") (builtins.readDir components)))));
+  servers = config.odd1.mcpServers;
+  registry = pkgs.writeText "odd1-mcp-servers.json" (builtins.toJSON servers);
 in {
   imports = modules;
+
+  # The agent entry point registry (Odd1 convention): each component that lets agents drive a program or use a
+  # capability registers its MCP server here; every agent on the machine gets all of them.
+  options.odd1.mcpServers = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.attrsOf lib.types.anything);
+    default = { };
+    description = "MCP servers (name -> { command, args, env? }) offered to every agent on Odd1.";
+  };
+
+  config = {
+  environment.etc."odd1/mcp-servers.json".source = registry;
 
   networking.hostName = lib.mkForce "odd1";
 
@@ -26,7 +39,7 @@ in {
   # for the agent user so it keeps itself current; this unit only installs it when it is missing.
   environment.etc."claude-code/CLAUDE.md".source = ../CLAUDE.md;
   systemd.services.odd1-claude-code-install = {
-    description = "Install Claude Code for the agent user if missing";
+    description = "Install Claude Code for the agent user if missing, and register Odd1's MCP servers with it";
     wantedBy = [ "multi-user.target" ];
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
@@ -37,6 +50,12 @@ in {
       if [ ! -x "$HOME/.local/bin/claude" ]; then
         npm install -g --prefix "$HOME/.local" @anthropic-ai/claude-code
       fi
+      # registry: ${registry}
+      ${lib.concatStringsSep "
+" (lib.mapAttrsToList (name: server: ''
+        "$HOME/.local/bin/claude" mcp remove -s user ${name} >/dev/null 2>&1 || true
+        "$HOME/.local/bin/claude" mcp add-json -s user ${name} ${lib.escapeShellArg (builtins.toJSON server)}
+      '') servers)}
     '';
   };
 
@@ -50,4 +69,5 @@ in {
 
   # Runtime state for components lives here, never in the repository.
   systemd.tmpfiles.rules = [ "d /var/lib/odd1 0755 agent users -" ];
+  };
 }
