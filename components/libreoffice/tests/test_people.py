@@ -27,7 +27,9 @@ def test_unique_people_and_average_heights():
         assert calc.read(doc, "Summary") == [["name", "average_height_cm"], ["Ana", 171.5], ["Ben", 181.0],
                                              ["Cleo", 166.0], ["Dev", 177.0]]
         # Calc's own arithmetic agrees.
-        assert calc.formula(doc, "Summary", "D2", '=AVERAGEIF(Sheet1.A2:A8;"Ana";Sheet1.B2:B8)') == 171.5
+        data_sheet = doc.Sheets.getByIndex(0).Name  # a CSV loads as a sheet named after the file
+        f = f'=AVERAGEIF(${data_sheet}.A2:A8;"Ana";${data_sheet}.B2:B8)'
+        assert calc.formula(doc, "Summary", "D2", f) == 171.5
         out = calc.save(doc, os.path.join(tmp, "people.ods"))
         assert os.path.getsize(out) > 0
     finally:
