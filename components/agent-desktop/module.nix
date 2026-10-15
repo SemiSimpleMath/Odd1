@@ -32,7 +32,7 @@ in {
   environment.variables.ODD1_AGENT_DISPLAY = ":1";
 
   # The display itself: a window on the person's screen (:0) that is a whole X server (:1). 1280x720 so it fits on
-  # the person's screen with its title bar when shown. Minimized once it appears.
+  # the person's screen with its title bar when shown. Minimized once its window manager is up (below).
   systemd.user.services.odd1-agent-desktop = {
     description = "Odd1 agent desktop (Xephyr :1 on :0)";
     wantedBy = [ "default.target" ];
@@ -40,7 +40,6 @@ in {
     environment.DISPLAY = ":0";
     serviceConfig = {
       ExecStart = "${pkgs.xorg.xorgserver}/bin/Xephyr :1 -screen 1280x720 -title \"Agent desktop\" -nolisten tcp -br";
-      ExecStartPost = "${cli}/bin/odd1-agent-desktop hide --wait 10";
       Restart = "always";
       RestartSec = 2;
     };
@@ -55,6 +54,8 @@ in {
     serviceConfig = {
       ExecStartPre = "${waitForAgentDisplay}";
       ExecStart = "${pkgs.openbox}/bin/openbox";
+      # Xephyr shows its window again when a window manager starts inside it, so minimize it after openbox is up.
+      ExecStartPost = "${pkgs.bash}/bin/bash -c 'sleep 2; ${cli}/bin/odd1-agent-desktop hide --wait 10'";
       Restart = "always";
       RestartSec = 2;
     };
