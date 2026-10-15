@@ -33,7 +33,15 @@ in {
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = with pkgs; [ stdenv.cc.cc.lib zlib openssl glib libgcc ];
   environment.localBinInPath = true;
-  environment.systemPackages = [ pkgs.nodejs ];
+  # A terminal with ordinary copy/paste (Ctrl+Shift+C/V), and a default browser so programs that open links
+  # (Claude Code's sign-in, xdg-open) get Firefox on the Odd1 desktop.
+  environment.systemPackages = [ pkgs.nodejs pkgs.xdg-utils pkgs.xfce.xfce4-terminal ];
+  environment.variables.BROWSER = "firefox";
+  xdg.mime.defaultApplications = {
+    "text/html" = "firefox.desktop";
+    "x-scheme-handler/http" = "firefox.desktop";
+    "x-scheme-handler/https" = "firefox.desktop";
+  };
 
   # Claude Code, operated by the person using Odd1 with their own sign-in (it stays on this VM). Installed with npm
   # for the agent user so it keeps itself current; this unit only installs it when it is missing.
