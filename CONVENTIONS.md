@@ -16,7 +16,7 @@ components/<name>/
   tests/           at least one test that runs offline: `python -m pytest components/<name>/tests` (or test.sh)
   module.nix       optional: how it is installed or run on a VM (package, systemd unit)
 ```
-The README's first line is a one-sentence purpose; `tools/check.py` puts it on the component map.
+The README's first line is a one-sentence purpose; the next names the ROADMAP.md milestone it serves (M1-M4 or ★). `tools/check.py` puts both on the component map. A component that serves no milestone has to justify itself.
 
 ## How things get onto a VM
 Only from a commit of this repository, through `nix/odd1.nix` (which imports each component's `module.nix`), applied

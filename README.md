@@ -16,6 +16,7 @@ workspace does not count and will be lost. If it matters, it lives here.
   CONVENTIONS.md for what a component holds.
 - `nix/`: how components are installed on the VMs. `nix/odd1.nix` is the Odd1 module.
 - `ARCHITECTURE.md`: the map of components and how they connect. Keep it current.
+- `ROADMAP.md`: the milestones (Caretaker, Optimizer, Kernel, Agent-native OS, any app). Every component serves one.
 - `CLAUDE.md`: what an agent working on Odd1 needs to know (installed on the VMs for Claude Code).
 - `tools/check.py`: the fitness check. Run it before you commit; it must pass.
 
