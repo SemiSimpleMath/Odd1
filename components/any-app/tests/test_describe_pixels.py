@@ -82,19 +82,47 @@ class PixelDescriptionTests(unittest.TestCase):
             original = png_bytes()
             path.write_bytes(original)
             completed = subprocess.CompletedProcess([], 0, (HEADER + row()).encode(), b"")
+            inputs = []
             def runner(command, **kwargs):
                 self.assertEqual(command[0], "tesseract")
                 self.assertEqual(command[3:5], ["--psm", "11"])
-                self.assertEqual(kwargs["input"], original)
                 self.assertEqual(kwargs["timeout"], 3)
                 self.assertFalse(any(str(path) in str(arg) for arg in command))
+                inputs.append(kwargs["input"])
                 return completed
             result = pixels.describe_image(path, timeout=3, runner=runner)
+            self.assertIn(original, inputs)  # the first pass reads the PNG exactly as given
             self.assertEqual(result["source"], "pixels-ocr")
             self.assertEqual(result["elements"][0]["text"], "Save")
             self.assertFalse(result["action_safe"])
             self.assertEqual(result["geometry"]["screen_alignment"], "unverified")
             self.assertEqual(list(Path(temp).iterdir()), [path])
+
+    def test_merge_keeps_the_more_confident_pass_per_region(self):
+        def word(text, confidence, x, w=20):
+            return {"text": text, "confidence": confidence, "bounds": {"x": x, "y": 6, "width": w, "height": 8}}
+        small_font = [word("oddl/brouser", 20, 0, 60), word("Undo", 92, 100)]
+        large_scale = [word("odd1", 70, 0), word("/browser", 65, 22, 38), word("Und0", 40, 100)]
+        merged = pixels.merge_passes([small_font, large_scale])
+        self.assertEqual([w["text"] for w in merged], ["odd1", "/browser", "Undo"])
+
+    def test_upscaled_pass_reports_boxes_in_original_pixels(self):
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            self.skipTest("Pillow is installed on Odd1 by module.nix")
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "capture.png"
+            path.write_bytes(png_bytes())
+            def runner(command, **kwargs):  # the 2x pass is the larger PNG and reads the word confidently
+                big = len(kwargs["input"]) != len(png_bytes())
+                tsv = HEADER + (row(x=10, y=12, w=40, h=16, confidence=95, text="Save") if big else
+                                row(confidence=30, text="5ave"))
+                return subprocess.CompletedProcess([], 0, tsv.encode(), b"")
+            result = pixels.describe_image(path, runner=runner)
+            self.assertEqual(result["scales"], [1, 2])
+            self.assertEqual(result["elements"], [{"text": "Save", "confidence": 95.0,
+                                                   "bounds": {"x": 5, "y": 6, "width": 20, "height": 8}}])
 
     def test_ocr_timeout_and_nonzero_exit_are_errors(self):
         with tempfile.TemporaryDirectory() as temp:

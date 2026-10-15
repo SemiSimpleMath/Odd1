@@ -6,7 +6,9 @@ output, never screen coordinates or authorization to act. Requires Pillow and th
 `tesseract` executable; no image or text is sent to a remote service.
 """
 import argparse
+import concurrent.futures
 import hashlib
+import io
 import json
 import os
 import subprocess
@@ -110,12 +112,17 @@ def parse_tsv(tsv, width, height, *, max_words=MAX_WORDS):
     return rows, truncated
 
 
-def describe_image(path, *, max_words=MAX_WORDS, timeout=10, runner=subprocess.run):
-    data, width, height = inspect_png(path)
+# One OpenMP thread per Tesseract: passes run in parallel, and Tesseract's own threads then oversubscribe the CPUs
+# (a 2x Firefox window went from 1 s to a 10 s timeout).
+TESSERACT_ENV = {**os.environ, "OMP_THREAD_LIMIT": "1"}
+
+
+def run_tesseract(data, *, timeout, runner):
+    """One Tesseract pass over PNG bytes on stdin; returns its TSV bytes."""
     try:
         result = runner(["tesseract", "stdin", "stdout", "--psm", "11", "tsv"],
                         input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                        timeout=timeout, check=False)
+                        timeout=timeout, check=False, env=TESSERACT_ENV)
     except subprocess.TimeoutExpired as exc:
         raise TimeoutError("Tesseract OCR timed out") from exc
     except OSError as exc:
@@ -123,14 +130,85 @@ def describe_image(path, *, max_words=MAX_WORDS, timeout=10, runner=subprocess.r
     if result.returncode:
         detail = result.stderr.decode("utf-8", "replace")[:500]
         raise RuntimeError(f"Tesseract failed ({result.returncode}): {detail}")
-    raw = result.stdout
-    if len(raw) > MAX_TSV_BYTES:
+    if len(result.stdout) > MAX_TSV_BYTES:
         raise ValueError("OCR output exceeds 4 MiB")
-    words, truncated = parse_tsv(raw, width, height, max_words=max_words)
+    return result.stdout
+
+
+def upscaled(data, scale):
+    """The image in grayscale, `scale` times larger (Lanczos), as PNG bytes; None without Pillow or when the
+    result would exceed the pixel limit. Small fonts (xterm, toolbars, status bars) read far better this way."""
+    try:
+        from PIL import Image, ImageOps
+    except ImportError:
+        return None
+    image = Image.open(io.BytesIO(data))
+    if image.width * image.height * scale * scale > MAX_PIXELS:
+        return None
+    gray = ImageOps.grayscale(image.convert("RGB"))
+    out = io.BytesIO()
+    gray.resize((image.width * scale, image.height * scale), Image.LANCZOS).save(out, "PNG")
+    return out.getvalue()
+
+
+def overlaps(a, b, share=0.3):
+    """True when two word boxes overlap by at least `share` of the smaller one."""
+    ix = min(a["x"] + a["width"], b["x"] + b["width"]) - max(a["x"], b["x"])
+    iy = min(a["y"] + a["height"], b["y"] + b["height"]) - max(a["y"], b["y"])
+    if ix <= 0 or iy <= 0:
+        return False
+    return ix * iy >= share * min(a["width"] * a["height"], b["width"] * b["height"])
+
+
+def merge_passes(passes):
+    """Merge word lists read from the same image at different scales: overlapping words form a region, and each
+    region keeps the words of the pass that read it with the highest mean confidence. Reading order is kept."""
+    words = [(index, word) for index, found in enumerate(passes) for word in found]
+    parent = list(range(len(words)))
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i, (pass_i, a) in enumerate(words):
+        for j in range(i + 1, len(words)):
+            pass_j, b = words[j]
+            if pass_i != pass_j and overlaps(a["bounds"], b["bounds"]):
+                parent[root(i)] = root(j)
+    regions = {}
+    for i, (index, word) in enumerate(words):
+        regions.setdefault(root(i), {}).setdefault(index, []).append(word)
+    kept = []
+    for by_pass in regions.values():
+        best = max(by_pass.values(), key=lambda found: sum(w["confidence"] for w in found) / len(found))
+        kept.extend(best)
+    return sorted(kept, key=lambda w: (w["bounds"]["y"] + w["bounds"]["height"] // 2, w["bounds"]["x"]))
+
+
+def describe_image(path, *, max_words=MAX_WORDS, timeout=10, runner=subprocess.run, scales=(1, 2)):
+    """OCR a PNG once per scale (1 = the PNG as given; n = grayscale, n times larger), in parallel, and merge."""
+    data, width, height = inspect_png(path)
+    inputs = [(1, data) if scale == 1 else (scale, upscaled(data, scale)) for scale in scales]
+    inputs = [(scale, image) for scale, image in inputs if image is not None]
+    with concurrent.futures.ThreadPoolExecutor(len(inputs)) as pool:
+        raws = list(pool.map(lambda item: run_tesseract(item[1], timeout=timeout, runner=runner), inputs))
+    passes, truncated = [], False
+    for (scale, _), raw in zip(inputs, raws):
+        found, cut = parse_tsv(raw, width * scale, height * scale, max_words=max_words)
+        truncated |= cut
+        for word in found:
+            word["bounds"] = {key: max(value // scale, 1 if key in ("width", "height") else 0)
+                              for key, value in word["bounds"].items()}
+        passes.append(found)
+    words = merge_passes(passes) if len(passes) > 1 else passes[0]
+    if len(words) > max_words:
+        words, truncated = words[:max_words], True
     return {"source": "pixels-ocr", "image": {"sha256": hashlib.sha256(data).hexdigest(),
             "width": width, "height": height},
             "elements": words, "truncated": truncated,
-            "counts": {"emitted_elements": len(words)},
+            "counts": {"emitted_elements": len(words)}, "scales": [scale for scale, _ in inputs],
             "geometry": {"coordinate_space": "image-local-pixels",
                          "screen_alignment": "unverified"},
             "action_safe": False,

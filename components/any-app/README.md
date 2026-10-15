@@ -39,6 +39,12 @@ and ImageMagick; the MCP tests skip without the `mcp` package (1.x, `FastMCP`). 
   unchanged), waits 0.3 s for the app to repaint into its offscreen pixmap, and reads that. GTK, Qt, Firefox, Tk
   all repaint; a minimized (unmapped) window has no pixels and is an error. `app_ocr(window_id)` uses it too.
 
+- OCR reads each image twice in parallel, as given and in grayscale at 2x, and keeps whichever pass read each region
+  more confidently: small fonts gain (FeatherPad 10 -> 19 words at confidence >= 60, xterm 0 -> 3) and large text
+  keeps its 1x reading (2x alone hurt Calculator). Colour tricks (inversion, background distance) did not help;
+  xterm's bitmap font stays poor (`brouser`). Tesseract runs single-threaded (OMP_THREAD_LIMIT=1): parallel
+  multithreaded passes oversubscribed the CPUs and timed out. 0.3-0.6 s per window.
+
 ## Next
 - Calibrate coordinates per toolkit (AT-SPI and OCR boxes to screen pixels) so observations become click targets.
 - A held-out labelled set of app screens to measure OCR recognition and box localization separately.
