@@ -19,6 +19,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 |---|---|---|---|
 | libreoffice | ★ | Calc through its own object model (UNO), on the visible desktop | calc_open/read/write/formula/save/close |
 | browser | ★ | Firefox-rendered pages as an element-id page model; act by id | browser_open/view/click/type/select/submit/find/fetch/close |
+| screen | ★ | The desktop as one model: X11 + AT-SPI + OCR in screen pixels, stable ids, changes, verified clicks | screen_view/changes/at/find/click/type |
 | any-app | ★ | Any window as JSON: AT-SPI tree when available, OCR words otherwise | app_describe, app_ocr |
 | any-app-broker | ★ | Private Xvfb sessions driven through a capability-gated broker (test harness for now) | (planned) |
 | intent | M4 | Plain-words file intents: plan, approve per action, apply transactionally, verify, undo | intent_plan/apply/undo/history |
@@ -26,8 +27,9 @@ Every component's agent entry point is an MCP server of the same name, registere
 
 ## Connections
 - Claude Code (the person's front agent) and Orbit's background agents reach every component through MCP.
-- For a web page, `browser` (DOM) is the precise view; `any-app` (accessibility/OCR) covers every other window.
-  Both are inputs to the future screen-model service (★); merge there rather than growing separate views.
+- `screen` is the screen-model service (★): it fuses X11 geometry and stacking with `any-app`'s readers (AT-SPI,
+  OCR). Grow readers in `any-app`, fusion in `screen`. With GNOME_ACCESSIBILITY=1 (set by screen's module) a
+  visible Firefox's page joins it over AT-SPI; `browser` stays the precise, policy-checked view of headless pages.
 - `any-app-broker` frames are meant to feed `any-app`; resource slices belong to Nix and `caretaker`.
 - `intent` is the safe hands for file changes: plan -> approve -> apply -> undo.
 - `caretaker` watches pressure; giving the foreground program slack and pausing background agents is its next step (M2).

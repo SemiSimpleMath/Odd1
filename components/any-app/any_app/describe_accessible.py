@@ -162,6 +162,28 @@ def bounds(node, pyatspi, coordinate_space="desktop"):
         return None
 
 
+# Roles whose text content is their value (a display, an entry, a terminal); never password fields.
+TEXT_ROLES = {"text", "entry", "terminal", "document text", "editbar", "spin button", "paragraph"}
+MAX_TEXT_VALUE = 2000
+
+
+def text_value(node, role):
+    """The text an editable or display element holds (AT-SPI Text interface), bounded; None if it has none."""
+    if role not in TEXT_ROLES:
+        return None
+    try:
+        text = node.queryText()
+        count = operator.index(text.characterCount)
+        count = max(count, 0)
+        # A terminal's latest output is at the end of its scrollback.
+        start = max(0, count - MAX_TEXT_VALUE) if role == "terminal" else 0
+        value = text.getText(start, min(count, start + MAX_TEXT_VALUE))
+    except Exception:
+        return None
+    value = display_text(value)
+    return value[:MAX_TEXT_VALUE] if value else None
+
+
 def state_snapshot(node, pyatspi):
     """Return known state flags and tri-state AT-SPI SHOWING status.
 
@@ -213,6 +235,9 @@ def describe_window(window, pyatspi, max_elements=1000, max_depth=32):
                          "bounds": bounds(node, pyatspi, "desktop"),
                          "window_bounds": bounds(node, pyatspi, "window"),
                          "states": states, "visibility": visibility})
+        value = text_value(node, role)
+        if value is not None:
+            elements[-1]["text"] = value
         if depth < max_depth:
             allowance = max_elements - scheduled
             if allowance <= 0:

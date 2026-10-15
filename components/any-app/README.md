@@ -5,7 +5,9 @@ Milestone: ★ (any app, through interfaces agents write themselves). The observ
 ## Use
 - Agents: the MCP server `any-app` (registered for every agent):
   - `app_describe(window, max_elements)`: one window's AT-SPI tree, `{window, elements: [{id, role, name, bounds,
-    window_bounds, states, visibility}], truncated}`; `window` is a title substring that must match exactly one window.
+    window_bounds, states, visibility, text?}], truncated}`; `window` is a title substring that must match exactly
+    one window. `text` is a display's, entry's or terminal's content (a terminal's latest 2,000 characters; never
+    a password field's).
   - `app_ocr(png | window_id | nothing)`: local Tesseract words, `{image: {sha256, width, height}, elements:
     [{text, confidence, bounds}]}`; with no argument it captures the whole screen.
 - Command line: `odd1-any-app describe "Calculator"`, `odd1-any-app ocr shot.png`, `odd1-any-app geometry "Calculator"`
@@ -32,4 +34,5 @@ and ImageMagick; the MCP tests skip without the `mcp` package (1.x, `FastMCP`). 
 ## Next
 - Calibrate coordinates per toolkit (AT-SPI and OCR boxes to screen pixels) so observations become click targets.
 - A held-out labelled set of app screens to measure OCR recognition and box localization separately.
-- Merge both sources into one screen model with stable IDs (the ★ screen-model service) instead of two tools.
+- The merged screen model with stable ids now lives in `screen`, which uses this component's readers; grow the
+  readers here and the fusion there.
