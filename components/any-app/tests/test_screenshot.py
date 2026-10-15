@@ -34,6 +34,16 @@ def test_client_box_crops_the_frame_unless_asked():
     assert screenshot.client_box((1, 20), (700, 500), (702, 525), frame=True) == (0, 0, 702, 525)
 
 
+def test_resolve_display_names(monkeypatch):
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.delenv("ODD1_AGENT_DISPLAY", raising=False)
+    assert [screenshot.resolve_display(n) for n in ("", "user", "agent", ":5")] == [":0", ":0", ":1", ":5"]
+    monkeypatch.setenv("ODD1_AGENT_DISPLAY", ":7")
+    assert screenshot.resolve_display("agent") == ":7"
+    with pytest.raises(ValueError, match="display must be"):
+        screenshot.resolve_display("agent-desktop")
+
+
 def live_ready():
     try:
         import PIL, Xlib, tkinter  # noqa: F401

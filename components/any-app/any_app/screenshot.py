@@ -5,7 +5,7 @@ them. The X Composite extension renders a redirected window into its own offscre
 window's top-level frame (automatic mode, so the screen looks the same), let the app repaint, read the pixmap, crop
 the client area. The redirect ends when this connection closes. A minimized (unmapped) window has no pixels at all.
 
-    any-app screenshot WINDOW [-o OUT.png] [--frame]   WINDOW: title or app substring (exactly one match), or X11 id
+    any-app screenshot WINDOW [-o OUT.png] [--frame] [--display user|agent|:N]   WINDOW: title or app substring (exactly one match), or X11 id
 """
 import argparse
 import hashlib
@@ -45,6 +45,18 @@ def client_box(offset, size, frame_size, frame):
     return (x, y, x + size[0], y + size[1])
 
 
+def resolve_display(name=None):
+    """An X display from Odd1's names: "user" (the person's screen, $DISPLAY or :0), "agent" (the agent desktop,
+    $ODD1_AGENT_DISPLAY or :1), or an X display such as ":1"; empty means "user"."""
+    if not name or name == "user":
+        return os.environ.get("DISPLAY") or ":0"
+    if name == "agent":
+        return os.environ.get("ODD1_AGENT_DISPLAY") or ":1"
+    if name.startswith(":"):
+        return name
+    raise ValueError(f'display must be "user", "agent" or an X display like ":1", not {name!r}')
+
+
 def default_path(xid):
     folder = Path(tempfile.gettempdir()) / "odd1-any-app"
     folder.mkdir(exist_ok=True)
@@ -68,13 +80,13 @@ def clients(display):
 
 
 def capture(query, out=None, frame=False, settle=SETTLE_SECONDS, display_name=None):
-    """Capture one window to a PNG; returns {path, window, title, app, width, height, sha256}. display_name: the X
-    display to use (default $DISPLAY, else :0), e.g. the agent desktop's."""
+    """Capture one window to a PNG; returns {path, window, title, app, width, height, sha256}. display_name: "user"
+    (default), "agent" (the agent desktop) or an X display such as ":1"."""
     from PIL import Image
     from Xlib import X, display as xdisplay
     from Xlib.ext import composite
 
-    display = xdisplay.Display(display_name or os.environ.get("DISPLAY", ":0"))
+    display = xdisplay.Display(resolve_display(display_name))
     try:
         root = display.screen().root
         xid, title, app = match_window(clients(display), query)
@@ -109,10 +121,11 @@ def main(argv=None):
     parser.add_argument("window", help="title or app substring (must match exactly one window), or X11 id")
     parser.add_argument("-o", "--out", help="PNG path (default: a new file under $TMPDIR/odd1-any-app)")
     parser.add_argument("--frame", action="store_true", help="include the window manager's frame")
+    parser.add_argument("--display", default="user", help='"user" (default), "agent" or an X display like ":1"')
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(capture(args.window, args.out, args.frame)))
-    except (LookupError, RuntimeError) as exc:
+        print(json.dumps(capture(args.window, args.out, args.frame, display_name=args.display)))
+    except (LookupError, RuntimeError, ValueError) as exc:
         print(f"any-app screenshot: {exc}", file=sys.stderr)
         return 1
     return 0

@@ -13,7 +13,9 @@ Milestone: ★ (any app, through interfaces agents write themselves). The observ
   - `app_screenshot(window, out, frame)`: one window as a PNG even when other windows cover it or it hangs off
     screen, `{path, window, title, app, width, height, sha256}`; `window` is a title or app-name (WM_CLASS)
     substring matching exactly one window, or an X11 id. Read the PNG at `path` to see it.
-- Command line: `odd1-any-app describe "Calculator"`, `odd1-any-app ocr shot.png`, `odd1-any-app screenshot featherpad [-o out.png] [--frame]`, `odd1-any-app geometry "Calculator"`
+  - Every capture takes `display`: `"user"` (the person's screen, default) or `"agent"` (the agent desktop, `:1`,
+    where agents run apps out of the person's way; see agent-desktop); `app_ocr` takes it too.
+- Command line: `odd1-any-app describe "Calculator"`, `odd1-any-app ocr shot.png`, `odd1-any-app screenshot featherpad [-o out.png] [--frame] [--display agent]`, `odd1-any-app geometry "Calculator"`
   (AT-SPI vs X11 vs screenshot geometry), `odd1-any-app eval-ocr ocr.json labels.json` (token P/R/F1),
   `odd1-any-app eval-boxes ocr.json boxes.json [--iou-threshold 0.5]` (box localization).
 - Python: `PYTHONPATH=$ODD1_ANY_APP_PYTHONPATH python3`, then `from any_app import describe_pixels`
