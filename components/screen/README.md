@@ -24,8 +24,9 @@ AT-SPI boxes are mapped to the screen by one of three mappings (toolkit desktop 
 coordinates; X11 origin + frame-relative), chosen by OCR evidence: the mapping that puts the most named elements
 over their own text. An element is `verified: true` when OCR found its name in its box, `false` when OCR found it
 only elsewhere (the toolkit misplaces it; the OCR `text` element shows where it really is). `screen_click` refuses
-contradicted elements, unverified ones in unverified windows, and points another window covers. OCR text is kept
-only where its window is on top. Windows without a tree (xterm, Tk) are OCR only.
+contradicted elements, unverified ones in unverified windows, and points another window covers. OCR reads each
+window from an offscreen capture (any-app's `screenshot`, XComposite), so covered text is real; it is marked
+`covered`. Windows without a tree (xterm, Tk) are OCR only.
 
 ## What was learned
 - GTK4 (GNOME Calculator) reports desktop coordinates of 0,0 for everything; its window coordinates are right for

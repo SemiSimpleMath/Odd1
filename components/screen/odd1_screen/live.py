@@ -6,7 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from any_app import describe_pixels
+from any_app import describe_pixels, screenshot
 
 from . import model, x11
 
@@ -26,13 +26,14 @@ def read_atspi(max_elements: int = 1500) -> dict:
 
 
 def read_ocr(xid: str) -> list[dict] | None:
-    """OCR one window's client area (image-local word boxes); None when it cannot be captured."""
+    """OCR one window's client area (image-local word boxes); None when it cannot be captured. any-app's capture
+    renders the window offscreen (XComposite), so covered parts are read too."""
     with tempfile.TemporaryDirectory(prefix="odd1-screen-") as tmp:
         target = Path(tmp) / "window.png"
         try:
-            subprocess.run(["import", "-window", xid, f"png:{target}"], check=True, capture_output=True, timeout=10)
+            screenshot.capture(xid, out=target)
             return describe_pixels.describe_image(target, max_words=3000)["elements"]
-        except (subprocess.SubprocessError, OSError, ValueError, RuntimeError, TimeoutError):
+        except Exception:  # Xlib errors (a window closing mid-capture), OCR failures: no pixels this view
             return None
 
 

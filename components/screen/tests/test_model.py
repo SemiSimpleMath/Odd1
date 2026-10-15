@@ -93,13 +93,13 @@ def test_ids_stay_stable_when_a_sibling_is_inserted():
     assert second["Nine"] not in first.values()
 
 
-def test_ocr_text_is_kept_only_where_the_window_is_on_top():
+def test_ocr_text_under_another_window_is_marked_covered():
     x, atspi, _ = calculator()
     # xterm (no tree) is under the calculator from x=500; its second line is covered.
     words = [word("ls", 10, 10), word("-l", 40, 10), word("hidden", 520, 50, w=60)]
     xterm = model.Screen().fuse(x, atspi, {"0x1": words})["windows"][1]
     assert xterm["source"] == "ocr"
-    assert [e["name"] for e in xterm["elements"]] == ["ls -l"]
+    assert [(e["name"], e.get("covered", False)) for e in xterm["elements"]] == [("ls -l", False), ("hidden", True)]
 
 
 def test_at_names_the_owner_of_a_pixel():

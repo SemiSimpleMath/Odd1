@@ -249,7 +249,8 @@ class Screen:
         return out
 
     def _text_elements(self, wid, window, windows, words, elements):
-        """OCR lines this window really shows (topmost at their centre) that no tree element already names."""
+        """OCR lines that no tree element already names; `covered` when another window is on top of them (the
+        capture is offscreen, so their text is real, but a click there would land on the other window)."""
         g = window["geometry"]
         named = [(norm(e["name"]), e["box"]) for e in elements if e["name"]]
         seen: dict[str, int] = {}
@@ -257,8 +258,6 @@ class Screen:
         for line in ocr_lines(words):
             box = [line["box"][0] + g["x"], line["box"][1] + g["y"], line["box"][2], line["box"][3]]
             owner = topmost(windows, *centre(box))
-            if owner is None or owner["xid"] != window["xid"]:
-                continue
             text = norm(line["text"])
             if any(text and text in n and contains(b, *centre(box), pad=4) for n, b in named):
                 continue
@@ -266,6 +265,8 @@ class Screen:
             out.append({"id": self._element_id(wid, ("text", line["text"], (), seen[line["text"]])),
                         "role": "text", "name": line["text"], "box": box, "states": [], "source": "ocr",
                         "confidence": line["confidence"]})
+            if owner is None or owner["xid"] != window["xid"]:
+                out[-1]["covered"] = True
         return out
 
     def at(self, x: int, y: int) -> dict:
