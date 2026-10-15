@@ -5,6 +5,11 @@
 let
   desktop = config.odd1.desktop.enable;
   python = pkgs.python3.withPackages (p: [ p.pyatspi p.pygobject3 p.pillow p.tkinter ]);
+  # A display unit counts as started only once :0 answers, so units ordered after it never race the X server.
+  waitForDisplay = pkgs.writeShellScript "odd1-display-wait" ''
+    for _ in $(seq 100); do ${pkgs.xorg.xdpyinfo}/bin/xdpyinfo -display :0 >/dev/null 2>&1 && exit 0; sleep 0.1; done
+    exit 1
+  '';
 in {
   system.stateVersion = "25.05";
 
@@ -37,6 +42,7 @@ in {
         wantedBy = [ "default.target" ];
         serviceConfig = {
           ExecStart = "${pkgs.xorg.xorgserver}/bin/Xvfb :0 -screen 0 1280x800x24 -nolisten tcp";
+          ExecStartPost = "${waitForDisplay}";
           Restart = "always";
         };
       };
@@ -84,6 +90,7 @@ in {
         serviceConfig = {
           ExecStart = "${pkgs.tigervnc}/bin/Xvnc :0 -geometry 1280x800 -depth 24 -rfbport 5900 -localhost "
             + "-SecurityTypes None -AcceptSetDesktopSize -AlwaysShared -nolisten tcp -desktop Odd1";
+          ExecStartPost = "${waitForDisplay}";
           Restart = "always";
         };
       };
