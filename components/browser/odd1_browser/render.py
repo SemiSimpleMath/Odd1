@@ -323,7 +323,8 @@ def _validate_actions(actions: Any) -> list[dict[str, str]]:
             raise browser.BrowserError(f"action {index} requires a value")
         if kind in ("click", "submit") and "value" in action:
             raise browser.BrowserError(f"action {index} does not accept a value")
-        result.append({"id": element_id, "action": kind, "value": value})
+        # Only type/select carry a value, so a validated list validates again unchanged (sessions re-check).
+        result.append({"id": element_id, "action": kind, **({"value": value} if kind in ("type", "select") else {})})
     return result
 
 
