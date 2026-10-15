@@ -44,10 +44,13 @@ def test_run_refuses_unknown_programs_and_a_stopped_display(monkeypatch):
         desktop.run("sh")
 
 
-def test_shown_desktop_fits_the_persons_screen():
-    assert desktop.fit((1280, 720), (1920, 1080)) is None
-    assert desktop.fit((1280, 720), (1024, 768)) == (1008, 704)
-    assert desktop.fit((1280, 720), (1280, 800)) == (1264, 720)
+def test_shown_desktop_fits_the_persons_work_area():
+    assert desktop.fit((1280, 720), (1920, 1040)) is None
+    assert desktop.fit((1280, 720), (1024, 740)) == (1016, 708)
+    # A chat column docked on the right leaves less width than the screen has.
+    area = desktop.parse_workarea("_NET_WORKAREA(CARDINAL) = 0, 32, 1340, 868, 0, 32, 1340, 868")
+    assert area == (1340, 868) and desktop.fit((1280, 720), area) is None
+    assert desktop.parse_workarea("_NET_WORKAREA:  not found.") is None
 
 
 def test_only_agent_apps_can_be_stopped():
