@@ -3,7 +3,7 @@
 { pkgs, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp ]);
+  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp p.tkinter ]);  # tkinter: the live test's probe window
   tools = with pkgs; [ wmctrl xdotool xorg.xdpyinfo xorg.xprop ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
