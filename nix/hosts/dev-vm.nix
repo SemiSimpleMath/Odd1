@@ -15,4 +15,7 @@
   users.users.agent.openssh.authorizedKeys.keyFiles = [ ./dev-vm-agent.pub ];
 
   networking.proxy.default = "http://odd1:x@10.0.2.100:3128";
+
+  # The person's screen: the Odd1 desktop, reached with Remote Desktop (port 3389; noVNC stays on 6080).
+  odd1.desktop.enable = true;
 }
