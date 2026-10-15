@@ -1,6 +1,12 @@
 # Roadmap
 
-Every component serves one of these. Its README says which, on the line after its purpose.
+## The bet
+In the future people won't buy finished software: their agents build it, or take a template and modify it
+completely for their person. What then matters is how agents talk to software: the protocols and entry points,
+which will standardize. Odd1 bets on that: every program gets an agent entry point (shipped, or written by an
+agent), and every program can be patched and rebuilt from source (Nix keeps each one's source and recipe).
+
+Every component serves one of the milestones below. Its README says which, on the line after its purpose.
 
 ## M1 Caretaker (in progress)
 Agents keep a live machine healthy: diagnose, repair and verify. Faults are injected; the machine's real state is
