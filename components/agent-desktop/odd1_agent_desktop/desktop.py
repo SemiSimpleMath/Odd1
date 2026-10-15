@@ -102,13 +102,33 @@ def host_window() -> str | None:
                 None)
 
 
+def fit(window: tuple[int, int], screen: tuple[int, int], margin: tuple[int, int] = (16, 64)) -> tuple[int, int] | None:
+    """The size the agent desktop's window should take to fit the person's screen, or None if it fits already.
+    margin leaves room for the title bar and taskbar."""
+    limit = (screen[0] - margin[0], screen[1] - margin[1])
+    if window[0] <= limit[0] and window[1] <= limit[1]:
+        return None
+    return min(window[0], limit[0]), min(window[1], limit[1])
+
+
+def _size(args: list[str], display: str) -> tuple[int, int]:
+    """Width and height from `xwininfo` output."""
+    out = _x(args, display)
+    values = {k: int(v) for k, v in (l.strip().split(": ", 1) for l in out.splitlines() if l.strip().startswith(("Width:", "Height:")))}
+    return values.get("Width", 0), values.get("Height", 0)
+
+
 def show() -> dict:
-    """Bring the agent desktop up on the person's screen (to watch, or take over with mouse and keyboard)."""
+    """Bring the agent desktop up on the person's screen (to watch, or take over with mouse and keyboard), shrunk to
+    fit when their screen is smaller; the agent display follows its window's size."""
     xid = host_window()
     if xid is None:
         raise RuntimeError("the agent desktop window is not on the person's screen")
     _x(["wmctrl", "-i", "-a", xid], USER_DISPLAY)
-    return {"shown": xid}
+    size = fit(_size(["xwininfo", "-id", xid], USER_DISPLAY), _size(["xwininfo", "-root"], USER_DISPLAY))
+    if size:
+        _x(["xdotool", "windowsize", xid, str(size[0]), str(size[1])], USER_DISPLAY)
+    return {"shown": xid, "resized_to": size}
 
 
 def hide(wait_s: float = 0) -> dict:

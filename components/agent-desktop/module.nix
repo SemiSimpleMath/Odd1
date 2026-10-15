@@ -31,15 +31,15 @@ in {
   odd1.mcpServers.agent-desktop = { command = "${server}/bin/odd1-agent-desktop-mcp"; args = [ ]; };
   environment.variables.ODD1_AGENT_DISPLAY = ":1";
 
-  # The display itself: a window on the person's screen (:0) that is a whole X server (:1). 1280x720 so it fits on
-  # the person's screen with its title bar when shown. Minimized once its window manager is up (below).
+  # The display itself: a window on the person's screen (:0) that is a whole X server (:1). 1280x720 to start;
+  # resizeable, so :1 follows its window's size (show() fits it to the person's screen, whatever size that is). Minimized once its window manager is up (below).
   systemd.user.services.odd1-agent-desktop = {
     description = "Odd1 agent desktop (Xephyr :1 on :0)";
     wantedBy = [ "default.target" ];
     after = [ "orbit-wm.service" ];
     environment.DISPLAY = ":0";
     serviceConfig = {
-      ExecStart = "${pkgs.xorg.xorgserver}/bin/Xephyr :1 -screen 1280x720 -title \"Agent desktop\" -nolisten tcp -br";
+      ExecStart = "${pkgs.xorg.xorgserver}/bin/Xephyr :1 -screen 1280x720 -resizeable -title \"Agent desktop\" -nolisten tcp -br";
       Restart = "always";
       RestartSec = 2;
     };

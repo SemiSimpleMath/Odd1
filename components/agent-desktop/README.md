@@ -11,8 +11,8 @@ Milestone: M4 (agent-native OS): agents as first-class users of the machine who 
 - The person: click "Agent desktop" in the taskbar to watch; mouse and keyboard inside that window work there.
 
 ## How it runs
-User services `odd1-agent-desktop` (Xephyr `:1`, 1280x720, a window titled "Agent desktop" on `:0`, minimized at
-start) and `odd1-agent-desktop-wm` (openbox on `:1`). Programs run as transient user units
+User services `odd1-agent-desktop` (Xephyr `:1`, 1280x720 and resizeable: the display follows its window, and
+`show` fits it to the person's screen; a window titled "Agent desktop" on `:0`, minimized at start) and `odd1-agent-desktop-wm` (openbox on `:1`). Programs run as transient user units
 `odd1-agent-app-*` in `odd1-agent.slice` (CPU and IO weight 20 against the default 100, so they yield to the
 person's programs; caretaker can freeze the slice), with `GNOME_ACCESSIBILITY=1` and `QT_ACCESSIBILITY=1`. They
 share the session's D-Bus and AT-SPI bus, so `screen` sees their trees. Xephyr keeps rendering while its window

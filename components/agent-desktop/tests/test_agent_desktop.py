@@ -44,9 +44,15 @@ def test_run_refuses_unknown_programs_and_a_stopped_display(monkeypatch):
         desktop.run("sh")
 
 
+def test_shown_desktop_fits_the_persons_screen():
+    assert desktop.fit((1280, 720), (1920, 1080)) is None
+    assert desktop.fit((1280, 720), (1024, 768)) == (1008, 704)
+    assert desktop.fit((1280, 720), (1280, 800)) == (1264, 720)
+
+
 def test_only_agent_apps_can_be_stopped():
     with pytest.raises(PermissionError):
-        desktop.stop("orbit-wm.service")
+        desktop.stop("odd1-taskbar.service")
 
 
 def test_cli_usage_and_mcp_tools():
