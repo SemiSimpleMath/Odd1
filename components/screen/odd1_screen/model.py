@@ -118,11 +118,16 @@ def ocr_lines(words: list[dict]) -> list[dict]:
     return lines
 
 
+def minimized(window: dict) -> bool:
+    """Minimized (iconic): unmapped, so it has no pixels and no place on screen; only its tree can be used."""
+    return "hidden" in window["states"] or not window["geometry"]["viewable"]
+
+
 def topmost(windows: list[dict], x: int, y: int) -> dict | None:
     """The window that owns screen pixel (x, y): the highest viewable one containing it (windows bottom first)."""
     for window in reversed(windows):
         g = window["geometry"]
-        if g["viewable"] and "hidden" not in window["states"] and contains([g["x"], g["y"], g["width"], g["height"]], x, y):
+        if not minimized(window) and contains([g["x"], g["y"], g["width"], g["height"]], x, y):
             return window
     return None
 
@@ -152,6 +157,8 @@ class Screen:
         self.element_ids: dict[tuple, str] = {}
         self.calibrations: dict[tuple, dict] = {}
         self.verdicts: dict[str, tuple] = {}  # element id -> (box, verified)
+        # element id -> where the app's accessibility tree has it, so it can be acted on without the screen
+        self.addresses: dict[str, dict] = {}
         self.last: dict | None = None
         self._next = {"w": 0}
 
@@ -200,21 +207,23 @@ class Screen:
                     if fresh["verified"] or not self.calibrations.get(key, {}).get("verified"):
                         self.calibrations[key] = fresh
                 calibration = self.calibrations[key]
-                elements = self._tree_elements(wid, window, tree, calibration["mapping"], words, include_hidden)
+                elements = self._tree_elements(wid, window, frame, calibration["mapping"], words,
+                                               include_hidden or minimized(window))
             if words:
                 elements += self._text_elements(wid, window, windows, words, elements)
             truncated = len(elements) > max_elements or bool(frame and frame["truncated"])
             result.append({"id": wid, "xid": window["xid"], "title": window["title"], "pid": window["pid"],
                            "box": [g["x"], g["y"], g["width"], g["height"]],
                            "active": window["xid"] == x11.get("active"),
-                           "states": window["states"],
+                           "states": window["states"], "minimized": minimized(window),
                            "source": "at-spi" if tree else ("ocr" if words else "none"), "ocr": words is not None,
                            "calibration": calibration, "elements": elements[:max_elements], "truncated": truncated})
         view = {"screen": x11["screen"], "windows": list(reversed(result))}  # topmost first
         self.last = {"view": view, "x11": windows}
         return view
 
-    def _tree_elements(self, wid, window, tree, mapping, words, include_hidden):
+    def _tree_elements(self, wid, window, atspi_frame, mapping, words, include_hidden):
+        tree = atspi_frame["elements"]
         frame, g = tree[0], window["geometry"]
         origin = (g["x"], g["y"])
         roles = {e["id"]: e["role"] for e in tree}
@@ -237,6 +246,8 @@ class Screen:
                     "box": box, "states": [s for s in element.get("states", []) if s in STATE_KEYS]}
             if "text" in element:
                 item["value"] = element["text"]
+            self.addresses[item["id"]] = {"pid": window["pid"], "frame": atspi_frame.get("index", 0),
+                                          "path": element["id"], "role": role, "name": name}
             hits = ocr_hits(name, words) if words is not None and name else []
             inside = any(contains(box, *centre([h[0] + g["x"], h[1] + g["y"], h[2], h[3]]), pad=4) for h in hits)
             # Short texts repeat on screen ("15" in a display and in a history), so only a name of 3+ characters

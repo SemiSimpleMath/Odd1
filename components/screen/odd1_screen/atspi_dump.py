@@ -23,12 +23,12 @@ def dump(desktop, pyatspi, max_elements=1500, max_apps=200):
         except Exception:
             pid = None
         frames = []
-        for _, window in da.children(app, limit=50)[0]:
+        for index, window in da.children(app, limit=50)[0]:
             role = da.role_name(window)
             if role.casefold() not in WINDOW_ROLES:
                 continue
             elements, tree_truncated, _ = da.describe_window(window, pyatspi, max_elements=max_elements)
-            frames.append({"title": da.node_name(window), "role": role, "elements": elements,
+            frames.append({"index": index, "title": da.node_name(window), "role": role, "elements": elements,
                            "truncated": tree_truncated})
         apps.append({"app": da.node_name(app), "pid": pid, "frames": frames})
     return {"apps": apps, "truncated": truncated}

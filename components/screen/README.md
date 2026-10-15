@@ -11,8 +11,14 @@ Milestone: ★ (any app, through interfaces agents write themselves). The screen
   - `screen_changes(window)`: windows opened/closed/changed, elements added/removed/changed (values too) since
     the previous view.
   - `screen_at(x, y)`: the window and smallest element that own a pixel (stacking order decides).
-  - `screen_find(text, role)`, `screen_click(id)`, `screen_type(text, id)`: act with the real mouse and keyboard,
-    then return what changed.
+  - `screen_find(text, role)`.
+  - `screen_click(id, via)`: press an element and return what changed. `via="auto"` (default) asks the app itself
+    through its accessibility action whenever the element has one: it works on minimized and covered windows and
+    leaves the person's mouse alone. `"pointer"` uses the real mouse (for OCR-only apps), refused when the window is
+    minimized, covered there, or the box is contradicted or unverified.
+  - `screen_set_text(id, text)`: replace a field's text through the app (minimized or covered too; never password
+    fields). Read back: an app that claims success but changes nothing is an error.
+  - `screen_type(text, id)`: the real keyboard into the focused window (takes the person's focus; last resort).
 - Command line: `odd1-screen view [WINDOW] [--ocr always]`, `odd1-screen at X Y`, `odd1-screen watch [WINDOW]`
   (one JSON line per change).
 - Python: `PYTHONPATH=$ODD1_SCREEN_PYTHONPATH python3`, then `from odd1_screen import live, model`;
@@ -34,6 +40,10 @@ window from an offscreen capture (any-app's `screenshot`, XComposite), so covere
 - Firefox publishes nothing over AT-SPI unless started with `GNOME_ACCESSIBILITY=1`; then its whole page (headings,
   buttons, entries) arrives with correct desktop coordinates. module.nix sets it for the session.
 - Verified end to end: Calculator driven by element id (C 1 2 × 3 =), the display's value read back as `36`.
+- Minimized windows are unmapped (no pixels, no place for a pointer), but their accessibility trees stay live:
+  minimized Calculator computed 9 × 9 = 81 and minimized FeatherPad took text, both through the app itself.
+- Firefox 146 accepts AT-SPI text writes into web form fields and applies none (focused or not); pressing works.
+  Web forms belong to the `browser` component.
 
 ## Tests
 `python -m pytest components/screen/tests -q` runs offline anywhere (synthetic desktops: mapping choice, stable
@@ -41,6 +51,10 @@ ids, occlusion, contradictions, change events, click refusals). `test_live_scree
 and skips without DISPLAY and the tools. On Odd1: `odd1-screen-test`.
 
 ## Next
+- Stay out of the person's way for apps with no accessibility tree (xterm, Tk): give agents their own X display
+  (any-app-broker's private Xvfb has its own pointer and keyboard), so background apps never need the shared ones.
+- Hold a permanent offscreen redirect (XComposite) and listen to Damage events: instant captures of any mapped
+  window (measured 2 ms) and change events for only the regions that changed.
 - Feed the measurement: the ★ benchmark should drive apps through `screen_*` and count steps and tokens.
 - Event-driven changes (AT-SPI events, X11 PropertyNotify) instead of re-reading the whole desktop each view.
 - An ID render: paint each element's box in its own colour to label pixels for vision, from this model.

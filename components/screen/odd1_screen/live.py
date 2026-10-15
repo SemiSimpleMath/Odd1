@@ -71,38 +71,81 @@ def _selected(screen: model.Screen, w: dict, query: str) -> bool:
         query.casefold() in w["title"].casefold()
 
 
-def click(screen: model.Screen, element_id: str, *, button: int = 1, allow_unverified: bool = False,
-          wait_ms: int = 300) -> dict:
-    """Click an element's centre. Refused when OCR contradicted its box, or when neither it nor its window's mapping
-    is verified, or when another window is on top at that pixel; then returns what changed."""
-    window, element = screen.find(element_id)
+def _pointer_problem(screen: model.Screen, window: dict, element: dict, allow_unverified: bool) -> str | None:
+    """Why the real pointer must not click this element, or None when it may."""
+    if window.get("minimized"):
+        return f"{element['id']}: its window is minimized (no place on screen)"
     calibration = window.get("calibration") or {}
     if element.get("verified") is False and not allow_unverified:
-        raise PermissionError(f"{element_id}: OCR found {element['name']!r} outside its reported box; the toolkit "
-                              "misplaces it (act through the app, or pass allow_unverified)")
+        return (f"{element['id']}: OCR found {element['name']!r} outside its reported box; the toolkit misplaces it")
     trusted = element.get("source") == "ocr" or element.get("verified") or calibration.get("verified")
     if not trusted and not allow_unverified:
-        raise PermissionError(f"{element_id}: its screen box is unverified ({calibration.get('evidence')}); "
-                              "view with ocr='always' first, or pass allow_unverified")
+        return f"{element['id']}: its screen box is unverified ({calibration.get('evidence')}); view with ocr='always'"
     x, y = model.centre(element["box"])
     owner = screen.at(x, y)["window"]
     if owner is None or owner["id"] != window["id"]:
-        raise PermissionError(f"{element_id}: covered by {owner and owner['title']!r} at ({x}, {y})")
+        return f"{element['id']}: covered by {owner and owner['title']!r} at ({x}, {y})"
+    return None
+
+
+def _app_act(address: dict, op: str, value: str | None = None) -> dict:
+    """Act through the app's accessibility interface, in a child process (a stuck bus cannot hang the caller)."""
+    args = [str(address["pid"]), str(address["frame"]), address["path"], address["role"], address["name"], op]
+    done = subprocess.run([sys.executable, "-m", "odd1_screen.atspi_act", *args, *([value] if value is not None else [])],
+                          capture_output=True, timeout=ATSPI_TIMEOUT)
+    if done.returncode:
+        raise RuntimeError(done.stderr.decode("utf-8", "replace").strip()[-500:] or "accessibility action failed")
+    return json.loads(done.stdout)
+
+
+def _settle(screen: model.Screen, before: dict, wait_ms: int) -> dict:
+    time.sleep(wait_ms / 1000)
+    return model.changes(before, observe(screen, ocr="never"))
+
+
+def click(screen: model.Screen, element_id: str, *, via: str = "auto", button: int = 1,
+          allow_unverified: bool = False, wait_ms: int = 300) -> dict:
+    """Press an element, then return what changed. via: "app" asks the app itself (accessibility action: works
+    minimized or covered, and leaves the person's mouse alone), "pointer" clicks its centre with the real mouse
+    (refused when minimized, covered, or its box is contradicted or unverified), "auto" uses the app when the
+    element has an accessibility address and the pointer otherwise (OCR text)."""
+    if via not in ("auto", "app", "pointer"):
+        raise ValueError("via must be auto, app or pointer")
+    window, element = screen.find(element_id)
+    address = screen.addresses.get(element_id)
     before = screen.last["view"]
+    if via == "app" or (via == "auto" and address and button == 1):
+        if not address:
+            raise PermissionError(f"{element_id}: OCR text has no accessibility address; use via='pointer'")
+        done = _app_act(address, "action")
+        return {"clicked": {"id": element_id, "via": "app", **done}, "changes": _settle(screen, before, wait_ms)}
+    problem = _pointer_problem(screen, window, element, allow_unverified)
+    if problem:
+        raise PermissionError(problem)
+    x, y = model.centre(element["box"])
     subprocess.run(["xdotool", "mousemove", "--sync", str(x), str(y), "click", str(button)], check=True,
                    capture_output=True, timeout=5)
-    time.sleep(wait_ms / 1000)
-    after = observe(screen, ocr="never")
-    return {"clicked": {"id": element_id, "x": x, "y": y}, "changes": model.changes(before, after)}
+    return {"clicked": {"id": element_id, "via": "pointer", "x": x, "y": y},
+            "changes": _settle(screen, before, wait_ms)}
+
+
+def set_text(screen: model.Screen, element_id: str, text: str, *, wait_ms: int = 300) -> dict:
+    """Replace an editable element's text through the app (works minimized or covered; never password fields)."""
+    screen.find(element_id)
+    address = screen.addresses.get(element_id)
+    if not address:
+        raise PermissionError(f"{element_id}: OCR text has no accessibility address; click it and use screen_type")
+    before = screen.last["view"]
+    _app_act(address, "set-text", text)
+    return {"set_text": {"id": element_id, "length": len(text)}, "changes": _settle(screen, before, wait_ms)}
 
 
 def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms: int = 300, **click_args) -> dict:
-    """Type into the focused window, after clicking element_id when given; returns what changed."""
+    """Type with the real keyboard into the focused window, after clicking element_id with the pointer when given
+    (keystrokes go where the focus is; for a minimized or covered field use set_text)."""
     if element_id:
-        click(screen, element_id, **click_args)
+        click(screen, element_id, via="pointer", **click_args)
     before = screen.last["view"] if screen.last else observe(screen, ocr="never")
     subprocess.run(["xdotool", "type", "--delay", "20", "--", text], check=True, capture_output=True,
                    timeout=5 + len(text) / 20)
-    time.sleep(wait_ms / 1000)
-    after = observe(screen, ocr="never")
-    return {"typed": len(text), "changes": model.changes(before, after)}
+    return {"typed": len(text), "changes": _settle(screen, before, wait_ms)}

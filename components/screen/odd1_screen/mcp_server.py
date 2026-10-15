@@ -48,15 +48,24 @@ def screen_find(text: str, role: str = "") -> list:
 
 
 @mcp.tool()
-def screen_click(id: str, button: int = 1, allow_unverified: bool = False) -> dict:
-    """Click an element ("w3.e12") at its centre with the real mouse; refused if its box is unverified or another
-    window covers it. Returns what changed."""
-    return live.click(_screen, id, button=button, allow_unverified=allow_unverified)
+def screen_click(id: str, via: str = "auto", button: int = 1, allow_unverified: bool = False) -> dict:
+    """Press an element ("w3.e12") and return what changed. via: "auto" (the app's own accessibility action when the
+    element has one: works on minimized and covered windows and leaves the person's mouse alone; else the real
+    pointer), "app", or "pointer" (real mouse at its centre; refused if minimized, covered or unverified)."""
+    return live.click(_screen, id, via=via, button=button, allow_unverified=allow_unverified)
+
+
+@mcp.tool()
+def screen_set_text(id: str, text: str) -> dict:
+    """Replace an entry's or text field's contents through the app itself (works minimized or covered; never
+    password fields). Returns what changed."""
+    return live.set_text(_screen, id, text)
 
 
 @mcp.tool()
 def screen_type(text: str, id: str = "", allow_unverified: bool = False) -> dict:
-    """Type text with the real keyboard into the focused window, clicking element id first when given."""
+    """Type text with the real keyboard into the focused window, clicking element id with the pointer first when
+    given. For a minimized or covered field use screen_set_text."""
     return live.type_text(_screen, text, element_id=id, allow_unverified=allow_unverified)
 
 
