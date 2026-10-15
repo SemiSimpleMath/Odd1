@@ -23,6 +23,9 @@ in {
   # This VM's identity at Orbit's egress gateway: "odd1" may reach Anthropic and npm (package registries otherwise).
   networking.proxy.default = lib.mkForce "http://odd1:x@10.0.2.100:3128";
 
+  # `sudo nixos-rebuild switch` finds this system's configuration (the base Desktop sets only nixpkgs).
+  nix.nixPath = lib.mkForce [ "nixpkgs=${pkgs.path}" "nixos-config=/etc/nixos/configuration.nix" ];
+
   # Runtime state for components lives here, never in the repository.
   systemd.tmpfiles.rules = [ "d /var/lib/odd1 0755 agent users -" ];
 }
