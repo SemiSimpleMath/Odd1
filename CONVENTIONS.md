@@ -3,8 +3,9 @@
 Few rules, enforced by `tools/check.py`. They exist so Odd1 can grow fast without becoming spaghetti.
 
 ## One place for everything
-- One component per directory under `components/`, named in lowercase-with-dashes. The name is used everywhere:
-  directory, systemd unit, CLI command, notes. No second name.
+- One component per directory under `components/`, named in lowercase-with-dashes. That one name is used everywhere:
+  directory, MCP server `<name>`, and with the `odd1-` prefix for commands and systemd units (`odd1-<name>`,
+  `odd1-<name>-mcp`, `odd1-<name>-test`), so they never clash with real programs. No second name.
 - One component per job. Before adding one, check ARCHITECTURE.md; if something similar exists, extend it.
 - Runtime state lives on the VM under `/var/lib/odd1/<component>/`, never in this repository.
 

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "odd1:browser/schema-v1.json",
+  "title": "Odd1 browser JSON contract v1",
+  "description": "Stable required envelope for text and Firefox results. Optional/additive fields are allowed; consumers must ignore unknown fields.",
+  "oneOf": [
+    { "$ref": "#/$defs/textResult" },
+    { "$ref": "#/$defs/renderResult" }
+  ],
+  "$defs": {
+    "heading": {
+      "type": "object",
+      "required": ["level", "text"],
+      "properties": {
+        "level": { "enum": ["h1", "h2", "h3", "h4", "h5", "h6"] },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "link": {
+      "type": "object",
+      "required": ["text", "url"],
+      "properties": {
+        "text": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "textPage": {
+      "type": "object",
+      "required": ["title", "text", "headings", "links", "encoding", "title_truncated", "text_truncated", "headings_truncated", "heading_text_truncated", "links_truncated", "link_text_truncated"],
+      "properties": {
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "headings": { "type": "array", "items": { "$ref": "#/$defs/heading" } },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+        "encoding": { "type": "string" },
+        "title_truncated": { "type": "boolean" },
+        "text_truncated": { "type": "boolean" },
+        "headings_truncated": { "type": "boolean" },
+        "heading_text_truncated": { "type": "boolean" },
+        "links_truncated": { "type": "boolean" },
+        "link_text_truncated": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "renderPage": {
+      "type": "object",
+      "required": ["title", "text", "url", "requested_url", "headings", "headings_truncated", "links", "links_truncated", "ready_state"],
+      "properties": {
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "elements": { "type": "array", "maxItems": 256, "items": { "type": "object", "required": ["id", "tag", "label", "disabled"], "properties": { "id": { "type": "string" }, "tag": { "type": "string" }, "label": { "type": "string" }, "disabled": { "type": "boolean" } }, "additionalProperties": true } },
+        "elements_truncated": { "type": "boolean" },
+        "stable_ids": { "type": "array", "maxItems": 64, "items": { "type": "object", "required": ["id", "tag", "label"], "properties": { "id": { "type": "string" }, "tag": { "type": "string" }, "label": { "type": "string" } }, "additionalProperties": true } },
+        "url": { "type": "string" },
+        "requested_url": { "type": "string" },
+        "headings": { "type": "array", "items": { "$ref": "#/$defs/heading" } },
+        "headings_truncated": { "type": "boolean" },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+        "links_truncated": { "type": "boolean" },
+        "ready_state": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "textResult": {
+      "type": "object",
+      "required": ["schema_version", "url", "status", "content_type", "bytes", "page"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "url": { "type": "string" },
+        "status": { "type": "integer" },
+        "content_type": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "page": { "oneOf": [{ "$ref": "#/$defs/textPage" }, { "type": "null" }] }
+      },
+      "additionalProperties": true
+    },
+    "renderResult": {
+      "type": "object",
+      "required": ["schema_version", "engine", "status", "page"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "engine": { "const": "Firefox" },
+        "status": { "type": "integer" },
+        "page": { "$ref": "#/$defs/renderPage" },
+        "screenshot_png_base64": { "type": "string", "contentEncoding": "base64" }
+      },
+      "additionalProperties": true
+    }
+  }
+}
