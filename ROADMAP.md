@@ -9,6 +9,10 @@ judged. Measured by: recovery, no data loss, no collateral damage.
 ## M2 Optimizer
 Make things faster and leaner: build times, service latency, boot time, memory. Measured by: benchmark speedups the
 kernel times itself.
+Cheapest lever first: a program's own configuration (find what it reads by tracing its file opens; one change at a
+time, original backed up, measured before and after), then flags and environment (e.g. JVM memory and GC
+settings), then OS-level slack under pressure (cgroup priority, pausing background agents), and only then
+profiling and patching code.
 
 ## M3 Kernel
 eBPF for observability, then sched_ext CPU schedulers written as BPF programs (the kernel falls back to its default
