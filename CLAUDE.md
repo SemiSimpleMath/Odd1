@@ -12,5 +12,7 @@ that whole class of request easy, and build it.
   experiments (pip, scratch files) are fine anywhere under your home directory.
 - The graphical session is DISPLAY=:0 (user `agent`). xdotool, AT-SPI (pyatspi) and tesseract are installed; reuse the
   components in the repository for driving apps before writing new ones.
+- To see a window, screenshot it with the any-app MCP tool `app_screenshot` (CLI: `odd1-any-app screenshot WINDOW
+  -o out.png`), then read the PNG. It shows any window even when others cover it; `import`/`xwd` return black there.
 - The network reaches package registries and Anthropic only. The host computer is out of reach by design.
 - Prefer bash and existing programs. Keep notes short and in the component README, not in long logs.
