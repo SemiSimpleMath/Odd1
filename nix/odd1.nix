@@ -44,7 +44,9 @@ in {
   networking.proxy.default = lib.mkForce "http://odd1:x@10.0.2.100:3128";
 
   # `sudo nixos-rebuild switch` finds this system's configuration (the base Desktop sets only nixpkgs).
-  nix.nixPath = lib.mkForce [ "nixpkgs=${pkgs.path}" "nixos-config=/etc/nixos/configuration.nix" ];
+  # toString refers to the pinned nixpkgs without copying it again (a copy per rebuild nests the store name).
+  nix.nixPath = lib.mkForce [ "nixpkgs=${toString pkgs.path}" "nixos-config=/etc/nixos/configuration.nix" ];
+  nix.registry.nixpkgs.to = lib.mkForce { type = "path"; path = toString pkgs.path; };
 
   # Runtime state for components lives here, never in the repository.
   systemd.tmpfiles.rules = [ "d /var/lib/odd1 0755 agent users -" ];
