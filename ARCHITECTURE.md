@@ -3,13 +3,14 @@
 Odd1 = NixOS VMs + the components in this repository. This map lists every component; `tools/check.py --map`
 prints the generated part from each README's first line. Keep the "connections" notes current by hand.
 
-## Base system (kernel-owned, not in this repository)
-- Desktop VM: Xvfb :0 (1280x800), openbox, noVNC on :6080 for people, AT-SPI for accessibility, the app collection
-  (Firefox, LibreOffice, GIMP, Inkscape, VSCodium, jEdit, Gnumeric, FeatherPad, ...), xdotool, tesseract.
-- Machine VM: sshd, nginx on :80 serving /srv/www, Python and common CLI tools.
-- Model access for agents on the VMs: 127.0.0.1:8099 (metered by Orbit's kernel). Claude Code on the Desktop uses
-  the user's own sign-in instead.
-- Network: package registries only (PyPI, the Nix cache; npm and Anthropic for the Desktop). No general internet.
+## System (nix/)
+- `nix/base.nix`: the machine-independent OS: user `agent`, the screen (X display :0 1280x800, window manager,
+  VNC + noVNC on :6080 for the person; Remote Desktop next), AT-SPI, the app collection (Firefox, LibreOffice,
+  GIMP, Inkscape, VSCodium, jEdit, Gnumeric, FeatherPad, ...), xdotool, tesseract.
+- `nix/odd1.nix`: the Odd1 module: every component's module.nix, the MCP registry, the default coding agent
+  (Claude Code, with the person's own sign-in; other agent harnesses can plug in through the same MCP servers).
+- `nix/hosts/<host>.nix`: one per kind of machine (disks, boot, network); it imports base.nix and odd1.nix and is
+  all `/etc/nixos/configuration.nix` imports. `dev-vm.nix` is the development VM (QEMU, egress proxy).
 
 ## Components
 Every component's agent entry point is an MCP server of the same name, registered for every agent
@@ -27,7 +28,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 | caretaker | M1 | Machine health and foreground pressure (PSI, cgroups); restarts listed failed units | caretaker_status/pressure/repair |
 
 ## Connections
-- Claude Code (the person's front agent) and Orbit's background agents reach every component through MCP.
+- Claude Code (the person's front agent, and any other agent harness plugged in) reaches every component through MCP.
 - `screen` is the screen-model service (★): it fuses X11 geometry and stacking with `any-app`'s readers (AT-SPI,
   OCR). Grow readers in `any-app`, fusion in `screen`. With GNOME_ACCESSIBILITY=1 (set by screen's module) a
   visible Firefox's page joins it over AT-SPI; `browser` stays the precise, policy-checked view of headless pages.

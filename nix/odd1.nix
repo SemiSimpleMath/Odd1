@@ -26,7 +26,7 @@ in {
   config = {
   environment.etc."odd1/mcp-servers.json".source = registry;
 
-  networking.hostName = lib.mkForce "odd1";
+  networking.hostName = "odd1";
 
   # Least friction: programs built for generic Linux run as they are (prebuilt binaries, pip wheels with native
   # code, downloaded tools), not only Nix-built ones.
@@ -80,9 +80,6 @@ in {
       '') servers)}
     '';
   };
-
-  # This VM's identity at Orbit's egress gateway: "odd1" may reach Anthropic and npm (package registries otherwise).
-  networking.proxy.default = lib.mkForce "http://odd1:x@10.0.2.100:3128";
 
   # `sudo nixos-rebuild switch` finds this system's configuration (the base Desktop sets only nixpkgs).
   # toString refers to the pinned nixpkgs without copying it again (a copy per rebuild nests the store name).

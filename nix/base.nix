@@ -1,0 +1,101 @@
+# The Odd1 base system: the person's and agents' user, the screen, the apps, and the tools to see and drive them.
+# Machine-independent; a host profile (nix/hosts/) adds disks, boot and network, and imports this and odd1.nix.
+{ config, pkgs, lib, ... }:
+
+let
+  python = pkgs.python3.withPackages (p: [ p.pyatspi p.pygobject3 p.pillow p.tkinter ]);
+in {
+  system.stateVersion = "25.05";
+
+  # One user, `agent`: the person's desktop session and the agents' tools run as it. Agents get sudo (an Odd1
+  # machine is theirs to operate).
+  users.users.agent = {
+    isNormalUser = true;
+    uid = 1000;
+    extraGroups = [ "wheel" "systemd-journal" ];
+    linger = true;  # the graphical session runs without anyone logged in
+  };
+  security.sudo.wheelNeedsPassword = false;
+  services.openssh = {
+    enable = true;
+    settings = { PasswordAuthentication = false; PermitRootLogin = "no"; };
+  };
+
+  # The screen: a headless X display :0 (1280x800), a window manager, and the accessibility bus, all in the
+  # agent's user session. Anything run over SSH as agent sees the same display.
+  # (The unit names are kept from the VM this was ported from; they change with the Remote Desktop switch.)
+  services.gnome.at-spi2-core.enable = true;
+  fonts.packages = with pkgs; [ dejavu_fonts liberation_ttf noto-fonts ];
+  systemd.user.services.orbit-display = {
+    description = "Headless X display :0";
+    wantedBy = [ "default.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.xorg.xorgserver}/bin/Xvfb :0 -screen 0 1280x800x24 -nolisten tcp";
+      Restart = "always";
+    };
+  };
+  systemd.user.services.orbit-wm = {
+    description = "Window manager on :0";
+    wantedBy = [ "default.target" ];
+    after = [ "orbit-display.service" ];
+    requires = [ "orbit-display.service" ];
+    environment.DISPLAY = ":0";
+    serviceConfig = {
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 1";
+      ExecStart = "${pkgs.openbox}/bin/openbox";
+      Restart = "always";
+    };
+  };
+  # The person's view: VNC on the display, served to a web browser by noVNC on port 6080.
+  systemd.user.services.orbit-vnc = {
+    description = "VNC server on display :0";
+    wantedBy = [ "default.target" ];
+    after = [ "orbit-display.service" ];
+    requires = [ "orbit-display.service" ];
+    serviceConfig = {
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
+      ExecStart = "${pkgs.x11vnc}/bin/x11vnc -display :0 -forever -shared -localhost -nopw -rfbport 5900 -quiet";
+      Restart = "always";
+    };
+  };
+  systemd.user.services.orbit-novnc = {
+    description = "noVNC web viewer on port 6080";
+    wantedBy = [ "default.target" ];
+    after = [ "orbit-vnc.service" ];
+    serviceConfig = {
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
+      ExecStart = "${pkgs.python3Packages.websockify}/bin/websockify --web ${pkgs.novnc}/share/webapps/novnc 6080 localhost:5900";
+      Restart = "always";
+    };
+  };
+  networking.firewall.allowedTCPPorts = [ 6080 ];
+
+  environment.sessionVariables = {
+    DISPLAY = ":0";
+    XDG_RUNTIME_DIR = "/run/user/1000";
+    DBUS_SESSION_BUS_ADDRESS = "unix:path=/run/user/1000/bus";
+    NO_AT_BRIDGE = "0";
+    GTK_MODULES = "gail:atk-bridge";
+    # GObject introspection data, so Python's pyatspi (and gi) can load the accessibility API.
+    GI_TYPELIB_PATH = lib.makeSearchPath "lib/girepository-1.0" (with pkgs; [ at-spi2-core glib.out gtk3 pango.out gdk-pixbuf harfbuzz ]);
+  };
+
+  # Programs to work with, and tools to see and drive the screen.
+  environment.systemPackages = with pkgs; [
+    firefox libreoffice gnome-calculator xfce.mousepad xterm
+    # The app zoo: one or more programs per way GUIs are built.
+    featherpad gimp inkscape vscodium jedit gnumeric nano
+    xdotool wmctrl xorg.xwininfo xorg.xprop xorg.xdpyinfo xorg.xev imagemagick scrot tesseract
+    at-spi2-core python
+    git curl jq vim htop file tree ripgrep
+  ];
+
+  networking.proxy.noProxy = "127.0.0.1,localhost";
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.nixPath = [ "nixpkgs=${pkgs.path}" ];
+  nix.registry.nixpkgs.to = { type = "path"; path = pkgs.path; };
+  nix.settings.flake-registry = "";
+
+  services.journald.extraConfig = "SystemMaxUse=200M";
+  documentation.enable = false;
+}

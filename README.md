@@ -4,8 +4,8 @@ An operating system built for agents: the least possible friction for an agent t
 program installed on it. Agents can pip install anything, take libraries apart, build drivers, and make their own
 tools whenever a tool makes the next task easier. People mostly make requests; mouse and keyboard work as usual.
 
-Odd1 runs as NixOS virtual machines (the Desktop, with a graphical session and an app collection, and the Machine).
-Nothing in Odd1 touches the host computer.
+Odd1 is a NixOS system defined entirely by this repository: today a VM (`nix/hosts/dev-vm.nix`), and meant to
+install as the native OS of any machine. Claude Code is the default agent; any agent harness that speaks MCP plugs in.
 
 ## This repository is the source of truth
 
@@ -14,7 +14,7 @@ workspace does not count and will be lost. If it matters, it lives here.
 
 - `components/<name>/`: one directory per component (a service, an app interface, a tool, a library). See
   CONVENTIONS.md for what a component holds.
-- `nix/`: how components are installed on the VMs. `nix/odd1.nix` is the Odd1 module.
+- `nix/`: the whole system: `base.nix` (the OS), `odd1.nix` (the Odd1 module), `hosts/` (one profile per machine).
 - `ARCHITECTURE.md`: the map of components and how they connect. Keep it current.
 - `ROADMAP.md`: the milestones (Caretaker, Optimizer, Kernel, Agent-native OS, any app). Every component serves one.
 - `CLAUDE.md`: what an agent working on Odd1 needs to know (installed on the VMs for Claude Code).
