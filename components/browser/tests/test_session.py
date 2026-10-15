@@ -139,7 +139,8 @@ class McpToolTests(unittest.TestCase):
 class _Page(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         body = (b"<title>t</title><p id='out'>waiting</p><input id='name'>"
-                b"<button id='go' onclick=\"out.textContent='hello '+name.value\">Go</button>")
+                b"<button id='go' onclick=\"document.getElementById('out').textContent='hello '+"
+                b"document.getElementById('name').value\">Go</button>")  # not `name`: that is window.name
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.send_header("Content-Length", str(len(body)))
