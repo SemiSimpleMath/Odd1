@@ -4,7 +4,7 @@
 
 let
   python = pkgs.python3.withPackages (p: [ p.pytest p.mcp ]);
-  tools = with pkgs; [ wmctrl xdotool xorg.xdpyinfo ];
+  tools = with pkgs; [ wmctrl xdotool xorg.xdpyinfo xorg.xprop ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export PATH=$PATH:${pkgs.lib.makeBinPath tools}

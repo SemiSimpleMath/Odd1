@@ -118,8 +118,14 @@ def hide(wait_s: float = 0) -> dict:
         time.sleep(0.3)
     if xid is None:
         raise RuntimeError("the agent desktop window is not on the person's screen")
-    _x(["xdotool", "windowminimize", xid], USER_DISPLAY)
-    return {"hidden": xid}
+    # A window that has only just appeared can miss the request (the window manager is still taking it on):
+    # repeat until it reports itself minimized.
+    for _ in range(max(1, int(wait_s / 0.3))):
+        _x(["xdotool", "windowminimize", xid], USER_DISPLAY)
+        time.sleep(0.3)
+        if "_NET_WM_STATE_HIDDEN" in _x(["xprop", "-id", xid, "_NET_WM_STATE"], USER_DISPLAY):
+            return {"hidden": xid}
+    return {"hidden": xid, "confirmed": False}
 
 
 def status() -> dict:
