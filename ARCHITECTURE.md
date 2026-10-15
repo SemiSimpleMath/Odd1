@@ -20,7 +20,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 | libreoffice | ★ | Calc through its own object model (UNO), on the visible desktop | calc_open/read/write/formula/save/close |
 | browser | ★ | Firefox-rendered pages as an element-id page model; act by id | browser_open/view/click/type/select/submit/find/fetch/close |
 | screen | ★ | The desktop as one model: X11 + AT-SPI + OCR in screen pixels, stable ids, changes, verified clicks | screen_view/changes/at/find/click/type |
-| any-app | ★ | Any window as JSON: AT-SPI tree when available, OCR words otherwise | app_describe, app_ocr |
+| any-app | ★ | Any window as JSON: AT-SPI tree when available, OCR words otherwise | app_describe, app_ocr, app_screenshot |
 | any-app-broker | ★ | Private Xvfb sessions driven through a capability-gated broker (test harness for now) | (planned) |
 | intent | M4 | Plain-words file intents: plan, approve per action, apply transactionally, verify, undo | intent_plan/apply/undo/history |
 | caretaker | M1 | Machine health and foreground pressure (PSI, cgroups); restarts listed failed units | caretaker_status/pressure/repair |

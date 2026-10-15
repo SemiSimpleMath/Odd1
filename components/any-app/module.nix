@@ -2,7 +2,7 @@
 { pkgs, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp p.pyatspi p.pygobject3 p.tkinter ]);
+  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp p.pyatspi p.pygobject3 p.tkinter p.xlib p.pillow ]);
   tools = with pkgs; [ tesseract imagemagick wmctrl xdotool ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}

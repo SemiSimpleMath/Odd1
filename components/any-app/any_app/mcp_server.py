@@ -12,7 +12,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from . import describe_pixels
+from . import describe_pixels, screenshot
 
 mcp = FastMCP("any-app")
 MAX_BYTES = 262144
@@ -29,13 +29,16 @@ def describe(window: str, max_elements: int = 1000, timeout: float = 20) -> dict
 
 
 def ocr(png: str = "", window_id: str = "", max_words: int = 2000) -> dict:
-    """OCR a PNG file, or capture a window (X11 id) or the whole screen with ImageMagick `import` first."""
+    """OCR a PNG file, or capture a window (X11 id, even when covered) or the whole screen first."""
     if png:
         return describe_pixels.describe_image(png, max_words=max_words)
     with tempfile.TemporaryDirectory(prefix="any-app-ocr-") as tmp:
         target = Path(tmp) / "capture.png"
-        subprocess.run(["import", "-window", window_id or "root", f"png:{target}"], check=True,
-                       capture_output=True, timeout=10)
+        if window_id:
+            screenshot.capture(window_id, target)
+        else:
+            subprocess.run(["import", "-window", "root", f"png:{target}"], check=True, capture_output=True,
+                           timeout=10)
         return describe_pixels.describe_image(target, max_words=max_words)
 
 
@@ -52,6 +55,15 @@ def app_ocr(png: str = "", window_id: str = "", max_words: int = 2000) -> dict:
     Give a PNG path, or an X11 window id (e.g. from `xdotool search --name`), or nothing for the whole screen.
     Boxes are image-local pixels."""
     return ocr(png, window_id, max_words)
+
+
+@mcp.tool()
+def app_screenshot(window: str, out: str = "", frame: bool = False) -> dict:
+    """Screenshot one window to a PNG, even when other windows cover it: {"path", "window", "title", "app",
+    "width", "height", "sha256"}. window: a title or app-name substring matching exactly one window, or an X11 id; out: PNG path
+    (default: a new file under $TMPDIR/odd1-any-app); frame: include the window manager's title bar and border.
+    Read the PNG at "path" to see it. Minimized windows have no pixels and are an error."""
+    return screenshot.capture(window, out or None, frame)
 
 
 def main() -> None:

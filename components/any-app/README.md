@@ -10,7 +10,10 @@ Milestone: ★ (any app, through interfaces agents write themselves). The observ
     a password field's).
   - `app_ocr(png | window_id | nothing)`: local Tesseract words, `{image: {sha256, width, height}, elements:
     [{text, confidence, bounds}]}`; with no argument it captures the whole screen.
-- Command line: `odd1-any-app describe "Calculator"`, `odd1-any-app ocr shot.png`, `odd1-any-app geometry "Calculator"`
+  - `app_screenshot(window, out, frame)`: one window as a PNG even when other windows cover it or it hangs off
+    screen, `{path, window, title, app, width, height, sha256}`; `window` is a title or app-name (WM_CLASS)
+    substring matching exactly one window, or an X11 id. Read the PNG at `path` to see it.
+- Command line: `odd1-any-app describe "Calculator"`, `odd1-any-app ocr shot.png`, `odd1-any-app screenshot featherpad [-o out.png] [--frame]`, `odd1-any-app geometry "Calculator"`
   (AT-SPI vs X11 vs screenshot geometry), `odd1-any-app eval-ocr ocr.json labels.json` (token P/R/F1),
   `odd1-any-app eval-boxes ocr.json boxes.json [--iou-threshold 0.5]` (box localization).
 - Python: `PYTHONPATH=$ODD1_ANY_APP_PYTHONPATH python3`, then `from any_app import describe_pixels`
@@ -30,6 +33,11 @@ and ImageMagick; the MCP tests skip without the `mcp` package (1.x, `FastMCP`). 
   AT-SPI boxes until `odd1-any-app geometry` shows they line up for that toolkit.
 - OCR on two hand-labelled screens (Mousepad, xterm) scored token F1 0.95; that is two in-sample screens, not a
   benchmark.
+
+- Covered windows: the Desktop has no compositor, so covered pixels do not exist and `import -window` returns
+  black for them. `screenshot` redirects the window's frame with XComposite (automatic mode, the screen is
+  unchanged), waits 0.3 s for the app to repaint into its offscreen pixmap, and reads that. GTK, Qt, Firefox, Tk
+  all repaint; a minimized (unmapped) window has no pixels and is an error. `app_ocr(window_id)` uses it too.
 
 ## Next
 - Calibrate coordinates per toolkit (AT-SPI and OCR boxes to screen pixels) so observations become click targets.
