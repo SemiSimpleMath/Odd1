@@ -43,6 +43,20 @@ in {
     "x-scheme-handler/https" = "firefox.desktop";
   };
 
+  # A taskbar, so the person sees every open window (each Claude Code session included) and switches with a click.
+  systemd.user.services.odd1-taskbar = {
+    description = "Odd1 taskbar (tint2) on :0";
+    wantedBy = [ "default.target" ];
+    after = [ "orbit-wm.service" ];
+    environment.DISPLAY = ":0";
+    serviceConfig = {
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
+      ExecStart = "${pkgs.tint2}/bin/tint2 -c ${./tint2rc}";
+      Restart = "always";
+      RestartSec = 2;
+    };
+  };
+
   # Claude Code, operated by the person using Odd1 with their own sign-in (it stays on this VM). Installed with npm
   # for the agent user so it keeps itself current; this unit only installs it when it is missing.
   environment.etc."claude-code/CLAUDE.md".source = ../CLAUDE.md;
