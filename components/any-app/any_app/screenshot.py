@@ -67,13 +67,14 @@ def clients(display):
     return found
 
 
-def capture(query, out=None, frame=False, settle=SETTLE_SECONDS):
-    """Capture one window to a PNG; returns {path, window, title, app, width, height, sha256}."""
+def capture(query, out=None, frame=False, settle=SETTLE_SECONDS, display_name=None):
+    """Capture one window to a PNG; returns {path, window, title, app, width, height, sha256}. display_name: the X
+    display to use (default $DISPLAY, else :0), e.g. the agent desktop's."""
     from PIL import Image
     from Xlib import X, display as xdisplay
     from Xlib.ext import composite
 
-    display = xdisplay.Display(os.environ.get("DISPLAY", ":0"))
+    display = xdisplay.Display(display_name or os.environ.get("DISPLAY", ":0"))
     try:
         root = display.screen().root
         xid, title, app = match_window(clients(display), query)

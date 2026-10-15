@@ -3,7 +3,9 @@ The whole desktop as one queryable model: X11 windows, AT-SPI trees and OCR text
 Milestone: ★ (any app, through interfaces agents write themselves). The screen-model service that per-app adapters build on.
 
 ## Use
-- Agents: the MCP server `screen` (registered for every agent). One model per server, so ids stay stable:
+- Agents: the MCP server `screen` (registered for every agent). One model per display, so ids stay stable:
+  `display="user"` is the person's screen (windows `w1`, `w2`, ...), `display="agent"` the agent desktop
+  (`a1`, ...; see `agent-desktop`). Actions follow the id's display.
   - `screen_view(window, ocr, include_hidden, max_elements)`: `{screen, windows: [{id: "w3", title, box, active,
     source, calibration, elements: [{id: "w3.e12", role, name, value?, box, states, verified?}]}]}`, topmost
     window first; every `box` is screen pixels `[x, y, width, height]`. `ocr`: `auto` (windows without a tree, or
@@ -19,7 +21,7 @@ Milestone: ★ (any app, through interfaces agents write themselves). The screen
   - `screen_set_text(id, text)`: replace a field's text through the app (minimized or covered too; never password
     fields). Read back: an app that claims success but changes nothing is an error.
   - `screen_type(text, id)`: the real keyboard into the focused window (takes the person's focus; last resort).
-- Command line: `odd1-screen view [WINDOW] [--ocr always]`, `odd1-screen at X Y`, `odd1-screen watch [WINDOW]`
+- Command line: `odd1-screen [--display :1] view [WINDOW] [--ocr always]`, `odd1-screen at X Y`, `odd1-screen watch [WINDOW]`
   (one JSON line per change).
 - Python: `PYTHONPATH=$ODD1_SCREEN_PYTHONPATH python3`, then `from odd1_screen import live, model`;
   `live.observe(model.Screen())`.
@@ -51,8 +53,6 @@ ids, occlusion, contradictions, change events, click refusals). `test_live_scree
 and skips without DISPLAY and the tools. On Odd1: `odd1-screen-test`.
 
 ## Next
-- Stay out of the person's way for apps with no accessibility tree (xterm, Tk): give agents their own X display
-  (any-app-broker's private Xvfb has its own pointer and keyboard), so background apps never need the shared ones.
 - Hold a permanent offscreen redirect (XComposite) and listen to Damage events: instant captures of any mapped
   window (measured 2 ms) and change events for only the regions that changed.
 - Feed the measurement: the ★ benchmark should drive apps through `screen_*` and count steps and tokens.

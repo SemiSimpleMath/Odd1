@@ -3,15 +3,21 @@
 X11 is the authority on where a window is and what is on top; toolkits (AT-SPI) often get their own window origin
 wrong. Reads with xprop and xwininfo; the parsers are pure so they test without a display.
 """
+import os
 import re
 import subprocess
 
 TIMEOUT = 5
 
 
-def _run(args: list[str]) -> str:
+def env(display: str | None) -> dict:
+    """The environment for an X client on `display` (default: this process's own)."""
+    return {**os.environ, "DISPLAY": display} if display else dict(os.environ)
+
+
+def _run(args: list[str], display: str | None = None) -> str:
     return subprocess.run(args, check=True, capture_output=True, text=True, timeout=TIMEOUT,
-                          errors="replace").stdout
+                          errors="replace", env=env(display)).stdout
 
 
 def parse_window_list(text: str) -> list[str]:
@@ -60,20 +66,20 @@ def parse_active(text: str) -> str | None:
     return ids[0] if ids else None
 
 
-def windows() -> dict:
+def windows(display: str | None = None) -> dict:
     """{"screen": {width, height}, "windows": [...] bottom to top, "active": xid}. Unreadable windows are skipped
     (a window can close between the list and its properties)."""
-    root = parse_geometry(_run(["xwininfo", "-root"])) or {}
-    stacking = _run(["xprop", "-root", "-notype", "_NET_CLIENT_LIST_STACKING", "_NET_ACTIVE_WINDOW"])
+    root = parse_geometry(_run(["xwininfo", "-root"], display)) or {}
+    stacking = _run(["xprop", "-root", "-notype", "_NET_CLIENT_LIST_STACKING", "_NET_ACTIVE_WINDOW"], display)
     lines = stacking.splitlines()
     ids = parse_window_list(next((l for l in lines if l.startswith("_NET_CLIENT_LIST_STACKING")), ""))
     active = parse_active(next((l for l in lines if l.startswith("_NET_ACTIVE_WINDOW")), ""))
     result = []
     for xid in ids:
         try:
-            geometry = parse_geometry(_run(["xwininfo", "-id", xid]))
+            geometry = parse_geometry(_run(["xwininfo", "-id", xid], display))
             props = parse_properties(_run(["xprop", "-id", xid, "-notype", "_NET_WM_PID", "_NET_WM_NAME",
-                                           "WM_NAME", "_NET_WM_STATE"]))
+                                           "WM_NAME", "_NET_WM_STATE"], display))
         except (subprocess.SubprocessError, OSError):
             continue
         if geometry is None:

@@ -149,10 +149,12 @@ def match_frames(windows: list[dict], apps: list[dict]) -> dict[str, dict]:
 
 
 class Screen:
-    """Fuses snapshots and keeps ids stable between them: a window keeps `wN` while its X11 window lives; an element
-    keeps `wN.eM` while its role, name and ancestors' roles stay the same (the k-th of identical ones keeps k)."""
+    """Fuses snapshots of one X display and keeps ids stable between them: a window keeps `wN` while its X11 window
+    lives; an element keeps `wN.eM` while its role, name and ancestors' roles stay the same (the k-th of identical
+    ones keeps k). prefix names the display's windows ("w" the person's, "a" the agent desktop's)."""
 
-    def __init__(self):
+    def __init__(self, prefix: str = "w", display: str | None = None):
+        self.prefix, self.display = prefix, display
         self.window_ids: dict[str, str] = {}
         self.element_ids: dict[tuple, str] = {}
         self.calibrations: dict[tuple, dict] = {}
@@ -165,7 +167,7 @@ class Screen:
     def _window_id(self, xid: str) -> str:
         if xid not in self.window_ids:
             self._next["w"] += 1
-            self.window_ids[xid] = f"w{self._next['w']}"
+            self.window_ids[xid] = f"{self.prefix}{self._next['w']}"
             self._next[self.window_ids[xid]] = 0
         return self.window_ids[xid]
 

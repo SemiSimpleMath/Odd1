@@ -1,8 +1,10 @@
 """odd1-screen: the screen model from the command line (prints JSON).
 
-    odd1-screen view [WINDOW] [--ocr auto|always|never] [--hidden]
-    odd1-screen at X Y
-    odd1-screen watch [WINDOW] [--interval S]     print changes as they happen (one JSON line each)
+    odd1-screen [--display :1] view [WINDOW] [--ocr auto|always|never] [--hidden]
+    odd1-screen [--display :1] at X Y
+    odd1-screen [--display :1] watch [WINDOW] [--interval S]   print changes as they happen (one JSON line each)
+
+--display picks the X display (default $DISPLAY); the agent desktop is :1.
 """
 import argparse
 import json
@@ -14,6 +16,7 @@ from . import live, model
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="odd1-screen", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--display", default=None)
     sub = parser.add_subparsers(dest="command", required=True)
     view = sub.add_parser("view")
     view.add_argument("window", nargs="?", default="")
@@ -26,7 +29,7 @@ def main(argv=None) -> int:
     watch.add_argument("window", nargs="?", default="")
     watch.add_argument("--interval", type=float, default=1.0)
     args = parser.parse_args(argv)
-    screen = model.Screen()
+    screen = model.Screen("a" if args.display == ":1" else "w", args.display)
     if args.command == "view":
         print(json.dumps(live.observe(screen, window=args.window, ocr=args.ocr, include_hidden=args.hidden),
                          ensure_ascii=False))

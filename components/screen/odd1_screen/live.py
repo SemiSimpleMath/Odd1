@@ -25,13 +25,13 @@ def read_atspi(max_elements: int = 1500) -> dict:
     return json.loads(done.stdout)
 
 
-def read_ocr(xid: str) -> list[dict] | None:
+def read_ocr(xid: str, display: str | None = None) -> list[dict] | None:
     """OCR one window's client area (image-local word boxes); None when it cannot be captured. any-app's capture
     renders the window offscreen (XComposite), so covered parts are read too."""
     with tempfile.TemporaryDirectory(prefix="odd1-screen-") as tmp:
         target = Path(tmp) / "window.png"
         try:
-            screenshot.capture(xid, out=target)
+            screenshot.capture(xid, out=target, display_name=display)
             return describe_pixels.describe_image(target, max_words=3000)["elements"]
         except Exception:  # Xlib errors (a window closing mid-capture), OCR failures: no pixels this view
             return None
@@ -43,7 +43,7 @@ def observe(screen: model.Screen, *, window: str = "", ocr: str = "auto", includ
     without an established mapping), always, never."""
     if ocr not in ("auto", "always", "never"):
         raise ValueError("ocr must be auto, always or never")
-    desktop = x11.windows()
+    desktop = x11.windows(screen.display)
     atspi = read_atspi()
     frames = model.match_frames(desktop["windows"], atspi.get("apps", []))
     words = {}
@@ -51,7 +51,7 @@ def observe(screen: model.Screen, *, window: str = "", ocr: str = "auto", includ
         if not w["geometry"]["viewable"] or not _selected(screen, w, window):
             continue
         if ocr == "always" or (ocr == "auto" and screen.needs_ocr(w, frames.get(w["xid"]))):
-            found = read_ocr(w["xid"])
+            found = read_ocr(w["xid"], screen.display)
             if found is not None:
                 words[w["xid"]] = found
     view = screen.fuse(desktop, atspi, words, include_hidden=include_hidden, max_elements=max_elements)
@@ -124,7 +124,7 @@ def click(screen: model.Screen, element_id: str, *, via: str = "auto", button: i
         raise PermissionError(problem)
     x, y = model.centre(element["box"])
     subprocess.run(["xdotool", "mousemove", "--sync", str(x), str(y), "click", str(button)], check=True,
-                   capture_output=True, timeout=5)
+                   capture_output=True, timeout=5, env=x11.env(screen.display))
     return {"clicked": {"id": element_id, "via": "pointer", "x": x, "y": y},
             "changes": _settle(screen, before, wait_ms)}
 
@@ -147,5 +147,5 @@ def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms:
         click(screen, element_id, via="pointer", **click_args)
     before = screen.last["view"] if screen.last else observe(screen, ocr="never")
     subprocess.run(["xdotool", "type", "--delay", "20", "--", text], check=True, capture_output=True,
-                   timeout=5 + len(text) / 20)
+                   timeout=5 + len(text) / 20, env=x11.env(screen.display))
     return {"typed": len(text), "changes": _settle(screen, before, wait_ms)}
