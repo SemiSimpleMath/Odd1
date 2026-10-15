@@ -15,10 +15,30 @@ in {
 
   networking.hostName = lib.mkForce "odd1";
 
-  # Claude Code, operated by the person using Odd1 with their own sign-in (it stays on this VM).
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "claude-code" ];
-  environment.systemPackages = [ pkgs.claude-code pkgs.nodejs ];
+  # Least friction: programs built for generic Linux run as they are (prebuilt binaries, pip wheels with native
+  # code, downloaded tools), not only Nix-built ones.
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = with pkgs; [ stdenv.cc.cc.lib zlib openssl glib libgcc ];
+  environment.localBinInPath = true;
+  environment.systemPackages = [ pkgs.nodejs ];
+
+  # Claude Code, operated by the person using Odd1 with their own sign-in (it stays on this VM). Installed with npm
+  # for the agent user so it keeps itself current; this unit only installs it when it is missing.
   environment.etc."claude-code/CLAUDE.md".source = ../CLAUDE.md;
+  systemd.services.odd1-claude-code-install = {
+    description = "Install Claude Code for the agent user if missing";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    path = [ pkgs.nodejs pkgs.bash ];
+    environment = config.networking.proxy.envVars;
+    serviceConfig = { Type = "oneshot"; User = "agent"; RemainAfterExit = true; };
+    script = ''
+      if [ ! -x "$HOME/.local/bin/claude" ]; then
+        npm install -g --prefix "$HOME/.local" @anthropic-ai/claude-code
+      fi
+    '';
+  };
 
   # This VM's identity at Orbit's egress gateway: "odd1" may reach Anthropic and npm (package registries otherwise).
   networking.proxy.default = lib.mkForce "http://odd1:x@10.0.2.100:3128";
