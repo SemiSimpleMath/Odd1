@@ -64,6 +64,28 @@ def test_press_prefers_click_and_text_writes_are_read_back():
         atspi_act.act(Node("password text", "Password"), "set-text", "hunter2")
 
 
+class LateAction(Action):
+    """Firefox web content: 0 actions until the page's process has answered the first query."""
+    def __init__(self, names, empty_reads): super().__init__(names); self.empty_reads = empty_reads
+    @property
+    def nActions(self):
+        if self.empty_reads:
+            self.empty_reads -= 1
+            return 0
+        return len(self.names)
+
+
+def test_firefox_button_action_arrives_late(monkeypatch):
+    monkeypatch.setattr(atspi_act.time, "sleep", lambda s: None)
+    button = Node("push button", "Submit")
+    button.action = LateAction(["press"], empty_reads=3)
+    assert atspi_act.act(button, "action") == {"action": "press"} and button.action.done == ["press"]
+    clock = iter(range(0, 100))
+    monkeypatch.setattr(atspi_act.time, "monotonic", lambda: next(clock))
+    with pytest.raises(ValueError, match="no actions"):
+        atspi_act.act(Node("section", "Text"), "action")
+
+
 def test_minimized_window_keeps_its_tree_and_auto_clicks_through_the_app(monkeypatch):
     x, atspi, _ = calculator()
     x["windows"][1]["states"] = ["hidden"]

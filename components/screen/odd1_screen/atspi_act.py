@@ -8,6 +8,7 @@ is an error, never a different element.
 """
 import json
 import sys
+import time
 
 from any_app import describe_accessible as da
 
@@ -34,10 +35,21 @@ def resolve(desktop, pid, frame, path, role, name):
     return node
 
 
+def action_names(action, wait_s=1.5, step_s=0.1):
+    """The element's action names. Firefox web content fills its accessibility cache on demand: the first query
+    asks the page's process for the actions and answers 0 until they arrive, so wait a moment before saying none."""
+    deadline = time.monotonic() + wait_s
+    while True:
+        names = [action.getName(i) for i in range(action.nActions)]
+        if names or time.monotonic() >= deadline:
+            return names
+        time.sleep(step_s)
+
+
 def act(node, op, value=None):
     if op == "action":
         action = node.queryAction()
-        names = [action.getName(i) for i in range(action.nActions)]
+        names = action_names(action)
         if not names:
             raise ValueError("element has no actions")
         wanted = [value] if value else PRESS

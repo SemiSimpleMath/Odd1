@@ -48,6 +48,8 @@ window from an offscreen capture (any-app's `screenshot`, XComposite), so covere
   minimized Calculator computed 9 × 9 = 81 and minimized FeatherPad took text, both through the app itself.
 - Firefox 146 accepts AT-SPI text writes into web form fields and applies none (focused or not); pressing works.
   Web forms belong to the `browser` component.
+- Firefox fills a web element's accessibility cache on demand: the first query of its actions answers 0 while it
+  asks the page's process, so `atspi_act` waits up to 1.5 s for actions before saying the element has none.
 
 ## Tests
 `python -m pytest components/screen/tests -q` runs offline anywhere (synthetic desktops: mapping choice, stable
