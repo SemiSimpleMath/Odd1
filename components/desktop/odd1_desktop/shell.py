@@ -1,15 +1,18 @@
-"""The Odd1 desktop shell: the chat column on the right, the wallpaper, and keeping apps out of the column.
+"""The Odd1 desktop shell: the chat column on the right, the wallpaper, the taskbar, and keeping apps out of both.
 
 Every window titled like a chat ("Claude Code") becomes part of the column: retyped as a dock window below the
 column's header, where apps cannot cover it. The header shows a tab per chat and a "New chat" button; the
 header's window carries the EWMH strut that reserves the column, so maximized windows and every app's work area
 stop at it. Docks get no focus from the window manager, so a click in the column focuses the shown chat here.
-New app windows that would overlap the column are moved into the work area once. Everything follows the screen
-size (Remote Desktop resizes the screen with the viewer's window).
+New app windows that would overlap the column are moved into the work area once. The taskbar (taskbar.py) shows
+what is running. The wallpaper goes to xfdesktop (which draws it and the desktop icons) and to the root window.
+Everything follows the screen size (Remote Desktop resizes the screen with the viewer's window).
 
 Window-manager independent (EWMH, XInput 2, RandR), so it runs on any X display.
 """
 import os
+import select
+import shutil
 import subprocess
 import time
 
@@ -17,6 +20,11 @@ from . import layout
 
 NEW_CHAT = "+  New chat"
 GENERIC_EVENT = 35  # X11 GenericEvent (XInput 2 events arrive as these)
+AGENT_POLL_S = 2  # how often the taskbar recounts the agent desktop's windows
+# Launchers put on the desktop once (the person may remove them): Files, the web, a terminal, documents, notes.
+DESKTOP_APPS = ("thunar.desktop", "firefox.desktop", "xfce4-terminal.desktop", "startcenter.desktop",
+                "org.xfce.mousepad.desktop", "org.gnome.Calculator.desktop")
+APPLICATIONS = "/run/current-system/sw/share/applications"
 
 
 def log(message):
@@ -30,11 +38,34 @@ def chat_command():
 
 
 def open_chat(cwd=None):
-    """A new chat window: a terminal titled like a chat (the shell docks it), running the chat command."""
+    """A new chat window: a terminal titled like a chat (the shell docks it), running the chat command. It runs in
+    its own systemd scope, so a chat outlives the shell (and the shell's restarts)."""
     command = f"{chat_command()}; exec bash"
-    subprocess.Popen(["xfce4-terminal", "--disable-server", f"--title={layout.CHAT_TITLES[0]}",
+    scope = ["systemd-run", "--user", "--scope", "--collect", "--quiet", f"--unit=odd1-chat-{time.time_ns()}"]
+    subprocess.Popen((scope if shutil.which("systemd-run") else []) + ["xfce4-terminal", "--disable-server", f"--title={layout.CHAT_TITLES[0]}",
                       f"--working-directory={cwd or os.path.expanduser('~')}", "-x", "bash", "-lc", command],
                      start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def seed_desktop(home=None, applications=APPLICATIONS, apps=DESKTOP_APPS):
+    """Put the default launchers on ~/Desktop, once (a marker remembers it, so removed ones stay removed).
+    Launchers there must be executable to be trusted (xfdesktop asks otherwise)."""
+    home = home or os.path.expanduser("~")
+    marker = os.path.join(home, ".local/share/odd1-desktop/seeded")
+    if os.path.exists(marker):
+        return []
+    desktop = os.path.join(home, "Desktop")
+    os.makedirs(desktop, exist_ok=True)
+    placed = []
+    for name in apps:
+        source, target = os.path.join(applications, name), os.path.join(desktop, name)
+        if os.path.exists(source) and not os.path.exists(target):
+            shutil.copyfile(source, target)
+            os.chmod(target, 0o755)
+            placed.append(name)
+    os.makedirs(os.path.dirname(marker), exist_ok=True)
+    open(marker, "w").close()
+    return placed
 
 
 def font(size, weight="SemiBold"):
@@ -73,6 +104,10 @@ class Shell:
         self.fitted = set()  # app windows already kept out of the column once
         self.tabs = []  # (x, width) of each tab in the header
         self.new_chat = (0, 0)  # (x, width) of the New chat button
+        self.wallpaper = None  # the current wallpaper image (the taskbar paints over it)
+        self.watched = set()  # client windows whose property changes we follow (state, title, icon)
+        from .taskbar import Taskbar
+        self.taskbar = Taskbar(self)
 
     # The column -----------------------------------------------------------------------------------------------
     def dock(self, window, box, strut=None):
@@ -164,9 +199,36 @@ class Shell:
 
     # The rest of the screen -----------------------------------------------------------------------------------
     def paint_wallpaper(self):
-        path = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), f"odd1-wallpaper-{self.name.lstrip(':')}.png")
-        layout.wallpaper(self.size, layout.dock_width(self.size[0])).save(path)
-        subprocess.run(["hsetroot", "-full", path], check=False, env={**os.environ, "DISPLAY": self.name})
+        """Draw the wallpaper for this size, set it on the root window and hand it to xfdesktop for every monitor
+        (a new file name per size, so xfdesktop reloads it)."""
+        width, height = self.size
+        folder = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "odd1-desktop")
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, f"wallpaper-{self.name.lstrip(':')}-{width}x{height}.png")
+        for old in os.listdir(folder):
+            if old.startswith(f"wallpaper-{self.name.lstrip(':')}-") and os.path.join(folder, old) != path:
+                os.remove(os.path.join(folder, old))
+        self.wallpaper = layout.wallpaper(self.size, layout.dock_width(width))
+        self.wallpaper.save(path)
+        env = {**os.environ, "DISPLAY": self.name}
+        subprocess.run(["hsetroot", "-full", path], check=False, env=env)
+        for monitor in self.monitors():
+            base = f"/backdrop/screen0/monitor{monitor}/workspace0"
+            for prop, kind, value in (("image-style", "int", "1"), ("last-image", "string", path)):
+                subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", f"{base}/{prop}", "-n", "-t", kind,
+                                "-s", value], check=False, env=env, stderr=subprocess.DEVNULL)
+
+    def monitors(self):
+        """Names of the connected outputs (xfdesktop keeps a backdrop per output name)."""
+        from Xlib.ext import randr
+        try:
+            resources = randr.get_screen_resources(self.root)
+            for output in resources.outputs:
+                info = randr.get_output_info(self.display, output, resources.config_timestamp)
+                if info.connection == 0:
+                    yield info.name
+        except Exception:
+            return
 
     def clients(self):
         listed = self.root.get_full_property(self.atom("_NET_CLIENT_LIST"), self.X.AnyPropertyType)
@@ -194,7 +256,7 @@ class Shell:
             return
         left, right, top, bottom = self.frame_extents(window)
         outer = (-origin.x - left, -origin.y - top, geometry.width + left + right, geometry.height + top + bottom)
-        fitted = layout.fit(outer, layout.work_area(self.size, self.top))
+        fitted = layout.fit(outer, layout.work_area(self.size, self.top, layout.taskbar_reserved()))
         if fitted:
             x, y, width, height = fitted
             from Xlib.protocol import event
@@ -208,7 +270,8 @@ class Shell:
         """The top bar's height: the largest top strut among the other docks (the panel)."""
         height = 0
         for window, _, kind in self.clients():
-            if self.atom("_NET_WM_WINDOW_TYPE_DOCK") in kind and window not in self.chats and window != self.header:
+            if (self.atom("_NET_WM_WINDOW_TYPE_DOCK") in kind and window not in self.chats
+                    and window not in (self.header, self.taskbar.window)):
                 partial = window.get_full_property(self.atom("_NET_WM_STRUT_PARTIAL"), self.X.AnyPropertyType)
                 if partial and len(partial.value) >= 3:
                     height = max(height, int(partial.value[2]))
@@ -225,17 +288,31 @@ class Shell:
                 self.dock(chat, layout.chat_box(size, top))
             self.paint_wallpaper()
             self.draw_header()
-        alive = set()
+        alive, apps, agents = set(), [], None
         normal = self.atom("_NET_WM_WINDOW_TYPE_NORMAL")
         for window, title, kind in self.clients():
             alive.add(window.id)
-            if window in self.chats or window == self.header:
+            if window in self.chats or window in (self.header, self.taskbar.window):
                 continue
             if layout.is_chat(title):
                 self.adopt(window)
-            elif window.id not in self.fitted and (not kind or normal in kind):
+                continue
+            if kind and normal not in kind:
+                continue
+            if window.id not in self.watched:
+                self.watched.add(window.id)
+                window.change_attributes(event_mask=self.X.PropertyChangeMask)
+            if title == layout.AGENT_DESKTOP_TITLE:
+                agents = window
+                continue
+            if self.atom("_NET_WM_STATE_SKIP_TASKBAR") not in self.taskbar.state(window):
+                apps.append((window, self.app_class(window), title))
+            if window.id not in self.fitted:
                 self.fitted.add(window.id)
                 self.keep_out_of_column(window)
+        for xid in self.watched - alive:
+            self.taskbar.forget_icon(xid)
+        self.watched &= alive
         gone = [chat for chat in self.chats if chat.id not in alive]
         if gone:
             self.chats = [chat for chat in self.chats if chat.id in alive]
@@ -244,7 +321,33 @@ class Shell:
                 if self.chats:
                     self.show(self.chats[-1])
             self.draw_header()
+        self.taskbar.update(apps, agents)
         self.display.flush()
+
+    # Windows ------------------------------------------------------------------------------------------------------
+    def app_class(self, window):
+        try:
+            names = window.get_wm_class()
+            return names[1] if names else ""
+        except Exception:
+            return ""
+
+    def client_message(self, window, kind, data):
+        from Xlib.protocol import event
+        message = event.ClientMessage(window=window, client_type=self.atom(kind), data=(32, data + [0] * (5 - len(data))))
+        self.root.send_event(message, event_mask=self.X.SubstructureRedirectMask | self.X.SubstructureNotifyMask)
+
+    def activate(self, window):
+        self.client_message(window, "_NET_ACTIVE_WINDOW", [2, self.X.CurrentTime, 0])  # 2: from a pager
+
+    def minimize(self, window):
+        self.client_message(window, "WM_CHANGE_STATE", [3])  # IconicState
+
+    def topmost(self, windows):
+        """The highest of these windows in the stacking order."""
+        stacking = self.root.get_full_property(self.atom("_NET_CLIENT_LIST_STACKING"), self.X.AnyPropertyType)
+        order = {xid: index for index, xid in enumerate(stacking.value if stacking else [])}
+        return max(windows, key=lambda window: order.get(window.id, -1))
 
     def pointer_in_chat(self):
         pointer = self.root.query_pointer()
@@ -253,12 +356,42 @@ class Shell:
 
     def serve(self):
         X = self.X
+        try:
+            seed_desktop()
+        except OSError as error:
+            log(f"desktop launchers: {error}")
         self.layout()
         watched = {self.atom("_NET_CLIENT_LIST"), self.atom("_NET_WORKAREA")}
+        redraw = {self.atom(name) for name in ("_NET_ACTIVE_WINDOW", "_NET_WM_STATE", "_NET_WM_NAME", "WM_NAME",
+                                               "_NET_WM_ICON")}
+        taskbar = self.taskbar.window
+        polled = time.monotonic()
         while True:
+            if not self.display.pending_events():
+                self.display.flush()
+                select.select([self.display], [], [], AGENT_POLL_S)
+            if time.monotonic() - polled >= AGENT_POLL_S:
+                polled = time.monotonic()
+                count = self.taskbar.count_agent_windows()
+                if count != self.taskbar.agent_count:
+                    self.layout()  # the Agents item's label and badge change
+            if not self.display.pending_events():
+                continue
             event = self.display.next_event()
             if event.type == X.Expose and self.header is not None and event.window == self.header:
                 self.draw_header()
+            elif event.type == X.Expose and event.window == taskbar:
+                self.taskbar.draw()
+            elif event.type == X.ButtonPress and event.window == taskbar:
+                self.taskbar.click(event.event_x)
+            elif event.type == X.MotionNotify and event.window == taskbar:
+                self.taskbar.motion(event.event_x)
+            elif event.type == X.LeaveNotify and event.window == taskbar:
+                self.taskbar.leave()
+            elif event.type == X.PropertyNotify and event.atom in redraw:
+                if event.atom == self.atom("_NET_WM_ICON"):
+                    self.taskbar.forget_icon(event.window.id)
+                self.layout()  # titles, minimized state or focus changed: the taskbar follows
             elif event.type == X.ButtonPress and self.header is not None and event.window == self.header:
                 self.click_header(event.event_x)
             elif event.type == GENERIC_EVENT and getattr(event, "evtype", None) == self.xinput.RawButtonPress:

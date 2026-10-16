@@ -49,4 +49,6 @@ def test_wallpaper_paints_the_chat_column():
     assert image.size == (1280, 800)
     assert image.getpixel((1000, 400)) == layout.CHAT_BACKGROUND
     assert image.getpixel((818, 400)) == layout.CHAT_EDGE
-    assert image.getpixel((10, 0)) == layout.WALLPAPER[0] and image.getpixel((10, 799)) == layout.WALLPAPER[1]
+    # The work area is dark (never a blinding white) and starts from the base colour where no field reaches.
+    assert all(max(image.getpixel((x, y))) < 150 for x in range(0, 818, 37) for y in range(0, 800, 41))
+    assert all(abs(a - b) <= 6 for a, b in zip(image.getpixel((10, 0)), layout.WALLPAPER[0]))

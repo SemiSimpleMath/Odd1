@@ -20,8 +20,6 @@
       <property name="plugin-ids" type="array">
         <value type="int" value="10"/>
         <value type="int" value="1"/>
-        <value type="int" value="2"/>
-        <value type="int" value="3"/>
         <value type="int" value="4"/>
         <value type="int" value="5"/>
         <value type="int" value="11"/>
@@ -70,17 +68,6 @@
     </property>
     <property name="plugin-11" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
-    </property>
-    <property name="plugin-2" type="string" value="separator">
-      <property name="style" type="uint" value="0"/>
-    </property>
-    <property name="plugin-3" type="string" value="tasklist">
-      <property name="show-labels" type="bool" value="true"/>
-      <property name="flat-buttons" type="bool" value="true"/>
-      <property name="show-handle" type="bool" value="false"/>
-      <property name="grouping" type="bool" value="false"/>
-      <property name="middle-click" type="uint" value="1"/>
-      <property name="window-scrolling" type="bool" value="false"/>
     </property>
     <property name="plugin-4" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
