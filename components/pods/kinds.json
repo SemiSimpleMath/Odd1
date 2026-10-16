@@ -1,0 +1,13 @@
+{
+  "note":         {"description": "text written by a person or an agent", "authority": 50},
+  "file":         {"description": "a file, by content (bytes kept in the blob store)", "authority": 50},
+  "image":        {"description": "a picture or screenshot (bytes in the blob store; body: a caption or OCR)", "authority": 50},
+  "audio":        {"description": "a recording (bytes in the blob store; body: a transcript)", "authority": 50},
+  "video":        {"description": "a video (bytes in the blob store; body: a summary)", "authority": 50},
+  "chat":         {"description": "a conversation or an excerpt of one", "authority": 50},
+  "skill":        {"description": "a skill (SKILL.md text, helpers as linked file pods)", "authority": 50},
+  "report":       {"description": "a result an agent produced (a journal entry, research, a review)", "authority": 50},
+  "secret.token": {"description": "an API key or token; agents handle it, never read it", "authority": 100, "secret": true},
+  "secret.password": {"description": "a password", "authority": 100, "secret": true},
+  "secret.card":  {"description": "a payment card number", "authority": 100, "secret": true}
+}

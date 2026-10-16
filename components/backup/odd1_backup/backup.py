@@ -83,7 +83,8 @@ def snapshot_state(root: Path = ROOT, state: Path = STATE, now: datetime | None 
     earlier = [p for p in state_snapshots(root) if p != final]
     _rsync(state, tmp / "files", STATE_EXCLUDE + ["*.db"], earlier[-1] / "files" if earlier else None)
     for db in sorted(state.glob("*/*.db")):
-        _db_copy(db, tmp / f"{db.parent.name}.db")
+        if f"/{db.parent.name}/" not in STATE_EXCLUDE:  # never the secret vault's database
+            _db_copy(db, tmp / f"{db.parent.name}.db")
     (tmp / "SNAPSHOT").write_text(f"state of {state} at {now.isoformat(timespec='seconds')}\n")
     return _finish(tmp, final)
 

@@ -49,6 +49,13 @@ def test_state_snapshot_restores_and_the_task_store_opens_it(world, tmp_path):
     Store(scratch / "tasks")  # the real task store opens (and migrates) a restored database
 
 
+def test_the_secret_vault_never_goes_into_a_plain_backup(world):
+    (world["state"] / "secrets").mkdir()
+    sqlite3.connect(world["state"] / "secrets" / "pods.db").execute("CREATE TABLE v(x)")
+    snap = backup.snapshot_state(world["root"], world["state"])
+    assert not (snap / "secrets.db").exists() and not (snap / "files" / "secrets").exists()
+
+
 def test_restoring_over_existing_state_moves_it_aside(world):
     snap = backup.snapshot_state(world["root"], world["state"])
     (world["state"] / "tasks" / "newer").write_text("made after the snapshot")
