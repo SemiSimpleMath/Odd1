@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xfce4-terminal" version="1.0">
   <property name="font-use-system" type="bool" value="false"/>
-  <property name="font-name" type="string" value="JetBrains Mono 10"/>
+  <!-- 12: easier on the person's eyes (asked 2026-10-16). -->
+  <property name="font-name" type="string" value="JetBrains Mono 12"/>
   <property name="misc-menubar-default" type="bool" value="false"/>
   <property name="misc-toolbar-default" type="bool" value="false"/>
   <property name="misc-borders-default" type="bool" value="true"/>
