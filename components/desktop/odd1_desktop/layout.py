@@ -15,9 +15,9 @@ WALLPAPER_FIELDS = (
     ((1.00, 0.85, 0.50), (200, 110, 90), 0.24),  # a warm glow, low right
     ((0.45, 0.45, 0.50), (60, 90, 170), 0.30),  # blue, centre
 )
-# The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (40% brightness), 85%
+# The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (65% brightness), 85%
 # opaque, 39% of the screen's height.
-WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.40, 0.85, 0.39
+WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.65, 0.85, 0.39
 CHAT_BACKGROUND, CHAT_EDGE = (23, 24, 28), (44, 46, 54)  # the chat column and its 1px left edge
 HEADER_HEIGHT = 34
 HEADER_TEXT, HEADER_TEXT_DIM, HEADER_ACCENT = (228, 228, 232), (138, 140, 150), (217, 119, 87)
