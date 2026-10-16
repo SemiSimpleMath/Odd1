@@ -4,3 +4,6 @@ vte-terminal { padding: 14px 16px 10px 18px; }
 /* Odd1: the menu button in the top bar reads as the system's name. */
 #whiskermenu-button { font-weight: 600; padding: 0 10px; }
 #whiskermenu-button label { margin-left: 6px; }
+
+/* Odd1: the maximized window's title in the top bar (windowck takes its colour from the plugin's own style). */
+#wcktitle-12, XfcePanelPlugin#wcktitle-12 { color: #E4E4E8; }

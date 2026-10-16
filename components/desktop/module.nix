@@ -51,6 +51,13 @@ let
     sed -i -e 's/^active_text_color=.*/active_text_color=#E4E4E8/' -e 's/^inactive_text_color=.*/inactive_text_color=#8A8C96/' \
       -e 's/^active_text_shadow_color=.*/active_text_shadow_color=#181A1D/' \
       -e 's/^inactive_text_shadow_color=.*/inactive_text_shadow_color=#202227/' themerc
+    # The same buttons for the maximized window's controls in the top bar (xfce4-windowck-plugin reads unity/).
+    mkdir ../unity
+    for state in unfocused:inactive focused_normal:active focused_prelight:prelight focused_pressed:pressed; do
+      for button in minimize:hide maximize:maximize unmaximize:maximize-toggled close:close; do
+        ln -s ../xfwm4/''${button#*:}-''${state#*:}.svg ../unity/''${button%:*}_''${state%:*}.svg
+      done
+    done
   '';
   xfconf = name: { "xdg/xfce4/xfconf/xfce-perchannel-xml/${name}".source = ./xfconf + "/${name}"; };
   # Odd1 owns these settings channels: the repository's defaults (xfconf/) apply at every session start, so a value
