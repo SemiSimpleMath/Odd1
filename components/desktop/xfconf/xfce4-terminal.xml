@@ -10,6 +10,8 @@
   <property name="misc-cursor-blinks" type="bool" value="false"/>
   <property name="misc-cursor-shape" type="string" value="TERMINAL_CURSOR_SHAPE_IBEAM"/>
   <property name="misc-show-unsafe-paste-dialog" type="bool" value="false"/>
+  <!-- Selecting text copies it (to the Remote Desktop viewer's clipboard too): Ctrl+C in a terminal interrupts. -->
+  <property name="misc-copy-on-select" type="bool" value="true"/>
   <property name="misc-confirm-close" type="bool" value="false"/>
   <property name="misc-default-geometry" type="string" value="100x32"/>
   <property name="misc-bell" type="bool" value="false"/>

@@ -59,6 +59,12 @@ def call_me(profile):
     return profile.get("call_me") or (profile.get("name") or "").split(" ")[0]
 
 
+def _object(profile):
+    """The pronoun for "call ___ X": from the person's pronouns (he/him -> him), else them."""
+    parts = [p.strip().lower() for p in (profile.get("pronouns") or "").split("/") if p.strip()]
+    return parts[1] if len(parts) > 1 else {"he": "him", "she": "her"}.get(parts[0] if parts else "", "them")
+
+
 def context(profile):
     """What a Claude Code session is told about the person when it starts."""
     name, short = profile.get("name"), call_me(profile)
@@ -67,7 +73,7 @@ def context(profile):
                 "`odd1-person set name ...`).")
     lines = ["About the person using this computer (their own settings: Menu > About you; `odd1-person`):"]
     if name and short and short != name:
-        lines.append(f"- Name: {name}. Call them {short}.")
+        lines.append(f"- Name: {name}. Call {_object(profile)} {short}.")
     else:
         lines.append(f"- Name: {name or short}.")
     lines.append(f"- Pronouns: {profile['pronouns']}." if profile.get("pronouns")
