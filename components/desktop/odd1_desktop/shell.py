@@ -22,12 +22,12 @@ NEW_CHAT = "+  New chat"
 GENERIC_EVENT = 35  # X11 GenericEvent (XInput 2 events arrive as these)
 AGENT_POLL_S = 2  # how often the taskbar recounts the agent desktop's windows
 # Launchers put on the desktop once (the person may remove them): Files, the web, a terminal, documents, notes,
-# sums; with plain names, and an icon the theme has where the app's own name for it is missing from Colloid.
+# sums; with plain names. LibreOffice keeps its own icon (Colloid draws it as a blank page).
 DESKTOP_APPS = {
     "thunar.desktop": {"Name": "Files"},
     "firefox.desktop": {},
     "xfce4-terminal.desktop": {"Name": "Terminal"},
-    "startcenter.desktop": {"Name": "LibreOffice", "Icon": "org.libreoffice.LibreOffice-startcenter"},
+    "startcenter.desktop": {"Name": "LibreOffice", "Icon": "/run/current-system/sw/share/icons/hicolor/256x256/apps/libreoffice-startcenter.png"},
     "org.xfce.mousepad.desktop": {"Name": "Text Editor"},
     "org.gnome.Calculator.desktop": {},
 }
