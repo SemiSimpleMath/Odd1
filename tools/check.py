@@ -39,6 +39,20 @@ def purpose(c: Path) -> str:
     return ""
 
 
+def files() -> list[Path]:
+    """What the repository holds or would take in a commit: tracked files and untracked ones git does not ignore (a
+    test run's __pycache__ is ignored, so it is not the repository's problem). Every path without git."""
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                             capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return list(ROOT.rglob("*"))
+    found = {ROOT / p for p in out.split("\0") if p}
+    folders = {ROOT / d for f in found for d in f.relative_to(ROOT).parents if str(d) != "."}
+    return sorted(found | folders)
+
+
 def unit_names(module: Path) -> list[str]:
     """systemd unit names a module.nix declares (systemd.services.NAME / systemd.user.services.NAME)."""
     names = []
@@ -74,7 +88,7 @@ def check() -> list[str]:
                 if unit in units:
                     problems.append(f"{name}: systemd unit {unit!r} is also declared by {units[unit]}")
                 units[unit] = name
-    for f in ROOT.rglob("*"):
+    for f in files():
         rel = f.relative_to(ROOT)
         if ".git" in rel.parts:
             continue

@@ -4,7 +4,8 @@
 
 let
   desktop = config.odd1.desktop.enable;
-  python = pkgs.python3.withPackages (p: [ p.pyatspi p.pygobject3 p.pillow p.tkinter ]);
+  # pytest: agents and checks run the repository's own tests (tools/tests) with the system python.
+  python = pkgs.python3.withPackages (p: [ p.pyatspi p.pygobject3 p.pillow p.tkinter p.pytest ]);
   # A display unit counts as started only once :0 answers, so units ordered after it never race the X server.
   waitForDisplay = pkgs.writeShellScript "odd1-display-wait" ''
     for _ in $(seq 100); do ${pkgs.xorg.xdpyinfo}/bin/xdpyinfo -display :0 >/dev/null 2>&1 && exit 0; sleep 0.1; done
