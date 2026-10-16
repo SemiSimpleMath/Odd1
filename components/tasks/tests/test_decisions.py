@@ -61,3 +61,12 @@ def test_decision_page_escalation_options_through_mcp(store, monkeypatch):
     out = mcp_server.tasks_escalate(t["id"], "pick one", OPTIONS, "Switch renderers")
     assert out["id"] == t["id"]
     assert pages.decision(store.show(t["id"]))["recommendation"] == "Switch renderers"
+
+
+def test_discuss_uses_the_column_s_chat_window_with_the_primer_as_its_first_message(store, monkeypatch):
+    monkeypatch.setattr(pages.shutil, "which", lambda name: "/bin/odd1-desktop" if name == "odd1-desktop" else None)
+    t = approved(store, "a decision", done_when="true")
+    store.escalate(t["id"], "manager", "approve or decline?", OPTIONS)
+    command = pages.discuss(store, t["id"])
+    assert command[:2] == ["odd1-desktop", "chat"] and "--command=claude" in command
+    assert command[-1].startswith("--prompt=") and "approve or decline?" in command[-1]

@@ -106,12 +106,16 @@ def primer(task: dict, page: Path) -> str:
 def discuss(store: Store, task_id: int, display: str | None = None) -> list[str]:
     """Open a chat in the chat column (a terminal with the chat role) primed with the ticket and its page."""
     task, page = store.show(task_id), write(store, task_id)
-    command = ["xfce4-terminal", "--disable-server", f"--title=Discuss #{task_id}", "--role=odd1-agent:claude",
-               "--working-directory=" + os.path.expanduser("~"), "-x", "bash", "-lc",
-               f"claude {_quote(primer(task, page))}; exec bash"]
+    if shutil.which("odd1-desktop"):  # the column's chat window: its bar docks it and holds its settings
+        command = ["odd1-desktop", "chat", f"--title=Discuss #{task_id}", "--role=odd1-agent:claude",
+                   "--cwd=" + os.path.expanduser("~"), "--command=claude", f"--prompt={primer(task, page)}"]
+    else:
+        command = ["xfce4-terminal", "--disable-server", f"--title=Discuss #{task_id}", "--role=odd1-agent:claude",
+                   "--working-directory=" + os.path.expanduser("~"), "-x", "bash", "-lc",
+                   f"claude {_quote(primer(task, page))}; exec bash"]
     env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE") and k != "ODD1_TASKS_AGENT"}
     env["DISPLAY"] = display or env.get("DISPLAY", ":0")
-    if shutil.which("xfce4-terminal"):
+    if shutil.which(command[0]):
         subprocess.Popen(command, env=env, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return command
 

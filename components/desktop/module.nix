@@ -5,13 +5,16 @@
 
 let
   cfg = config.odd1.desktop;
-  python = pkgs.odd1Python.withPackages (p: [ p.xlib p.pillow p.pytest ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.xlib p.pillow p.pytest p.pygobject3 ]);
+  # The chat window (odd1-desktop chat): GTK 3 and the VTE terminal widget through GObject introspection.
+  typelibs = with pkgs; [ gtk3 vte pango.out gdk-pixbuf at-spi2-core harfbuzz glib.out gobject-introspection ];
   tools = with pkgs; [ hsetroot xfce.xfce4-terminal fontconfig xfce.xfconf librsvg ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_MARK=${./logo/odd1-icon.svg}  # the owl, faint on the wallpaper
     export ODD1_LIBX11=${pkgs.xorg.libX11}/lib/libX11.so.6  # the shell turns XKB's audible bell off through it
     export PATH=${lib.makeBinPath tools}:$PATH
+    export GI_TYPELIB_PATH=${lib.makeSearchPath "lib/girepository-1.0" typelibs}''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}
   '';
   cli = pkgs.writeShellScriptBin "odd1-desktop" ''
     ${env}

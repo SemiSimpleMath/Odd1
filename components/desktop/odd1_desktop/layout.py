@@ -80,6 +80,21 @@ def fit(box, area, gap=12):
     return x, y, width, height
 
 
+# A chat's bar (chatwindow.py) docks it in the column or undocks it into a window of its own through this property on
+# its window: 1 in the column, 0 a window. An undocked chat opens in the middle of the work area.
+DOCK_PROPERTY = "_ODD1_CHAT_DOCK"
+UNDOCKED_SHARE = 0.7
+
+
+def undocked_box(area, others=0, step=32):
+    """(x, y, width, height) of a chat just undocked: 70% of the work area, centred in it, and stepped down and right
+    past the `others` already undocked (back to the centre after five)."""
+    ax, ay, aw, ah = area
+    width, height = round(aw * UNDOCKED_SHARE), round(ah * UNDOCKED_SHARE)
+    offset = (others % 5) * step
+    return ax + (aw - width) // 2 + offset, ay + (ah - height) // 2 + offset, width, height
+
+
 def is_chat(title, titles=CHAT_TITLES):
     return title in titles
 

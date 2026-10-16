@@ -86,10 +86,14 @@ def open_chat(cwd=None, agent="claude"):
         subprocess.Popen(scope + ["bash", "-lc", entry["command"]], cwd=cwd or os.path.expanduser("~"), env=env,
                          start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return
-    subprocess.Popen(scope + [
-        "xfce4-terminal", "--disable-server", f"--title={title}", f"--role={layout.AGENT_ROLE}{agent}",
-        f"--working-directory={cwd or os.path.expanduser('~')}", "-x", "bash", "-lc", command],
-        start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=chat_env(os.environ))
+    if shutil.which("odd1-desktop"):  # a chat window with its bar (dock/undock, this chat's settings)
+        args = ["odd1-desktop", "chat", f"--title={title}", f"--role={layout.AGENT_ROLE}{agent}",
+                f"--cwd={cwd or os.path.expanduser('~')}", f"--command={entry['command']}"]
+    else:
+        args = ["xfce4-terminal", "--disable-server", f"--title={title}", f"--role={layout.AGENT_ROLE}{agent}",
+                f"--working-directory={cwd or os.path.expanduser('~')}", "-x", "bash", "-lc", command]
+    subprocess.Popen(scope + args, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     env=chat_env(os.environ))
 
 
 def launcher(text, overrides):
@@ -201,6 +205,7 @@ class Shell:
         self.header = None
         self.chats = []  # chat windows in the order they opened
         self.chat_agents = {}  # chat window id -> its agent system's name
+        self.undocked = {}  # chat window id -> window: chats the person took out of the column (windows of their own)
         self.agents = load_agents()
         self.menu = None  # the New chat menu (an override-redirect window), while it is open
         self.menu_hover = None
@@ -263,6 +268,7 @@ class Shell:
         else:
             if not self.starting:
                 self.attention.add(window.id)
+            self.shown.configure(stack_mode=self.X.Above)  # the new one mapped over the chat its tab shows
             self.draw_header()
 
     def show(self, window, focus=True):
@@ -369,6 +375,56 @@ class Shell:
             window.send_event(message)
         else:
             window.destroy()  # a window that cannot be asked
+
+    def dock_wanted(self, window):
+        """A chat window's wish (chatwindow.py's bar sets it): True in the column, False a window of its own, None
+        when it says nothing (a plain terminal: the column)."""
+        try:
+            prop = window.get_full_property(self.atom(layout.DOCK_PROPERTY), self.X.AnyPropertyType)
+        except Exception:
+            return None
+        return bool(prop.value[0]) if prop and len(prop.value) else None
+
+    def undock(self, window):
+        """Take a chat out of the column: a normal window in the work area, framed by the window manager; its own
+        bar docks it again. The next chat takes the column."""
+        log(f"undock {window.id:#x}")
+        self.chats = [chat for chat in self.chats if chat.id != window.id]
+        self.attention.discard(window.id)
+        others = len(self.undocked)
+        self.undocked[window.id] = window
+        window.unmap()
+        self.display.sync()
+        time.sleep(0.2)
+        window.change_property(self.atom("_NET_WM_WINDOW_TYPE"), self.atom("ATOM"), 32,
+                               [self.atom("_NET_WM_WINDOW_TYPE_NORMAL")])
+        x, y, width, height = layout.undocked_box(layout.work_area(self.size, self.top, layout.taskbar_reserved()),
+                                                  others)
+        window.configure(x=x, y=y, width=width, height=height)
+        window.map()
+        self.display.sync()
+        time.sleep(0.2)
+        self.activate(window)
+        if self.shown is not None and self.shown.id == window.id:
+            self.shown = None
+            if self.chats:
+                self.show(self.chats[-1], focus=False)
+        self.draw_header()
+
+    def redock(self, window):
+        """Put an undocked chat back into the column, on top and with the keyboard (the person asked)."""
+        log(f"dock {window.id:#x}")
+        self.undocked.pop(window.id, None)
+        self.requested = time.monotonic()
+        self.adopt(window, self.chat_agents.get(window.id, layout.agent_name(self.role(window)) or "claude"))
+
+    def follow_dock(self, window):
+        """A chat's bar asked to dock or undock it."""
+        wanted = self.dock_wanted(window)
+        if wanted is False and any(chat.id == window.id for chat in self.chats):
+            self.undock(next(chat for chat in self.chats if chat.id == window.id))
+        elif wanted and window.id in self.undocked:
+            self.redock(self.undocked[window.id])
 
     # The New chat menu: one item per agent system ----------------------------------------------------------------
     def start_chat(self, agent):
@@ -564,9 +620,14 @@ class Shell:
             if window in self.chats or window in (self.header, self.taskbar.window):
                 continue
             agent = layout.agent_name(self.role(window))
-            if agent or layout.is_chat(title):
-                self.adopt(window, agent or "claude")
-                continue
+            if (agent or layout.is_chat(title)) and window.id not in self.undocked:
+                if self.dock_wanted(window) is False:  # undocked before the shell (re)started: it stays a window
+                    self.undocked[window.id] = window
+                    self.chat_agents[window.id] = agent or "claude"
+                    window.change_attributes(event_mask=self.X.PropertyChangeMask)
+                else:
+                    self.adopt(window, agent or "claude")
+                    continue
             if kind and normal not in kind:
                 continue
             if window.id not in self.watched:
@@ -580,6 +641,8 @@ class Shell:
             if window.id not in self.fitted:
                 self.fitted.add(window.id)
                 self.keep_out_of_column(window)
+        for xid in set(self.undocked) - alive:
+            del self.undocked[xid]
         for xid in self.watched - alive:
             self.taskbar.forget_icon(xid)
         self.watched &= alive
@@ -674,6 +737,8 @@ class Shell:
                 self.taskbar.motion(event.event_x)
             elif event.type == X.LeaveNotify and event.window == taskbar:
                 self.taskbar.leave()
+            elif event.type == X.PropertyNotify and event.atom == self.atom(layout.DOCK_PROPERTY):
+                self.follow_dock(event.window)
             elif event.type == X.PropertyNotify and event.atom in ringing and event.window in self.chats:
                 self.ring(event.window)
             elif event.type == X.PropertyNotify and event.atom in redraw:
