@@ -183,6 +183,8 @@ def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms:
     for start in range(0, len(text), TYPE_CHUNK):
         if _active_window(screen) != target:
             raise RuntimeError(f"stopped after {start} of {len(text)} characters: the focus moved to another window")
+        if window is not None and not consent.still_held(window["xid"]):
+            raise RuntimeError(f"stopped after {start} of {len(text)} characters: the person took back control")
         chunk = text[start:start + TYPE_CHUNK]
         subprocess.run(["xdotool", "type", "--delay", "20", "--", chunk], check=True, capture_output=True,
                        timeout=5 + len(chunk) / 20, env=x11.env(screen.display))

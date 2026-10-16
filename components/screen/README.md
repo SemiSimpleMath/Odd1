@@ -58,9 +58,11 @@ and skips without DISPLAY and the tools. On Odd1: `odd1-screen-test`.
 On the person's screen (`w` ids) a pointer click, typing or a window action asks them first, with a dialog on their
 screen (`consent.py`, GTK 3): "Claude wants to maximize "Mousepad"", the agent's `reason`, [Deny] [Allow for 5
 minutes]. It rings the bell, opens above everything without taking the keyboard focus (they may be typing; its
-buttons take no focus, so a stray Enter answers nothing), and waits up to 2 minutes; no answer is a no. A yes is a
-grant for that window held in the agent's own MCP server for 5 minutes, so a few steps on one window ask once.
-Each `odd1-screen window` command is its own process, so it asks every time. `person_approved=true` skips the dialog when the person already said yes in the chat. Accessibility actions
+buttons take no focus, so a stray Enter answers nothing), and waits up to 2 minutes; no answer is a no. A yes turns
+the dialog into a bar, "Claude is controlling "Mousepad" 4:59 left [Take back]", and the grant is that bar: the
+agent acts on that window only while it is open (a few steps ask once). It closes on Take back, when the minutes
+run out, or when the agent's MCP server exits; a take-back stops typing between chunks, and the agent may not ask
+about that window again for 5 minutes. Each `odd1-screen window` command is its own process, so it asks every time. `person_approved=true` skips the dialog when the person already said yes in the chat. Accessibility actions
 (`via="app"`, `screen_set_text`) and the agent desktop need no asking. `screen_type` types in chunks of 16
 characters and stops when the focus moves to another window.
 Limit: agents run as the same Unix user as the dialog, so the dialog is a courtesy agents keep, not a boundary
