@@ -114,7 +114,7 @@ def tell_person(store: Store, now: float | None = None, send=notify) -> list[dic
     new = [i for i in mine if now - told.get(i["key"], 0) > RENOTIFY_S]
     if new:
         title = new[0]["text"] if len(new) == 1 else f"{len(new)} things need you"
-        body = "Open Agents to decide." if len(new) == 1 else "\n".join(i["text"] for i in new[:5]) + (
+        body = "Open Agent Settings to decide." if len(new) == 1 else "\n".join(i["text"] for i in new[:5]) + (
             f"\n… and {len(new) - 5} more" if len(new) > 5 else "")
         send(title, body)
     told = {i["key"]: (now if i in new else told[i["key"]]) for i in mine}  # forget what is resolved

@@ -16,7 +16,7 @@ Milestone: M4 (agent-native OS: the user-facing assistant layer; agents and thei
   New chat offers, and the MCP servers every agent gets.
 
 ## Use
-`odd1-agents` (or **Agents** in the Odd1 menu) opens the window; `odd1-agents status [--json]` prints the overview
+`odd1-agents` (or **Agent Settings** on the desktop and in the Odd1 menu) opens the window; `odd1-agents status [--json]` prints the overview
 for scripts and agents. Agents can also operate the window itself: GTK 4 is accessible over AT-SPI (the `screen`
 component). It has no MCP server of its own: its changes are the task manager's (`tasks` MCP) and role files.
 

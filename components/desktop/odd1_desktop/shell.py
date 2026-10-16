@@ -22,8 +22,8 @@ from . import layout
 NEW_CHAT = "+  New chat"
 GENERIC_EVENT = 35  # X11 GenericEvent (XInput 2 events arrive as these)
 AGENT_POLL_S = 2  # how often the taskbar recounts the agent desktop's windows
-# Launchers put on the desktop once (the person may remove them): Files, the web, a terminal, documents, notes,
-# sums; with plain names. LibreOffice keeps its own icon (Colloid draws it as a blank page).
+# Launchers put on the desktop, each once (the person may remove them): Files, the web, a terminal, documents, notes,
+# sums, the agents' settings; with plain names. LibreOffice keeps its own icon (Colloid draws it as a blank page).
 DESKTOP_APPS = {
     "thunar.desktop": {"Name": "Files"},
     "firefox.desktop": {},
@@ -31,7 +31,11 @@ DESKTOP_APPS = {
     "startcenter.desktop": {"Name": "LibreOffice", "Icon": "/run/current-system/sw/share/icons/hicolor/256x256/apps/libreoffice-startcenter.png"},
     "org.xfce.mousepad.desktop": {"Name": "Text Editor"},
     "org.gnome.Calculator.desktop": {},
+    "odd1-agents.desktop": {},
 }
+# What an empty marker (seeding before it listed launchers) stands for.
+FIRST_SEEDED = ("thunar.desktop", "firefox.desktop", "xfce4-terminal.desktop", "startcenter.desktop",
+                "org.xfce.mousepad.desktop", "org.gnome.Calculator.desktop")
 APPLICATIONS = "/run/current-system/sw/share/applications"
 
 
@@ -133,24 +137,32 @@ def silence(screen, name, libx11=None):
 
 
 def seed_desktop(home=None, applications=APPLICATIONS, apps=DESKTOP_APPS):
-    """Put the default launchers on ~/Desktop, once (a marker remembers it, so removed ones stay removed).
-    Launchers there must be executable to be trusted (xfdesktop asks otherwise)."""
+    """Put each default launcher on ~/Desktop once: a marker lists the ones placed, so removed ones stay removed and
+    launchers added to DESKTOP_APPS later still arrive. Launchers there must be executable to be trusted (xfdesktop
+    asks otherwise)."""
     home = home or os.path.expanduser("~")
     marker = os.path.join(home, ".local/share/odd1-desktop/seeded")
-    if os.path.exists(marker):
-        return []
+    try:
+        with open(marker) as f:
+            done = set(f.read().split()) or set(FIRST_SEEDED)
+    except FileNotFoundError:
+        done = set()
     desktop = os.path.join(home, "Desktop")
-    os.makedirs(desktop, exist_ok=True)
     placed = []
     for name in apps:
         source, target = os.path.join(applications, name), os.path.join(desktop, name)
-        if os.path.exists(source) and not os.path.exists(target):
+        if name in done or not os.path.exists(source):
+            continue
+        if not os.path.exists(target):
+            os.makedirs(desktop, exist_ok=True)
             with open(source) as original, open(target, "w") as copy:
-                copy.write(launcher(original.read(), dict(apps).get(name) or {}))
+                copy.write(launcher(original.read(), apps.get(name) or {} if isinstance(apps, dict) else {}))
             os.chmod(target, 0o755)
             placed.append(name)
+        done.add(name)
     os.makedirs(os.path.dirname(marker), exist_ok=True)
-    open(marker, "w").close()
+    with open(marker, "w") as f:
+        f.write("".join(f"{name}\n" for name in sorted(done)))
     return placed
 
 

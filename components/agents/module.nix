@@ -23,10 +23,11 @@ let
     export PYTHONDONTWRITEBYTECODE=1
     exec ${python}/bin/python3 -m pytest -q ${./.}/tests -p no:cacheprovider "$@"
   '';
-  # In the Odd1 menu (and its Favorites, desktop/xfconf/xfce4-panel.xml) as "Agents".
+  # In the Odd1 menu (and its Favorites, desktop/xfconf/xfce4-panel.xml) and on the desktop as "Agent Settings" (the
+  # taskbar's "Agents" is the agent desktop).
   launcher = pkgs.makeDesktopItem {
     name = "odd1-agents";
-    desktopName = "Agents";
+    desktopName = "Agent Settings";
     comment = "Health and settings of every agent: roles, tasks, Claude Code";
     exec = "${cli}/bin/odd1-agents";
     icon = "odd1";

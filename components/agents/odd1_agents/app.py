@@ -1,4 +1,4 @@
-"""The Agents app: one window for the health and settings of every agent system (GTK 4, libadwaita).
+"""The Agent Settings app: one window for the health and settings of every agent system (GTK 4, libadwaita).
 
 Pages: Overview (each role, today, what waits for you, the machine), Tasks (approve, stop, unblock, leave notes),
 Roles (on/off, budgets, model, tags; their files), Claude Code (version and update, the agent systems in the chat
@@ -70,7 +70,7 @@ class Section:
 
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Agents", default_width=1040, default_height=740)
+        super().__init__(application=app, title="Agent Settings", default_width=1040, default_height=740)
         self.store = Store()
         self.toasts = Adw.ToastOverlay()
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
@@ -88,7 +88,7 @@ class Window(Adw.ApplicationWindow):
         sidebar.connect("row-selected", lambda _, r: r and self.show_page(r.get_name()))
         side = Adw.ToolbarView(content=sidebar)
         side.add_top_bar(Adw.HeaderBar())
-        split = Adw.NavigationSplitView(sidebar=Adw.NavigationPage(title="Agents", child=side), content=self.content)
+        split = Adw.NavigationSplitView(sidebar=Adw.NavigationPage(title="Agent Settings", child=side), content=self.content)
         self.toasts.set_child(split)
         self.set_content(self.toasts)
         self.sidebar = sidebar

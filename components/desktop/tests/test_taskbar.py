@@ -64,6 +64,20 @@ def test_desktop_launchers_are_seeded_once_and_executable(tmp_path):
     assert launcher.stat().st_mode & 0o111 and "Name=Web" in launcher.read_text()
     launcher.unlink()  # the person removed it: it stays removed
     assert shell.seed_desktop(str(home), str(apps), ("firefox.desktop",)) == [] and not launcher.exists()
+    (apps / "odd1-agents.desktop").write_text("[Desktop Entry]\nName=Agent Settings\n")  # a launcher added later
+    assert shell.seed_desktop(str(home), str(apps), ("firefox.desktop", "odd1-agents.desktop")) == [
+        "odd1-agents.desktop"] and not launcher.exists()
+
+
+def test_an_empty_marker_from_earlier_seeding_counts_as_the_first_launchers(tmp_path):
+    apps, home = tmp_path / "applications", tmp_path / "home"
+    apps.mkdir()
+    for name in ("firefox.desktop", "odd1-agents.desktop"):
+        (apps / name).write_text("[Desktop Entry]\n")
+    (home / ".local/share/odd1-desktop").mkdir(parents=True)
+    (home / ".local/share/odd1-desktop/seeded").write_text("")
+    assert shell.seed_desktop(str(home), str(apps), ("firefox.desktop", "odd1-agents.desktop")) == [
+        "odd1-agents.desktop"]
 
 
 def test_launcher_overrides_replace_keys_and_drop_their_translations():

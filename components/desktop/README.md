@@ -8,8 +8,9 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
   and the date and time. A maximized window has no title bar of its own (xfwm4 `titleless_maximize`): its title
   follows the menu and its buttons sit in the bar (xfce4-windowck-plugin). Other windows keep a dark title bar.
 - Desktop: a dark wallpaper (navy lit by soft colour fields, drawn per screen size, the Odd1 owl dimmed into its
-  middle) and launcher icons from
-  `~/Desktop` (xfdesktop). Files, Firefox, Terminal, LibreOffice, Text Editor and Calculator are put there once.
+  middle) and launcher icons from `~/Desktop` (xfdesktop). Files, Firefox, Terminal, LibreOffice, Text Editor,
+  Calculator and Agent Settings are put there, each once (`~/.local/share/odd1-desktop/seeded` lists them: a removed
+  one stays removed, a new one still arrives).
 - Taskbar (floating, bottom of the work area): what is running. One item per app of the person's; **one Agents
   item** for everything agents run on the agent desktop (badge: how many windows; click shows or hides it); one
   item per chat in the column. Hover names an item; clicking an app brings it forward or, if focused, minimizes it.
