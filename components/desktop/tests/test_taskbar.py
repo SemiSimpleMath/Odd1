@@ -95,3 +95,10 @@ def test_silence_turns_the_bell_volume_to_zero_and_reports_a_missing_display():
 def test_chats_are_labelled_with_their_agent_system():
     items = layout.taskbar_items([], (None, 0), ["a", "b", "c"], ["Claude", "Task manager", "Claude"])
     assert [label for _, _, label in items] == ["Claude 1", "Task manager", "Claude 2"]
+
+
+def test_a_new_chat_does_not_inherit_the_callers_claude_session():
+    env = shell.chat_env({"PATH": "/bin", "DISPLAY": ":0", "CLAUDECODE": "1", "CLAUDE_CODE_CHILD_SESSION": "1",
+                          "CLAUDE_CODE_MESSAGING_TOKEN": "t", "CLAUDE_PID": "7", "CLAUDE_EFFORT": "low",
+                          "ANTHROPIC_MODEL": "x"})
+    assert env == {"PATH": "/bin", "DISPLAY": ":0", "ANTHROPIC_MODEL": "x"}

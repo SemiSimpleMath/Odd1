@@ -59,6 +59,13 @@ def load_agents():
     return dict(sorted(agents.items(), key=lambda item: item[0] != "claude"))
 
 
+def chat_env(environ):
+    """The environment a new chat starts with: the caller's, without Claude Code's session markers (CLAUDECODE,
+    CLAUDE_CODE_*, CLAUDE_PID, CLAUDE_EFFORT, ...). A chat an agent opens for the person is the person's own session,
+    not a child of that agent's (a child keeps no transcript, and would share its messaging socket)."""
+    return {key: value for key, value in environ.items() if not key.startswith("CLAUDE")}
+
+
 def open_chat(cwd=None, agent="claude"):
     """A new chat window with an agent system: a terminal carrying the role odd1-agent:<name> (the shell docks it
     and labels its tab), running the system's command. It runs in its own systemd scope, so a chat outlives the
@@ -71,7 +78,7 @@ def open_chat(cwd=None, agent="claude"):
     subprocess.Popen((scope if shutil.which("systemd-run") else []) + [
         "xfce4-terminal", "--disable-server", f"--title={title}", f"--role={layout.AGENT_ROLE}{agent}",
         f"--working-directory={cwd or os.path.expanduser('~')}", "-x", "bash", "-lc", command],
-        start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=chat_env(os.environ))
 
 
 def launcher(text, overrides):
