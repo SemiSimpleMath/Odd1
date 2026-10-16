@@ -25,6 +25,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 | any-app | ★ | Any window as JSON: AT-SPI tree when available, OCR words otherwise | app_describe, app_ocr, app_screenshot |
 | any-app-broker | ★ | Private Xvfb sessions driven through a capability-gated broker (test harness for now) | (planned) |
 | intent | M4 | Plain-words file intents: plan, approve per action, apply transactionally, verify, undo | intent_plan/apply/undo/history |
+| tasks | M4 | Persistent work for role agents (housekeeper, update-watcher): store with enforced rules, a runner per role | tasks_create/list/show/approve/claim/renew/release/log/finish |
 | caretaker | M1 | Machine health and foreground pressure (PSI, cgroups); restarts listed failed units | caretaker_status/pressure/repair |
 
 ## Connections
@@ -37,3 +38,6 @@ Every component's agent entry point is an MCP server of the same name, registere
   Its apps run in `odd1-agent.slice`, which `caretaker` can deprioritize or freeze for the person.
 - `intent` is the safe hands for file changes: plan -> approve -> apply -> undo.
 - `caretaker` watches pressure; giving the foreground program slack and pausing background agents is its next step (M2).
+- `tasks` is the agent process manager: `odd1-tasks-runner@<role>` starts Claude Code headless per approved task, under
+  the role's permissions and budgets; tasks are proposed by anyone, approved by the person. Its runs' cost and
+  failures are the structured source `caretaker` should watch; budgets beyond turns and minutes grow there.

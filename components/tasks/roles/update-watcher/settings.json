@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep",
+      "Bash(python3 check-versions.py)", "Bash(claude --version)", "Bash(npm view:*)", "Bash(date:*)",
+      "Write(./reports/**)", "Edit(./reports/**)",
+      "mcp__tasks__tasks_show", "mcp__tasks__tasks_list", "mcp__tasks__tasks_log",
+      "mcp__tasks__tasks_create", "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish"
+    ],
+    "deny": ["mcp__tasks__tasks_approve", "mcp__tasks__tasks_claim", "Bash(npm install:*)", "Bash(npm i:*)",
+             "Bash(npm update:*)", "Bash(pip:*)", "Bash(nixos-rebuild:*)", "WebSearch"]
+  }
+}

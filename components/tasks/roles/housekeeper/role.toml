@@ -1,0 +1,11 @@
+# The housekeeper role. Edit freely; the runner rereads this file before each task (no rebuild needed).
+tags = ["housekeeping"]   # it claims only tasks whose every tag is in this list
+runs_per_day = 4          # at most this many runs in any 24 hours
+max_turns = 25            # cap on any task's turn budget
+max_minutes = 10          # cap on any task's time budget
+model = ""                # empty: Claude Code's default model
+
+[[starter]]               # created once as proposed; runs after `odd1-tasks approve ID`
+goal = "Today's disk use is reported in reports/YYYY-MM-DD.md and old files in ~/.cache and /tmp are cleaned."
+done_when = "test -s reports/$(date +%F).md"
+resources = ["/home/agent/.cache", "/tmp"]
