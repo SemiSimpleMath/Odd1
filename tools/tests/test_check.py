@@ -95,3 +95,14 @@ def test_private_data_keys_tokens_and_addresses_outside_host_files(tmp_path):
     out = run_with(repo, tmp_path)
     assert "id: holds a private key" in out.stdout and "a private network address" in out.stdout
     assert "an API token" in out.stdout and "vm.nix" not in out.stdout
+
+
+def test_check_flags_wiki_pages_naming_what_does_not_exist(tmp_path):
+    repo = make_repo(tmp_path)
+    (repo / "components" / "thing" / "module.nix").write_text('cli = pkgs.writeShellScriptBin "odd1-thing" "";\n')
+    (repo / "wiki").mkdir()
+    (repo / "wiki" / "index.md").write_text("Run `odd1-thing`; see `components/thing/README.md`.\n")
+    assert run(repo).returncode == 0
+    (repo / "wiki" / "index.md").write_text("Run `odd1-gone`; see `components/gone/README.md`.\n")
+    out = run(repo)
+    assert "names `odd1-gone`" in out.stdout and "names `components/gone/README.md`" in out.stdout

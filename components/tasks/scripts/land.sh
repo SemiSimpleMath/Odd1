@@ -14,6 +14,8 @@ exec 9>"$repo/.git/odd1-land.lock"; flock 9   # one landing at a time
 cd "$wt"
 [ -z "$(git status --porcelain)" ] || { echo "commit your work first (git status is not clean)" >&2; exit 2; }
 git rebase main
+# Decision records (wiki/decisions/) are the person's: they land only with a person's approval of this task.
+odd1-tasks may-land "${ODD1_TASKS_TASK:?run it from a task}" $(git diff --name-only main...HEAD) || exit 4
 odd1-tasks-check "$@"
 branch=$(git rev-parse --abbrev-ref HEAD)
 # Changes nothing and fails if main moved meanwhile or a local edit in the shared checkout is in the way.

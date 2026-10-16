@@ -26,6 +26,7 @@
     odd1-tasks close ID REASON           a person closes a ready, blocked or parked ticket as done
     odd1-tasks reopen ID REASON          a person reopens a done ticket
     odd1-tasks recheck [ID]              check tickets closed by check again; flag those failing now
+    odd1-tasks may-land ID FILE...       may a branch with these changed files land for task ID (decision records)
     odd1-tasks routines [--json]         the cron manager's routines, their schedules and tasks
     odd1-tasks cron [--watch]            sync routines with their recurring tasks (the cron manager; no model calls)
 
@@ -90,6 +91,9 @@ def _closing(args: list[str]) -> int:
 
 def main(argv=None) -> int:
     args = sys.argv[1:] if argv is None else list(argv)
+    if args[:1] == ["may-land"]:
+        from . import landing
+        return landing.main(args[1:])
     if args[:1] in (["close-by-check"], ["close"], ["reopen"], ["recheck"]):
         return _closing(args)
     if args[:1] in (["cron"], ["routines"]):

@@ -1,0 +1,13 @@
+# How a change reaches the system
+1. Change the repository (`/srv/odd1`), in your own git worktree when you are a role (`odd1-tasks` gives fixer and
+   updater tasks one). One component per folder under `components/` (CONVENTIONS.md).
+2. Check: `python tools/check.py` (the repository's shape; it also refuses personal data, secrets and direct
+   system rebuilds), and the component's tests. Roles run `odd1-tasks-check`, which builds the whole system.
+3. Commit on main (roles: `odd1-tasks-land`, which rebases, checks again and fast-forwards main).
+4. Deploy: `odd1-deploy`. It builds a clean, read-only export of one commit on main plus this install's local
+   settings (`/srv/odd1-local`), switches, then proves itself: no unit failed that was fine before, and the changed
+   components' installed tests pass. Otherwise it rolls back on its own. `odd1-deploy status` says what runs;
+   `odd1-deploy rollback` goes back one.
+- Never activate a system built straight from `/srv/odd1` with nixos-rebuild: it is refused (the working tree holds other sessions' unfinished
+  edits). The person's override is `odd1-deploy --force`, at a terminal, logged.
+- Details: `components/deploy/README.md`, rule [0007](decisions/0007-only-committed-work-ships.md).

@@ -161,6 +161,27 @@ def check() -> list[str]:
                 DIRECT_DEPLOY.search(f.read_text(encoding="utf-8", errors="replace")):
             problems.append(f"{rel}: activates a system with nixos-rebuild directly; deploy with odd1-deploy "
                             "(it ships a clean release of a commit, never uncommitted work)")
+    problems += stale_wiki()
+    return problems
+
+
+def stale_wiki() -> list[str]:
+    """Wiki pages that name an odd1-... command no module installs, or a repository path that does not exist."""
+    wiki = ROOT / "wiki"
+    if not wiki.is_dir():
+        return []
+    known = set()
+    for module in [*ROOT.glob("components/*/module.nix"), *ROOT.glob("nix/*.nix")]:
+        known |= set(re.findall(r"odd1-[a-z0-9-]+", module.read_text(encoding="utf-8", errors="replace")))
+    problems = []
+    for page in sorted(wiki.rglob("*.md")):
+        text = page.read_text(encoding="utf-8", errors="replace")
+        rel = page.relative_to(ROOT)
+        for cmd in sorted(set(re.findall(r"`(odd1-[a-z0-9-]+)", text)) - known):
+            problems.append(f"{rel}: names `{cmd}`, which no module installs: fix the page")
+        for path in sorted(set(re.findall(r"`((?:components|nix|tools|wiki)/[^`\s]*)`", text))):
+            if not (ROOT / path.rstrip("/")).exists():
+                problems.append(f"{rel}: names `{path}`, which does not exist: fix the page")
     return problems
 
 

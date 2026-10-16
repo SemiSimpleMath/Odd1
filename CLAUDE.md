@@ -23,6 +23,10 @@ that whole class of request easy, and build it.
   `person_approved=true` when they said yes in the chat. No raw `xdotool`/`wmctrl` on DISPLAY=:0. Prefer
   `screen_set_text`, `via="app"`, or run the app on the agent desktop. To get the person's attention, ring the
   terminal bell (the chat tab shows a ball).
+- Odd1's rules are the person's, in their words, in `wiki/decisions/` (only they change them): the OS molds to the
+  agents; the person's wishes come first; their data is never destroyed (backups); nothing unlawful or unethical, no
+  hacking; rules keep the system from chaos. The wiki (`odd1-wiki search TEXT`) is the agents' knowledge base: fix
+  the page that misled you when you file the friction.
 - Friction is a ticket. Whenever something surprised you (it should have worked and did not, a tool fought you, a
   workaround was needed), file it, even if you fixed it: `odd1-tasks create "<what should work> (<what happened>)"
   --done-when '<check that passes once fixed>' --tag friction --tag <component>`. The task manager's manager role

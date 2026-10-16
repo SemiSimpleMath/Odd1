@@ -86,3 +86,17 @@ def test_verify_ready_close_and_reopen_are_the_persons_with_a_reason(store, runn
     assert "error" in mcp_server.tasks_close_by_check(t["id"])
     monkeypatch.delenv("ODD1_TASKS_AGENT")
     assert mcp_server.tasks_reopen(t["id"], "not done after all")["status"] == "ready"
+
+
+def test_decision_records_need_the_persons_approval_to_land(store):
+    from odd1_tasks import landing
+    by_person = approved(store, done_when="true")
+    t = store.create("A rule change", "true", ["friction"], actor="fixer")
+    roles.seed(store, "manager")
+    store.db.execute("UPDATE agents SET decides = '[\"friction\"]' WHERE name = 'manager'")
+    by_agent = store.approve(t["id"], "manager")
+    rules = ["wiki/decisions/0002-the-persons-wishes-come-first.md", "components/x.py"]
+    assert landing.decision_records_need_the_person(store.show(by_person["id"]), rules) is None
+    refused = landing.decision_records_need_the_person(store.show(by_agent["id"]), rules)
+    assert "decision records are the person's" in refused and "approved by manager" in refused
+    assert landing.decision_records_need_the_person(store.show(by_agent["id"]), ["wiki/index.md"]) is None
