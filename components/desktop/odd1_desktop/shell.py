@@ -23,7 +23,8 @@ NEW_CHAT = "+  New chat"
 GENERIC_EVENT = 35  # X11 GenericEvent (XInput 2 events arrive as these)
 AGENT_POLL_S = 2  # how often the taskbar recounts the agent desktop's windows
 # Launchers put on the desktop, each once (the person may remove them): Files, the web, a terminal, documents, notes,
-# sums, the agents' settings; with plain names. LibreOffice keeps its own icon (Colloid draws it as a blank page).
+# sums, the agents' settings; with plain names. LibreOffice keeps its own icon (Colloid draws it as a blank page); the
+# owl is given by path (xfdesktop drew a generic icon for the theme name "odd1").
 DESKTOP_APPS = {
     "thunar.desktop": {"Name": "Files"},
     "firefox.desktop": {},
@@ -31,7 +32,7 @@ DESKTOP_APPS = {
     "startcenter.desktop": {"Name": "LibreOffice", "Icon": "/run/current-system/sw/share/icons/hicolor/256x256/apps/libreoffice-startcenter.png"},
     "org.xfce.mousepad.desktop": {"Name": "Text Editor"},
     "org.gnome.Calculator.desktop": {},
-    "odd1-agents.desktop": {},
+    "odd1-agents.desktop": {"Icon": "/run/current-system/sw/share/icons/hicolor/scalable/apps/odd1.svg"},
 }
 # What an empty marker (seeding before it listed launchers) stands for.
 FIRST_SEEDED = ("thunar.desktop", "firefox.desktop", "xfce4-terminal.desktop", "startcenter.desktop",
