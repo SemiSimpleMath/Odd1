@@ -108,6 +108,15 @@ BEGIN SELECT RAISE(ABORT, 'parked only after the retries are used up'); END;
 """
 
 
+PERSON_ONLY = frozenset({"needs-person", "manage"})  # tasks tagged so are decided by a person, whatever is delegated
+
+
+def covers(decides, tags) -> bool:
+    """Whether a role delegated `decides` may decide a task with `tags`: one of its tags is delegated (the kind of
+    work, e.g. "friction" on a ["friction", "desktop"] ticket) and none is a person's only."""
+    return bool(set(decides) & set(tags)) and not PERSON_ONLY & set(tags)
+
+
 class TaskError(Exception):
     """A rule refused the operation; the message says which."""
 
@@ -241,13 +250,13 @@ class Store:
         return t
 
     def may_decide(self, actor: str, t: dict) -> bool:
-        """A person decides anything. An agent decides (approve, decline, unblock, cancel) only tasks whose every tag
-        a person delegated to it (agents.decides, from its role.toml), and never a task it proposed itself."""
+        """A person decides anything. An agent decides (approve, decline, unblock, cancel) only tasks of a kind a
+        person delegated to it (`covers`: agents.decides, from its role.toml), and never a task it proposed itself."""
         if is_person(actor):
             return True
         r = self.db.execute("SELECT decides FROM agents WHERE name = ?", (actor,)).fetchone()
         decides = set(json.loads(r["decides"])) if r else set()
-        return bool(decides) and set(t["tags"]) <= decides and t["created_by"] != actor
+        return covers(decides, t["tags"]) and t["created_by"] != actor
 
     def _authority(self, actor: str, t: dict) -> None:
         if not self.may_decide(actor, t):

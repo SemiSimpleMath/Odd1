@@ -75,6 +75,11 @@ def test_a_role_decides_only_what_a_person_delegated_and_never_its_own(managed):
             store.approve(task["id"], "manager")
     with pytest.raises(TaskError, match="may not decide"):
         store.decline(own["id"], "housekeeper", "no")  # a role with no `decides` decides nothing
+    ticket = store.create("A tool fought me", "true", ["friction", "desktop"], actor="housekeeper")
+    assert store.decline(ticket["id"], "manager", "duplicate of #3")["status"] == "declined"  # one tag delegated
+    mixed = store.create("Delete it", "true", ["friction", "needs-person"], actor="housekeeper")
+    with pytest.raises(TaskError, match="may not decide"):
+        store.approve(mixed["id"], "manager")  # needs-person is never delegated
 
 
 def test_attention_routes_routine_to_the_manager_and_the_rest_to_the_person(managed):
@@ -85,6 +90,8 @@ def test_attention_routes_routine_to_the_manager_and_the_rest_to_the_person(mana
     assert who(store, routine["id"]) == "manager"
     assert who(store, risky["id"]) == "person"
     assert who(store, orphan["id"]) == "person"  # approved, but no role takes apply-update
+    backlog = approved(store, "A ticket", tags=["friction", "desktop"])
+    assert who(store, backlog["id"]) is None  # approved friction is backlog for people's chats: nobody's decision
     store.escalate(routine["id"], "manager", "it deletes logs the person may want")
     assert who(store, routine["id"]) == "person"
     store.log(routine["id"], PERSON, "fine, go ahead")  # a person acted: the escalation is answered

@@ -29,7 +29,8 @@ max_minutes), depends_on, resources (paths/services it changes), schedule (`1d`,
 claim (claim_agent, lease_until), attempts/max_attempts (3), and the append-only `log` table. Read and change it with
 SQL if you like (`agents` holds each role's tags); triggers hold the rules for every writer:
 - New tasks start **proposed** and need a decision: a person's, or an agent's within the tags a person delegated to
-  it (`decides` in its role.toml; never a task it proposed). Declining and cancelling (with a reason) work the same. Each later run of an approved recurring
+  it (`decides` in its role.toml: a task is the agent's to decide when one of its tags is delegated and none is
+  `needs-person` or `manage`; never a task it proposed). Declining and cancelling (with a reason) work the same. Each later run of an approved recurring
   task is created **ready** without asking again, one open run at a time.
 - proposed>ready>claimed>verifying>done; proposed>declined; open work (and a recurring task's series)>cancelled; claimed>ready (release, or lease expired) | blocked; blocked>ready (a
   person approves again); verifying>ready (attempts left) | parked (used up). Nothing is deleted; approved tasks
@@ -64,7 +65,8 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
 (`.seeded` records what was copied). The console folder is seeded the same way.
 - **housekeeper** (`housekeeping`): reports disk use; deletes only through `clean.sh` (files owned by agent unchanged
   for over 7 days, in ~/.cache or /tmp). Anything else it would delete becomes a proposal tagged `needs-person`.
-- **manager** (`manage`; decides `housekeeping`, `updates`): approves or declines routine proposals, unblocks or
+- **manager** (`manage`; decides `housekeeping`, `updates`, `friction`; `backlog_tags = ["friction"]`: approved
+  tickets wait for people and their chats, they are not orphans): approves or declines routine proposals, unblocks or
   cancels, escalates anything irreversible, costly or unclear. Only a person approves its own starter.
 - **update-watcher** (`updates`): a daily recurring task; `check-versions.py` compares Claude Code (npm) and the
   Python packages components install (from the Nix build, `/etc/odd1/tasks/python-packages.json`; PyPI) and it

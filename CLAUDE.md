@@ -22,5 +22,5 @@ that whole class of request easy, and build it.
   app on the agent desktop. To get the person's attention, ring the terminal bell (the chat tab shows a ball).
 - Friction is a ticket. Whenever something surprised you (it should have worked and did not, a tool fought you, a
   workaround was needed), file it, even if you fixed it: `odd1-tasks create "<what should work> (<what happened>)"
-  --done-when '<check that passes once fixed>' --tag friction --tag <component>`. A person approves tickets; never
-  approve your own.
+  --done-when '<check that passes once fixed>' --tag friction --tag <component>`. The task manager's manager role
+  decides tickets (it escalates to the person what it cannot judge); never approve your own.

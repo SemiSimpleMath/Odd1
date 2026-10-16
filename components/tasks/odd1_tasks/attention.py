@@ -4,7 +4,8 @@ role.toml); a person gets only what needs one.
 
 An open task needs a decision when it is proposed (approve or decline), blocked (unblock or cancel), parked (cancel,
 or a new task), or ready with no role able to run it (cancel). Its decider is the first running, enabled role whose
-`decides` covers every tag of the task and that did not propose it; otherwise the person. It goes to the person
+`decides` covers the task (store.covers: one tag delegated, none person-only) and that did not propose it;
+otherwise the person. It goes to the person
 anyway when an agent escalated it (until a person acts on it), or when its decider left it for longer than its
 `escalate_after_minutes`. A role's runner that is not running is the person's too.
 
@@ -20,7 +21,7 @@ import subprocess
 import time
 
 from . import console, roles
-from .store import OPEN, Store
+from .store import OPEN, Store, covers
 
 PERSON = "person"
 RENOTIFY_S = 86400
@@ -42,6 +43,7 @@ def items(store: Store, now: float | None = None) -> list[dict]:
     now = time.time() if now is None else now
     cfgs = _deciders(store)
     live = [c for c in cfgs if c["enabled"] and not c["runner"]]
+    backlog = {tag for c in cfgs for tag in c["backlog_tags"]}  # worked by people and their chats, not by runners
     marks = {r["task_id"]: r for r in store.db.execute(
         "SELECT task_id, max(CASE WHEN kind = 'escalate' THEN id END) AS esc,"
         " max(CASE WHEN actor LIKE 'person:%' THEN id END) AS person FROM log GROUP BY task_id")}
@@ -63,12 +65,12 @@ def items(store: Store, now: float | None = None) -> list[dict]:
             kind, text, since = "blocked", last_text.get(t["id"], "blocked"), t["updated_at"]
         elif t["status"] == "parked":
             kind, text, since = "parked", "its check kept failing: cancel it, or propose a better task", t["updated_at"]
-        elif t["status"] == "ready" and not any(tags <= set(c["tags"]) for c in cfgs if c["enabled"]):
+        elif t["status"] == "ready" and not tags & backlog and not any(tags <= set(c["tags"]) for c in cfgs
+                                                                         if c["enabled"]):
             kind, text, since = "orphan", f"approved, but no role takes {', '.join(t['tags'])}", t["updated_at"]
         else:
             continue
-        decider = next((c for c in live if c["decides"] and tags <= set(c["decides"])
-                        and t["created_by"] != c["name"]), None)
+        decider = next((c for c in live if covers(c["decides"], tags) and t["created_by"] != c["name"]), None)
         if decider is None:
             out.append(_item(t, PERSON, kind, text, since))
         elif now - since > decider.get("escalate_after_minutes", 120) * 60:
