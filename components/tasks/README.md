@@ -35,7 +35,9 @@ SQL if you like (`agents` holds each role's tags); triggers hold the rules for e
 - proposed>ready>claimed>verifying>done; proposed>declined; open work (and a recurring task's series)>cancelled; claimed>ready (release, or lease expired) | blocked; blocked>ready (a
   person approves again); verifying>ready (attempts left) | parked (used up). Nothing is deleted; approved tasks
   are fixed.
-- A claim is atomic and a lease (10 min, renewed by the runner every 2 min). The claimer must hold every tag of the
+- A claim is atomic and a lease (10 min, renewed by the runner every 2 min, or every quarter lease if that is
+  shorter, while its agent runs, however long a step takes; a busy store is retried at the next renewal, so no role
+  needs `tasks_renew`). The claimer must hold every tag of the
   task, its dependencies must be done, and no claimed or verifying task may share a resource (`/tmp` and `/tmp/x`
   overlap). An expired lease returns the task to ready; the next run's prompt holds the whole log to resume from.
 - done only when a done_when check, run by the runner and logged, passed after the last finish.

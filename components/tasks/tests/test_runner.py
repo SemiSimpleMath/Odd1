@@ -2,8 +2,10 @@
 import json
 import os
 import signal
+import sqlite3
 import subprocess
 import sys
+import threading
 import time
 
 import pytest
@@ -85,6 +87,38 @@ def test_killed_runner_task_returns_after_lease_and_next_run_sees_log(store, mon
     assert runner.run_once(store, "housekeeper")["status"] == "done"
     resumed = calls()[1]["prompt"]
     assert "step 1 of 2 done" in resumed and "lease of housekeeper expired" in resumed
+
+
+def test_lease_kept_during_long_step(store, monkeypatch):
+    # A step that outlasts the lease many times over, a store that is busy at one renewal, and another runner
+    # expiring leases meanwhile: the claim holds, and the agent is told it never needs tasks_renew (task 5, #44).
+    from odd1_tasks import store as store_mod
+    monkeypatch.setattr(store_mod, "LEASE_SECONDS", 2.0)
+    monkeypatch.setattr(runner, "RENEW_SECONDS", 120)  # the runner still renews within the lease (every lease/4)
+    renew, failed = store.renew, []
+
+    def flaky(*a, **kw):
+        if not failed:
+            failed.append(1)
+            raise sqlite3.OperationalError("database is locked")
+        return renew(*a, **kw)
+    monkeypatch.setattr(store, "renew", flaky)
+    plan(monkeypatch, sleep=6, finish=True)
+    t = approved(store, "long build", done_when="true")
+    stop = threading.Event()
+
+    def other_runner():
+        while not stop.is_set():
+            store_mod.Store(store.state).maintain()
+            time.sleep(0.1)
+    threading.Thread(target=other_runner, daemon=True).start()
+    try:
+        assert runner.run_once(store, "housekeeper")["status"] == "done"
+    finally:
+        stop.set()
+    texts = [e["text"] for e in store.show(t["id"])["log"]]
+    assert failed and not any("expired" in x or "lost the claim" in x for x in texts), texts
+    assert "never need tasks_renew" in calls()[0]["prompt"]
 
 
 def test_turn_budget_is_passed_and_recorded(store, monkeypatch):

@@ -14,6 +14,7 @@ import json
 import os
 import shlex
 import signal
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -22,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import cron, roles, workspace
+from . import store as store_mod
 from .store import CLOSED, Store, TaskError
 
 RENEW_SECONDS = float(os.environ.get("ODD1_TASKS_RENEW_SECONDS", 120))
@@ -47,7 +49,8 @@ Goal: {task['goal']}
 Done when this command exits 0 (the runner runs it after you stop, in this folder; your word does not count):
     {task['done_when']}
 Resources this task may change: {', '.join(task['resources']) or '(none named)'}
-Budget: {turns} turns, {minutes:g} minutes. Attempt {task['attempts'] + 1} of {task['max_attempts']}.
+Budget: {turns} turns, {minutes:g} minutes; the runner keeps your claim's lease while you run (however long a step
+takes), so you never need tasks_renew. Attempt {task['attempts'] + 1} of {task['max_attempts']}.
 {f"Your workspace: {workdir} (git branch {workspace.branch(task['id'])}, made from main; your own, nobody else's)."
  if workdir else ""}
 {f"This is the routine `{routine['name']}` of the cron manager. Use the `{routine['name']}` skill: it says how. You "
@@ -139,7 +142,7 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
     deadline, stopped = time.monotonic() + minutes * 60, ""
     while proc.poll() is None:
         try:
-            proc.wait(timeout=max(0.1, min(RENEW_SECONDS, deadline - time.monotonic())))
+            proc.wait(timeout=max(0.1, min(RENEW_SECONDS, store_mod.LEASE_SECONDS / 4, deadline - time.monotonic())))
         except subprocess.TimeoutExpired:
             pass
         if proc.poll() is not None:
@@ -151,7 +154,12 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
                 store.renew(tid, f"runner:{role}")
                 continue
             except TaskError as e:
+                if store.show(tid)["status"] == "verifying":
+                    continue  # the agent finished and is exiting: nothing to keep
                 stopped = f"lost the claim ({e}): stopped"
+            except sqlite3.Error as e:  # a busy store: try again at the next renewal, well within the lease
+                say(role, f"task {tid}: lease renewal failed ({e}); retrying")
+                continue
         _stop(proc)
         break
     reader.join()
