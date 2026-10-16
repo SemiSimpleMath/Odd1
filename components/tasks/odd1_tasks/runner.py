@@ -32,9 +32,14 @@ def say(role: str, text: str) -> None:
     print(f"odd1-tasks-runner@{role}: {text}", flush=True)
 
 
-def prompt(task: dict, role: str, turns: int, minutes: float, workdir=None) -> str:
+REPLIES_S = 86400  # answers from the task manager shown in a role's prompt: those of the last day
+
+
+def prompt(task: dict, role: str, turns: int, minutes: float, workdir=None, replies=()) -> str:
     log = "\n".join(f"- {datetime.fromtimestamp(e['at']):%Y-%m-%d %H:%M} {e['actor']} [{e['kind']}] {e['text']}"
                     for e in task["log"])
+    answers = "".join(f"\n- #{r['reply_to']} you asked \u201c{r['question']}\u201d; the task manager: {r['text']}"
+                      for r in replies)
     return f"""You are the {role} agent of Odd1, working on task {task['id']}.
 
 Goal: {task['goal']}
@@ -47,7 +52,8 @@ Budget: {turns} turns, {minutes:g} minutes. Attempt {task['attempts'] + 1} of {t
 The task's log so far (an earlier run may have been interrupted: resume from it, do not repeat finished steps):
 {log}
 
-Record each step that matters with tasks_log. When the goal is met, call tasks_finish. If you cannot go on without a
+{f"Answers from the task manager to your questions (tasks_ask):{answers}" if answers else ""}
+Record each step that matters with tasks_log. Ask the task manager a question with tasks_ask. When the goal is met, call tasks_finish. If you cannot go on without a
 person, call tasks_release with the reason in `blocked`. Anything outside your role becomes a proposal (tasks_create).
 """
 
@@ -91,7 +97,8 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
     proc = subprocess.Popen(command(cfg, tid, turns, workdir), cwd=workdir or cfg["folder"], env=env,
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                             start_new_session=True)
-    proc.stdin.write(prompt(store.show(tid), role, turns, minutes, workdir))
+    proc.stdin.write(prompt(store.show(tid), role, turns, minutes, workdir,
+                            store.replies(role, time.time() - REPLIES_S)))
     proc.stdin.close()
     out: list[str] = []
     reader = _drain(proc, out)

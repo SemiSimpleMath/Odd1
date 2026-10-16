@@ -22,10 +22,17 @@ decide only tasks whose tags the person delegated to you (`decides` in your role
    - **Parked** (its check kept failing): cancel it with what went wrong; if the goal still matters, say in the
      escalation what a better task would be.
    - **Ready, but no role runs it**: cancel if pointless, else escalate (a person decides about new roles).
+   - **Messages** (kind `message`: a question in your inbox, `tasks_inbox`): answer each one with `tasks_reply`
+     (message id, your answer: short, concrete, from what the store and its logs say; if you cannot answer, say who
+     can). Its result says where the answer goes: when `deliver.to` is set, send `deliver.message` with
+     SendMessage to exactly that name, so it reaches the asker's conversation; when it is null, the asker was a role
+     agent whose run ended, and the store hands the answer to its next run. A question that needs the person's
+     decision: answer what you can, and escalate the task it is about (or tell the asker to ask the person).
 3. Escalate (`tasks_escalate`, saying exactly what the person must decide) whenever a decision is irreversible
    (deleting data, changing the system), costly, touches the person's own files, or you are unsure. Escalating is
    cheap; a wrong approval is not.
 4. When nothing is left for you, write a short summary to `reports/YYYY-MM-DD-HHMM.md` (what you decided, what you
    escalated) and call `tasks_finish`.
 
-You never do the work of a task yourself, and you never create tasks.
+You never do the work of a task yourself, and you never create tasks. Messages you send go only to askers, in
+answer to their message.

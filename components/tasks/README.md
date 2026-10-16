@@ -51,6 +51,17 @@ a day if still open), batched. A cancel reaches a running agent through its leas
 and it stops the agent. `odd1-tasks changes --since N` (MCP `tasks_changes`) gives everything after log entry N and
 a new cursor, so any reader catches up from the one log instead of keeping its own copy.
 
+## Asking the task manager: its inbox
+For a question (not a bug or a piece of work: those are tickets), any agent leaves the task manager a message:
+`tasks_ask(text, task_id?)` or `odd1-tasks ask TEXT [--task ID]`. It is signed with the asker's Claude Code session
+name (found up the process tree in `~/.claude/sessions/<pid>.json`; a runner's agent is also known by its role).
+An unanswered message is an attention item for the manager, so it wakes the manager's run (the person's if no
+manager runs, or after `escalate_after_minutes`). The manager answers with `tasks_reply`, which records the answer
+once (the `messages` table is append-only; a task's log keeps answers about it) and says where it goes: to the
+asker's session, by its current name, sent with Claude Code's SendMessage as "@name The task manager answers your
+message #N ...", so it arrives in the asker's conversation as a new event it reacts to. A role agent whose run has
+ended gets the answers of the last day in its next run's prompt. `odd1-tasks inbox [--all]` lists the messages.
+
 ## Runners and roles
 `odd1-tasks-runner@<role>` (one systemd unit per role): every 30 s, with no model call, it rereads the role's config,
 expires leases, starts due recurring runs, and claims a ready task it holds every tag for, unless the role used its

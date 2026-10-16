@@ -2,7 +2,8 @@
 soon as the task changes. Routine decisions go to a deciding agent (the manager: a role with `decides` tags in its
 role.toml); a person gets only what needs one.
 
-An open task needs a decision when it is proposed (approve or decline), blocked (unblock or cancel), parked (cancel,
+A message in the task manager's inbox (inbox.py) needs an answer from the manager (the person's if no manager runs,
+or it waited too long). An open task needs a decision when it is proposed (approve or decline), blocked (unblock or cancel), parked (cancel,
 or a new task), or ready with no role able to run it (cancel). Its decider is the first running, enabled role whose
 `decides` covers the task (store.covers: one tag delegated, none person-only) and that did not propose it;
 otherwise the person. It goes to the person
@@ -78,6 +79,16 @@ def items(store: Store, now: float | None = None) -> list[dict]:
             out.append(_item(t, PERSON, kind, f"{text} ({decider['name']} has not decided in {waited:g} h)", since))
         else:
             out.append(_item(t, decider["name"], kind, text, since))
+    manager = next((c for c in live if "manage" in c["tags"]), None)
+    for m in store.inbox():
+        text = f"message #{m['id']} from @{m['sender']}: {m['text'][:200]}"
+        who = PERSON
+        if manager and now - m["at"] <= manager.get("escalate_after_minutes", 120) * 60:
+            who = manager["name"]
+        elif manager:
+            text += f" ({manager['name']} has not answered in {round((now - m['at']) / 3600, 1):g} h)"
+        out.append({"key": f"message:{m['id']}", "who": who, "kind": "message", "task": m["task_id"],
+                    "text": text, "since": m["at"]})
     for c in cfgs:
         if c["runner"]:
             out.append({"key": f"runner:{c['name']}", "who": PERSON, "kind": "runner", "task": None,

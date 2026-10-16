@@ -38,7 +38,7 @@ async def _mcp(state):
             names = {t.name for t in (await session.list_tools()).tools}
             assert names == {f"tasks_{op}" for op in
                              ("create", "list", "show", "approve", "claim", "renew", "release", "log", "finish",
-                              "decline", "cancel", "escalate", "attention", "changes")}
+                              "decline", "cancel", "escalate", "attention", "changes", "ask", "inbox", "reply")}
 
             async def call(name, **args):
                 return json.loads((await session.call_tool(name, args)).content[0].text)

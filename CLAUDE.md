@@ -26,3 +26,5 @@ that whole class of request easy, and build it.
   workaround was needed), file it, even if you fixed it: `odd1-tasks create "<what should work> (<what happened>)"
   --done-when '<check that passes once fixed>' --tag friction --tag <component>`. The task manager's manager role
   decides tickets (it escalates to the person what it cannot judge); never approve your own.
+- A question for the task manager (not a bug) goes to its inbox: `odd1-tasks ask "<question>"` (MCP `tasks_ask`); its
+  answer arrives in your conversation as a message.

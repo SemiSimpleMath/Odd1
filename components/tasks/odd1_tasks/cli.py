@@ -15,6 +15,9 @@
     odd1-tasks escalate ID REASON        hand a decision to a person
     odd1-tasks attention [--for WHO] [--quiet] [--json]   who has to act on what (exit 0: something waits)
     odd1-tasks changes [--since N] [--json]               what happened after log entry N (the cursor)
+    odd1-tasks ask TEXT [--task ID]      ask the task manager a question; the answer comes to your conversation
+    odd1-tasks inbox [--all] [--json]    the task manager's unanswered messages (--all: with answers)
+    odd1-tasks reply ID TEXT             answer one (prints where to send it: SendMessage to that session)
     odd1-tasks watch                     tell the person (desktop notification) what needs them, once each
     odd1-tasks status                    one line: what each role is doing, what waits for a person
     odd1-tasks console                   talk to the task manager (Claude Code with its console instructions)
@@ -99,6 +102,15 @@ def main(argv=None) -> int:
     p = sub.add_parser("changes")
     p.add_argument("--since", type=int, default=0)
     p.add_argument("--json", action="store_true")
+    p = sub.add_parser("ask")
+    p.add_argument("text")
+    p.add_argument("--task", type=int)
+    p = sub.add_parser("inbox")
+    p.add_argument("--all", action="store_true")
+    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("reply")
+    p.add_argument("id", type=int)
+    p.add_argument("text")
     sub.add_parser("watch")
     sub.add_parser("status")
     sub.add_parser("console")
@@ -160,6 +172,24 @@ def main(argv=None) -> int:
                     print(f"{c['id']:>6} {_when(c['at'])} #{c['task_id']} [{c['status']}] {c['actor']} {c['kind']}: "
                           f"{c['text']}")
                 print(f"cursor {feed['cursor']}")
+        elif a.cmd == "ask":
+            from . import inbox
+            who = inbox.caller()
+            m = store.ask(who["name"], who["actor"], a.text, session=who["session"], task_id=a.task)
+            print(f"message {m['id']} left for the task manager; its answer comes to @{m['sender']}")
+        elif a.cmd == "inbox":
+            found = store.inbox(a.all)
+            if a.json:
+                print(json.dumps(found, indent=2))
+            for m in [] if a.json else found:
+                task = f" (task {m['task_id']})" if m["task_id"] else ""
+                print(f"{m['id']:>4} {_when(m['at'])} @{m['sender']}{task}: {m['text']}")
+                if m["answer"]:
+                    print(f"     answered: {m['answer']}")
+        elif a.cmd == "reply":
+            from . import inbox
+            question, reply = store.reply(a.id, actor, a.text)
+            print(json.dumps(inbox.delivery(question, reply), indent=2))
         elif a.cmd == "watch":
             from . import attention
             attention.watch(store)

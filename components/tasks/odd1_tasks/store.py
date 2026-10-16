@@ -22,7 +22,7 @@ CHECK_TIMEOUT = 300
 OPEN = ("proposed", "ready", "claimed", "blocked", "verifying")
 CLOSED = ("done", "parked", "declined", "cancelled")  # declined: a proposal a person turned down; cancelled: by a person
 STATUSES = OPEN + CLOSED
-VERSION = 1  # PRAGMA user_version: 1 added declined, cancelled, tasks.run_if and agents.decides
+VERSION = 2  # PRAGMA user_version: 1 added declined, cancelled, tasks.run_if and agents.decides; 2 messages
 FIXED = "goal, done_when, tags, resources, depends_on, schedule, run_if, max_turns, max_minutes, max_attempts, created_by"
 MOVES = ("proposed>ready", "ready>claimed", "claimed>ready", "claimed>blocked", "claimed>verifying",
          "blocked>ready", "verifying>ready", "verifying>parked", "verifying>done", "proposed>declined",
@@ -54,6 +54,18 @@ CREATE TABLE IF NOT EXISTS log(
 CREATE INDEX IF NOT EXISTS log_task ON log(task_id, id);
 CREATE TABLE IF NOT EXISTS agents(name TEXT PRIMARY KEY, tags TEXT NOT NULL CHECK (json_valid(tags)),
   decides TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(decides)));
+CREATE TABLE IF NOT EXISTS messages(
+  id INTEGER PRIMARY KEY, at REAL NOT NULL, sender TEXT NOT NULL, actor TEXT NOT NULL, session TEXT,
+  recipient TEXT NOT NULL, task_id INTEGER REFERENCES tasks(id), reply_to INTEGER REFERENCES messages(id),
+  text TEXT NOT NULL CHECK (length(trim(text)) > 0));
+CREATE INDEX IF NOT EXISTS messages_reply ON messages(reply_to);
+CREATE TRIGGER IF NOT EXISTS no_message_update BEFORE UPDATE ON messages
+BEGIN SELECT RAISE(ABORT, 'messages are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS no_message_delete BEFORE DELETE ON messages
+BEGIN SELECT RAISE(ABORT, 'messages are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS one_reply BEFORE INSERT ON messages
+WHEN NEW.reply_to IS NOT NULL AND EXISTS (SELECT 1 FROM messages m WHERE m.reply_to = NEW.reply_to)
+BEGIN SELECT RAISE(ABORT, 'that message is answered already'); END;
 
 CREATE TRIGGER IF NOT EXISTS no_task_delete BEFORE DELETE ON tasks
 BEGIN SELECT RAISE(ABORT, 'tasks are never deleted'); END;
@@ -318,6 +330,69 @@ class Store:
             "SELECT l.id, l.task_id, l.at, l.actor, l.kind, l.text, t.status, t.goal FROM log l JOIN tasks t "
             "ON t.id = l.task_id WHERE l.id > ? ORDER BY l.id LIMIT ?", (since, limit))]
         return {"cursor": rows[-1]["id"] if rows else since, "changes": rows}
+
+    # -- the task manager's inbox (inbox.py finds who is asking and where the answer goes)
+    MANAGER = "manager"
+
+    def ask(self, sender: str, actor: str, text: str, session: str | None = None,
+            task_id: int | None = None) -> dict:
+        """Leave the task manager a message (a question, not a ticket). sender: the address its answer goes to."""
+        if task_id is not None:
+            self._get(task_id)
+        try:
+            cur = self.db.execute("INSERT INTO messages(at, sender, actor, session, recipient, task_id, text) "
+                                  "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                  (time.time(), sender, actor, session, self.MANAGER, task_id, text.strip()))
+        except sqlite3.IntegrityError as e:
+            raise TaskError("a message needs text" if "CHECK" in str(e) else str(e)) from None
+        return self.message(cur.lastrowid)
+
+    def message(self, message_id: int) -> dict:
+        r = self.db.execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()
+        if r is None:
+            raise TaskError(f"no message {message_id}")
+        return dict(r)
+
+    def may_answer(self, actor: str) -> bool:
+        """The manager role (it holds the manage tag) or a person answers the inbox."""
+        if is_person(actor):
+            return True
+        r = self.db.execute("SELECT tags FROM agents WHERE name = ?", (actor,)).fetchone()
+        return bool(r) and "manage" in json.loads(r["tags"])
+
+    def reply(self, message_id: int, actor: str, text: str) -> tuple[dict, dict]:
+        """Answer one inbox message; returns (question, reply). Once only."""
+        if not self.may_answer(actor):
+            raise TaskError("only the task manager (or a person) answers its inbox")
+        question = self.message(message_id)
+        if question["recipient"] != self.MANAGER:
+            raise TaskError(f"message {message_id} is a reply, not a question to the task manager")
+        with self._tx():
+            try:
+                cur = self.db.execute("INSERT INTO messages(at, sender, actor, session, recipient, task_id, "
+                                      "reply_to, text) VALUES (?, ?, ?, NULL, ?, ?, ?, ?)",
+                                      (time.time(), self.MANAGER, actor, question["sender"], question["task_id"],
+                                       message_id, text.strip()))
+            except sqlite3.IntegrityError as e:
+                raise TaskError(str(e)) from None
+            if question["task_id"] is not None:
+                self._log(question["task_id"], actor, "note",
+                          f"answered message #{message_id} from @{question['sender']}: {text.strip()}")
+        return question, self.message(cur.lastrowid)
+
+    def inbox(self, answered: bool = False) -> list[dict]:
+        """The task manager's messages, oldest first: unanswered ones (default), or all with their answers."""
+        rows = [dict(r) for r in self.db.execute(
+            "SELECT m.*, (SELECT a.text FROM messages a WHERE a.reply_to = m.id) AS answer FROM messages m "
+            "WHERE m.recipient = ? ORDER BY m.id", (self.MANAGER,))]
+        return rows if answered else [m for m in rows if m["answer"] is None]
+
+    def replies(self, recipient: str, since: float = 0) -> list[dict]:
+        """Answers the task manager sent to `recipient` (a session name or a role) after `since`, with the
+        question each answers."""
+        return [dict(r) for r in self.db.execute(
+            "SELECT a.id, a.at, a.text, a.task_id, a.reply_to, q.text AS question FROM messages a JOIN messages q "
+            "ON q.id = a.reply_to WHERE a.recipient = ? AND a.at > ? ORDER BY a.id", (recipient, since))]
 
     def register_agent(self, name: str, tags, decides=()) -> None:
         self.db.execute("INSERT INTO agents(name, tags, decides) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET "

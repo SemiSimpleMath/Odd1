@@ -115,6 +115,35 @@ def tasks_changes(since: int = 0) -> dict:
     return Store().changes(since)
 
 
+@mcp.tool()
+def tasks_ask(text: str, task_id: int = 0) -> dict:
+    """Ask the task manager a question (for a bug or a piece of work, file a ticket with tasks_create instead).
+    task_id: the task it is about, if any. The answer arrives later in your own conversation as a message from
+    the task manager ("@your-name ..."); a role agent whose run has ended gets it in its next run's prompt."""
+    from . import inbox
+    who = inbox.caller()
+    return _do(Store().ask, who["name"], who["actor"], text, session=who["session"], task_id=task_id or None)
+
+
+@mcp.tool()
+def tasks_inbox(answered: bool = False) -> list[dict] | dict:
+    """The task manager's inbox: unanswered messages (answered=true: all, with their answers). For the manager."""
+    return _do(Store().inbox, answered)
+
+
+@mcp.tool()
+def tasks_reply(message_id: int, text: str) -> dict:
+    """Answer one inbox message (the manager, or a person). Returns {reply, deliver: {to, message}}: when `to` is
+    set, send `message` with SendMessage to `to` now, so it reaches the asker's conversation; when it is null the
+    asker's session has ended, and a role agent reads the answer in its next run's prompt."""
+    from . import inbox
+    try:
+        question, reply = Store().reply(message_id, actor_from_env(), text)
+    except TaskError as e:
+        return {"error": str(e)}
+    return {"reply": reply, "deliver": inbox.delivery(question, reply)}
+
+
 def main() -> None:
     mcp.run()
 
