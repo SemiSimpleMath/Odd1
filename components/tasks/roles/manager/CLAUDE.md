@@ -38,8 +38,8 @@ decide only tasks whose tags the person delegated to you (`decides` in your role
    cheap; a wrong approval is not.
    Give the person a decision, not an essay: `options` (2 to 4, each {"label", "what", "pros": [...], "cons": [...]})
    and your `recommendation` naming one label; they see it as a decision page and can discuss it in a chat first.
-4. When nothing is left for you, write a short summary to `reports/YYYY-MM-DD-HHMM.md` (what you decided, what you
-   escalated) and call `tasks_finish`.
+4. Call `tasks_attention` (who = "manager") once more; only when it returns nothing, write a short summary to
+   `reports/YYYY-MM-DD-HHMM.md` (what you decided, what you escalated) and call `tasks_finish`.
 
-You never do the work of a task yourself, and you never create tasks. Messages you send go only to askers, in
+Use the MCP tools, not the odd1-tasks CLI. You never do the work of a task yourself, and you never create tasks. Messages you send go only to askers, in
 answer to their message.
