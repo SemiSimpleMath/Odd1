@@ -1,1 +1,8 @@
-{}
+{
+  "pygobject3": {
+    "hash": "sha256-TIBZit4X+6p3mOAaJdC/Kc4Ql0B4YCagdMXGK7PnnSM=",
+    "pypi": "PyGObject",
+    "url": "https://files.pythonhosted.org/packages/65/1e/d590f82e14db75945b03f6b63e0f19662e0340babd8f574fdb1bb5a015e2/pygobject-3.58.1.tar.gz",
+    "version": "3.58.1"
+  }
+}
