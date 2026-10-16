@@ -127,6 +127,21 @@ def stop(store: Store, task_id: int, reason: str = "stopped by the person") -> d
     return store.release(task_id, actor_from_env(), blocked=reason)
 
 
+def decision_page(store: Store, task_id: int, show: bool = True) -> str:
+    """The task's decision page (options, pros and cons, recommendation, evidence), written and opened."""
+    from odd1_tasks import pages
+    path = pages.write(store, task_id)
+    if show:
+        pages.open_page(path)
+    return str(path)
+
+
+def discuss(store: Store, task_id: int) -> list[str]:
+    """A chat in the chat column that has the ticket and its page, to talk the decision through first."""
+    from odd1_tasks import pages
+    return pages.discuss(store, task_id)
+
+
 def note(store: Store, task_id: int, text: str) -> None:
     """A line in the task's log; the next run of the task reads it."""
     if text.strip():

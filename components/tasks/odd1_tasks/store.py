@@ -80,9 +80,10 @@ WHEN NOT ((NEW.status = 'proposed' AND NEW.approved_at IS NULL AND NEW.claim_age
           OR (NEW.status = 'ready' AND NEW.claim_agent IS NULL AND EXISTS (SELECT 1 FROM tasks p WHERE
               p.id = NEW.parent_id AND p.schedule IS NOT NULL AND p.approved_at IS NOT NULL)))
 BEGIN SELECT RAISE(ABORT, 'a new task starts as proposed and needs approval'); END;
-CREATE TRIGGER IF NOT EXISTS fixed_after_approval BEFORE UPDATE OF {FIXED} ON tasks
-WHEN OLD.status != 'proposed'
-BEGIN SELECT RAISE(ABORT, 'an approved task cannot be changed'); END;
+CREATE TABLE IF NOT EXISTS edit_grants(task_id INTEGER PRIMARY KEY);
+CREATE TRIGGER IF NOT EXISTS fixed_after_approval_2 BEFORE UPDATE OF {FIXED} ON tasks
+WHEN OLD.status != 'proposed' AND NOT EXISTS (SELECT 1 FROM edit_grants g WHERE g.task_id = OLD.id)
+BEGIN SELECT RAISE(ABORT, 'an approved task cannot be changed (a person edits it with odd1-tasks edit)'); END;
 CREATE TRIGGER IF NOT EXISTS allowed_moves BEFORE UPDATE OF status ON tasks
 WHEN OLD.status != NEW.status AND OLD.status || '>' || NEW.status NOT IN ({", ".join(repr(m) for m in MOVES)})
 BEGIN SELECT RAISE(ABORT, 'status change not allowed'); END;
@@ -351,16 +352,41 @@ class Store:
             self._log(task_id, actor, status[:-1] if status == "declined" else "cancel", f"{status}: {reason.strip()}")
         return self._get(task_id)
 
-    def escalate(self, task_id: int, actor: str, reason: str) -> dict:
-        """Hand a decision to a person: the task needs them (see attention.py) until a person acts on it."""
+    def escalate(self, task_id: int, actor: str, reason: str, options=None, recommendation: str = "") -> dict:
+        """Hand a decision to a person: the task needs them (see attention.py) until a person acts on it. Options
+        ([{label, what?, pros, cons}]) and a recommendation make it a decision page (pages.py)."""
         if not reason.strip():
             raise TaskError("say what the person has to decide")
+        options = [o for o in (options or []) if isinstance(o, dict) and str(o.get("label", "")).strip()]
         with self._tx():
             t = self._get(task_id)
             if t["status"] not in OPEN + ("parked",):
                 raise TaskError(f"task {task_id} is {t['status']}: nothing left to decide")
-            self._log(task_id, actor, "escalate", f"needs a person: {reason.strip()}")
+            self._log(task_id, actor, "escalate", f"needs a person: {reason.strip()}", options=options,
+                      recommendation=recommendation.strip())
         return self._get(task_id)
+
+    def edit(self, task_id: int, actor: str, reason: str, goal: str | None = None,
+             done_when: str | None = None) -> dict:
+        """A person changes an approved ticket's goal or check on their decision (instead of replacing it). Logged
+        with the old and new text; the ticket keeps its id and history."""
+        if not is_person(actor):
+            raise TaskError("only a person changes an approved ticket")
+        if not reason.strip():
+            raise TaskError("say why it changes (the reason stays in its log)")
+        changes = {k: v.strip() for k, v in (("goal", goal), ("done_when", done_when)) if v and v.strip()}
+        if not changes:
+            raise TaskError("nothing to change: give a new goal or done_when")
+        with self._tx():
+            t = self._get(task_id)
+            self.db.execute("INSERT OR IGNORE INTO edit_grants(task_id) VALUES (?)", (task_id,))
+            try:
+                self._set(task_id, **changes)
+            finally:
+                self.db.execute("DELETE FROM edit_grants WHERE task_id = ?", (task_id,))
+            self._log(task_id, actor, "edit", f"changed {', '.join(changes)} on the person's decision: "
+                      f"{reason.strip()}", before={k: t[k] for k in changes}, after=changes)
+        return self.show(task_id)
 
     def changes(self, since: int = 0, limit: int = 200) -> dict:
         """Everything that happened after log entry `since`, oldest first, with each task's status now. Keep the

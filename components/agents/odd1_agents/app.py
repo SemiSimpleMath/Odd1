@@ -170,8 +170,7 @@ class Window(Adw.ApplicationWindow):
         self.ov_roles.set(rows)
         kinds = {"decide": "To approve or decline", "blocked": "Blocked", "parked": "Check kept failing",
                  "orphan": "No role runs it", "escalated": "Escalated to you", "runner": "Runner"}
-        needs = [row(i["text"], kinds.get(i["kind"], i["kind"]),
-                     button("Open", lambda: self.go_tasks("Waiting for a decision")) if i["task"] else None)
+        needs = [row(i["text"], kinds.get(i["kind"], i["kind"]), self.decide_buttons(i["task"]) if i["task"] else None)
                  for i in view["needs_you"]]
         self.ov_needs.set(needs or [row("Nothing needs you", "", badge("✓", "success"))])
         by_agent = {}
@@ -188,6 +187,14 @@ class Window(Adw.ApplicationWindow):
         state = "" if m["state"] == "current" else f" ({m['state']})"
         self.ov_machine.set([row("Pressure", "", badge(m["level"] + state, level))] +
                             [row(str(p)) for p in m["problems"]])
+
+    def decide_buttons(self, task_id):
+        """Page (the decision page: options, pros and cons, recommendation), Discuss (a chat that has it), Open."""
+        box = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
+        box.append(button("Page", lambda: model.decision_page(self.store, task_id)))
+        box.append(button("Discuss", lambda: model.discuss(self.store, task_id), "suggested-action"))
+        box.append(button("Open", lambda: self.go_tasks("Waiting for a decision")))
+        return box
 
     # -- Tasks
     def build_tasks(self):

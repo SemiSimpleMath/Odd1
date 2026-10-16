@@ -27,6 +27,9 @@
     odd1-tasks reopen ID REASON          a person reopens a done ticket
     odd1-tasks recheck [ID]              check tickets closed by check again; flag those failing now
     odd1-tasks regressions BRANCH_BIN MAIN_BIN [COMPONENT...]   every component's tests; refuse new failures
+    odd1-tasks page ID [--open]          the decision page: the question, options, pros and cons, recommendation
+    odd1-tasks discuss ID                a chat that has the ticket and its page, to talk it through before deciding
+    odd1-tasks edit ID REASON [--goal G] [--done-when C]   a person changes an approved ticket on their decision
     odd1-tasks review ID [CHECK_OUTPUT]  the reviewer reads the task's branch (from odd1-tasks-land): approve/changes/escalate
     odd1-tasks may-land ID FILE...       may a branch with these changed files land for task ID (decision records)
     odd1-tasks routines [--json]         the cron manager's routines, their schedules and tasks
@@ -64,6 +67,38 @@ def _print_task(t: dict) -> None:
             print("      " + e["data"]["output"].strip()[-400:].replace("\n", "\n      "))
 
 
+def _decide(args: list[str]) -> int:
+    import argparse as ap
+    from . import pages
+    from .store import Store, TaskError, actor_from_env
+    p = ap.ArgumentParser(prog=f"odd1-tasks {args[0]}")
+    p.add_argument("id", type=int)
+    if args[0] == "page":
+        p.add_argument("--open", action="store_true")
+    if args[0] == "edit":
+        p.add_argument("reason")
+        p.add_argument("--goal")
+        p.add_argument("--done-when")
+    a = p.parse_args(args[1:])
+    store = Store()
+    try:
+        if args[0] == "page":
+            path = pages.write(store, a.id)
+            print(path)
+            if a.open:
+                pages.open_page(path)
+        elif args[0] == "discuss":
+            pages.discuss(store, a.id)
+            print(f"a chat about #{a.id} opens in the chat column")
+        else:
+            t = store.edit(a.id, actor_from_env(), a.reason, a.goal, a.done_when)
+            print(f"task {t['id']} {t['status']}: {t['goal']}\n  done_when: {t['done_when']}")
+    except TaskError as e:
+        print(f"odd1-tasks: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def _closing(args: list[str]) -> int:
     from . import closing
     from .store import Store, TaskError, actor_from_env
@@ -93,6 +128,8 @@ def _closing(args: list[str]) -> int:
 
 def main(argv=None) -> int:
     args = sys.argv[1:] if argv is None else list(argv)
+    if args[:1] in (["page"], ["discuss"], ["edit"]):
+        return _decide(args)
     if args[:1] == ["review"]:
         from . import review
         return review.main(args[1:])

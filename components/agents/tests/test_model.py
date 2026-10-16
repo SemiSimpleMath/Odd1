@@ -115,3 +115,14 @@ def test_decline_cancel_and_delegation_from_the_app(store):
     assert model.set_role(store, "housekeeper", decides=[])["decides"] == []
     with pytest.raises(ValueError):
         model.set_role(store, "housekeeper", decides=["Bad Tag"])
+
+
+def test_decision_page_and_discuss_from_agent_settings(store, monkeypatch):
+    from odd1_tasks import pages
+    monkeypatch.setattr(pages.shutil, "which", lambda _: None)  # nothing opens in the test
+    t = store.create("Pick a fix", "true", ["housekeeping"], actor="person:tester")
+    store.approve(t["id"], "person:tester")
+    store.escalate(t["id"], "manager", "which one?", [{"label": "A", "pros": ["small"], "cons": ["slow"]}], "A")
+    path = model.decision_page(store, t["id"], show=False)
+    assert path.endswith(f"task-{t['id']}.html") and "which one?" in open(path).read()
+    assert "--role=odd1-agent:claude" in model.discuss(store, t["id"])

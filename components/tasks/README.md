@@ -133,6 +133,10 @@ must pass, and any other failure blocks unless the running system's test fails t
   reviewer read the branch (`review.py`: the ticket, its log, the diff, the check output; read-only permissions,
   never the author) and only an approval lands; "changes" sends its notes back to the author, "escalate" to the
   person. Each review is logged on the task.
+Decisions for the person (`pages.py`): an escalation carries options (pros, cons) and a recommendation;
+`odd1-tasks page ID` renders it with the ticket and its log as a page (Agent Settings: Page), `odd1-tasks discuss ID`
+opens a chat in the column that has it (Discuss), and `odd1-tasks edit ID REASON --goal/--done-when` changes an
+approved ticket on the person's decision instead of replacing it (logged with before and after).
 Closing work done outside the runners (`closing.py`): chats don't claim tickets, so `odd1-tasks close-by-check ID`
 (MCP `tasks_close_by_check`) has the task system rerun an approved, ready ticket's done_when where a runner would
 (the folder and systemd environment of the role holding its tags) and closes it only if it passes (no claimant, no

@@ -115,9 +115,11 @@ def tasks_cancel(task_id: int, reason: str) -> dict:
 
 
 @mcp.tool()
-def tasks_escalate(task_id: int, reason: str) -> dict:
-    """Hand a decision to a person: say what they must decide. It reaches them until a person acts on the task."""
-    return _do(Store().escalate, task_id, actor_from_env(), reason)
+def tasks_escalate(task_id: int, reason: str, options: list[dict] = [], recommendation: str = "") -> dict:
+    """Hand a decision to a person: say what they must decide. Give the options as
+    [{"label": "...", "what": "...", "pros": ["..."], "cons": ["..."]}] and your recommendation (naming an option's
+    label): the person gets a decision page with them. It reaches them until a person acts on the task."""
+    return _do(Store().escalate, task_id, actor_from_env(), reason, options, recommendation)
 
 
 @mcp.tool()
