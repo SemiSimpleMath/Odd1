@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep", "Edit(./**)", "Write(./**)", "Write(/tmp/**)",
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git add:*)",
+      "Bash(git commit:*)", "Bash(git restore:*)", "Bash(git mv:*)", "Bash(git rm:*)", "Bash(git rebase:*)",
+      "Bash(git branch --show-current)", "Bash(git rev-parse:*)",
+      "Bash(python3:*)", "Bash(nix-build:*)", "Bash(nix-instantiate:*)", "Bash(nix eval:*)",
+      "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)", "Bash(grep:*)", "Bash(diff:*)",
+      "Bash(journalctl:*)", "Bash(systemctl status:*)", "Bash(systemctl --user status:*)",
+      "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)", "Bash(odd1-tasks changes:*)",
+      "Bash(/var/lib/odd1/tasks/roles/fixer/check.sh)", "Bash(/var/lib/odd1/tasks/roles/fixer/land.sh)",
+      "mcp__tasks__tasks_show", "mcp__tasks__tasks_list", "mcp__tasks__tasks_log", "mcp__tasks__tasks_create",
+      "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish", "mcp__tasks__tasks_escalate"
+    ],
+    "deny": ["mcp__tasks__tasks_approve", "mcp__tasks__tasks_decline", "mcp__tasks__tasks_cancel",
+             "mcp__tasks__tasks_claim", "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(sudo:*)",
+             "Bash(nixos-rebuild:*)", "WebSearch", "WebFetch"]
+  }
+}

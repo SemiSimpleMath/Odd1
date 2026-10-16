@@ -20,8 +20,8 @@ import threading
 import time
 from datetime import datetime
 
-from . import roles
-from .store import Store, TaskError
+from . import roles, workspace
+from .store import CLOSED, Store, TaskError
 
 RENEW_SECONDS = float(os.environ.get("ODD1_TASKS_RENEW_SECONDS", 120))
 POLL_SECONDS = float(os.environ.get("ODD1_TASKS_POLL_SECONDS", 30))
@@ -32,7 +32,7 @@ def say(role: str, text: str) -> None:
     print(f"odd1-tasks-runner@{role}: {text}", flush=True)
 
 
-def prompt(task: dict, role: str, turns: int, minutes: float) -> str:
+def prompt(task: dict, role: str, turns: int, minutes: float, workdir=None) -> str:
     log = "\n".join(f"- {datetime.fromtimestamp(e['at']):%Y-%m-%d %H:%M} {e['actor']} [{e['kind']}] {e['text']}"
                     for e in task["log"])
     return f"""You are the {role} agent of Odd1, working on task {task['id']}.
@@ -42,7 +42,8 @@ Done when this command exits 0 (the runner runs it after you stop, in this folde
     {task['done_when']}
 Resources this task may change: {', '.join(task['resources']) or '(none named)'}
 Budget: {turns} turns, {minutes:g} minutes. Attempt {task['attempts'] + 1} of {task['max_attempts']}.
-
+{f"Your workspace: {workdir} (git branch {workspace.branch(task['id'])}, made from main; your own, nobody else's)."
+ if workdir else ""}
 The task's log so far (an earlier run may have been interrupted: resume from it, do not repeat finished steps):
 {log}
 
@@ -51,13 +52,15 @@ person, call tasks_release with the reason in `blocked`. Anything outside your r
 """
 
 
-def command(cfg: dict, task_id: int, turns: int) -> list[str]:
+def command(cfg: dict, task_id: int, turns: int, workdir=None) -> list[str]:
     mcp = {"mcpServers": {"tasks": {"command": sys.executable, "args": ["-m", "odd1_tasks.mcp_server"], "env": {
         "PYTHONPATH": os.environ.get("PYTHONPATH", ""), "ODD1_TASKS_STATE": os.environ.get("ODD1_TASKS_STATE", ""),
         "ODD1_TASKS_AGENT": cfg["name"], "ODD1_TASKS_TASK": str(task_id)}}}}
     cmd = CLAUDE + ["-p", "--output-format", "json", "--max-turns", str(turns), "--permission-mode", "dontAsk",
                     "--settings", str(cfg["folder"] / "settings.json"), "--setting-sources", "project",
                     "--mcp-config", json.dumps(mcp), "--strict-mcp-config", "--no-session-persistence"]
+    if workdir:  # the repository's own CLAUDE.md applies there; the role's instructions come along
+        cmd += ["--add-dir", str(cfg["folder"]), "--append-system-prompt-file", str(cfg["folder"] / "CLAUDE.md")]
     return cmd + (["--model", cfg["model"]] if cfg["model"] else [])
 
 
@@ -80,10 +83,15 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
     store.log(tid, role, f"run started (budget {turns} turns, {minutes:g} min)", kind="run", turns=turns,
               minutes=minutes)
     say(role, f"task {tid}: {task['goal']}")
-    env = dict(os.environ, ODD1_TASKS_AGENT=role, ODD1_TASKS_TASK=str(tid))
-    proc = subprocess.Popen(command(cfg, tid, turns), cwd=cfg["folder"], env=env, stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
-    proc.stdin.write(prompt(store.show(tid), role, turns, minutes))
+    workdir = workspace.prepare(store.state, tid) if cfg["workspace"] == "git-worktree" else None
+    env = dict(os.environ, **{k: str(v) for k, v in cfg["env"].items()}, ODD1_TASKS_AGENT=role,
+               ODD1_TASKS_TASK=str(tid), ODD1_TASKS_ROLE_FOLDER=str(cfg["folder"]))
+    if workdir:
+        env["ODD1_TASKS_WORKTREE"] = str(workdir)
+    proc = subprocess.Popen(command(cfg, tid, turns, workdir), cwd=workdir or cfg["folder"], env=env,
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            start_new_session=True)
+    proc.stdin.write(prompt(store.show(tid), role, turns, minutes, workdir))
     proc.stdin.close()
     out: list[str] = []
     reader = _drain(proc, out)
@@ -119,6 +127,8 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
         task = store.finish(tid, f"runner:{role}", "run ended without tasks_finish; checking done_when anyway")
     if task["status"] == "verifying":
         task = store.verify(tid, f"runner:{role}", cwd=cfg["folder"])
+    if workdir and task["status"] in CLOSED:
+        workspace.remove(store.state, tid)
     say(role, f"task {tid}: {task['status']}")
     return task
 
@@ -151,10 +161,26 @@ def run_once(store: Store, role: str) -> dict | None:
     for t in store.list(status="verifying"):
         if t["claim_agent"] == role:
             store.verify(t["id"], f"runner:{role}", cwd=cfg["folder"])
+    if cfg["workspace"] == "git-worktree":
+        workspace.tidy(store)
     if not cfg["enabled"] or store.runs_since(role, time.time() - 86400) >= cfg["runs_per_day"]:
         return None  # paused by the person (role.toml enabled = false), or today's runs are used up
     task = store.claim(role)
     return run_task(store, cfg, task) if task else None
+
+
+def outdated(role: str) -> bool:
+    """Whether a deployment changed this runner's unit since it started (its PYTHONPATH names the code). A switch does
+    not restart runners (a fixer may be the one switching); each restarts itself once it is idle."""
+    if not os.environ.get("INVOCATION_ID"):
+        return False  # not under systemd
+    try:
+        unit = subprocess.run(["systemctl", "show", "-p", "Environment", "--value", f"odd1-tasks-runner@{role}"],
+                              capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    deployed = next((w.split("=", 1)[1] for w in unit.split() if w.startswith("PYTHONPATH=")), "")
+    return bool(deployed) and deployed != os.environ.get("PYTHONPATH", "")
 
 
 def main(argv=None) -> int:
@@ -173,6 +199,9 @@ def main(argv=None) -> int:
             task = None
         if "--once" in args:
             return 0
+        if task is None and outdated(role):
+            say(role, "new code deployed: restarting while idle")
+            return 0  # systemd starts the runner again, with the new unit
         if task is None:
             time.sleep(POLL_SECONDS)
 

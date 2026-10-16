@@ -16,7 +16,8 @@ from pathlib import Path
 from .store import Store
 
 SEED = Path(os.environ.get("ODD1_TASKS_ROLES_SEED", Path(__file__).resolve().parent.parent / "roles"))
-DEFAULTS = {"enabled": True, "tags": [], "decides": [], "backlog_tags": [], "escalate_after_minutes": 120, "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
+DEFAULTS = {"enabled": True, "tags": [], "decides": [], "backlog_tags": [], "escalate_after_minutes": 120, "all_components": False,
+            "workspace": "", "env": {}, "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
 
 
 def folder(store: Store, role: str) -> Path:
@@ -29,6 +30,10 @@ def load(store: Store, role: str) -> dict:
         raise FileNotFoundError(f"role {role!r} has no {path}")
     cfg = dict(DEFAULTS, **tomllib.loads(path.read_text()))
     cfg["name"], cfg["folder"] = role, path.parent
+    if cfg["all_components"]:  # a tag for every component of the repository (tickets carry their component's name)
+        from .workspace import REPO
+        found = (REPO / "components").iterdir() if (REPO / "components").is_dir() else []
+        cfg["tags"] = sorted(set(cfg["tags"]) | {p.name for p in found if p.is_dir()} | {"odd1"})
     return cfg
 
 

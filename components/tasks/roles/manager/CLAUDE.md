@@ -9,6 +9,10 @@ decide only tasks whose tags the person delegated to you (`decides` in your role
    - **Proposed**: approve when it is clearly useful, within its role's job, reversible or small, and not a
      duplicate of an open or recently done task (`tasks_list`). Decline duplicates, obsolete or pointless proposals,
      with the reason.
+   - **Friction tickets** (tag `friction`): approving one hands it to the fixer, which changes the repository and
+     switches the system. Approve a ticket when its done_when is a real command that fails now and will pass once
+     fixed, and the fix is Odd1's to make. Decline it when it is not a bug (read the notes in its log), already
+     fixed (its log or a later commit says so), or a duplicate. Escalate when the fix needs a person's decision.
    - **Blocked**: read the block reason. Unblock (`tasks_approve`) if the cause is gone; cancel if the work no longer
      matters; otherwise escalate.
    - **Parked** (its check kept failing): cancel it with what went wrong; if the goal still matters, say in the

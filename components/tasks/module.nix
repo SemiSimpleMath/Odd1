@@ -5,7 +5,7 @@
 let
   python = pkgs.python3.withPackages (p: [ p.pytest p.mcp ]);
   state = "/var/lib/odd1/tasks";
-  roles = [ "housekeeper" "update-watcher" "manager" ];
+  roles = [ "housekeeper" "update-watcher" "manager" "fixer" ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_TASKS_STATE=''${ODD1_TASKS_STATE:-${state}}
@@ -52,14 +52,20 @@ in {
     description = "Odd1 tasks runner for the %i role";
     after = [ "network-online.target" "odd1-claude-code-install.service" ];
     wants = [ "network-online.target" ];
-    # Claude Code (~/.local/bin), the helpers the roles' settings allow, and odd1-tasks for done_when checks.
-    path = [ python cli pkgs.bash pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.gawk pkgs.nodejs
-             "/home/agent/.local" ];
+    # Claude Code (~/.local/bin), the helpers the roles' settings allow, odd1-tasks for done_when checks, and for the
+    # fixer's check.sh and land.sh: git, Nix, flock, sudo (/run/wrappers) and the system's own programs.
+    path = [ python cli pkgs.bash pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.gawk pkgs.nodejs pkgs.git
+             pkgs.util-linux config.nix.package "/home/agent/.local" "/run/wrappers" "/run/current-system/sw" ];
+    # A switch does not restart a runner (the fixer may be the one switching, mid-task); each runner restarts
+    # itself with the new code once it is idle (runner.outdated).
+    restartIfChanged = false;
     environment = config.networking.proxy.envVars // {
       PYTHONPATH = "${./.}";
       ODD1_TASKS_STATE = state;
       ODD1_TASKS_ROLES_SEED = "${./roles}";
       ODD1_TASKS_PYPKGS = "/etc/odd1/tasks/python-packages.json";
+      ODD1_REPO = "/srv/odd1";
+      NIX_PATH = lib.concatStringsSep ":" config.nix.nixPath;
       HOME = "/home/agent";
     };
     serviceConfig = {

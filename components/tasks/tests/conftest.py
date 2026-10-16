@@ -21,6 +21,8 @@ def store(tmp_path, monkeypatch):
     monkeypatch.delenv("ODD1_TASKS_AGENT", raising=False)
     monkeypatch.setenv("STUB_RECORD", str(tmp_path / "stub.jsonl"))
     monkeypatch.setattr(runner, "CLAUDE", [sys.executable, str(STUB)])
+    from odd1_tasks import workspace
+    monkeypatch.setattr(workspace, "REPO", tmp_path / "no-repo")  # never the real checkout, whatever a test does
     s = Store()
     for role in ("housekeeper", "update-watcher"):
         roles.seed(s, role)
