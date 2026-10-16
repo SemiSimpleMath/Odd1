@@ -23,6 +23,9 @@ as its own command. Nothing in the repository changes; nothing to land.
 
 ## Then
 Run the task's done_when yourself; when it passes, `tasks_finish` with what changed (the commit, for Python).
-If the done_when cannot pass even though the update is in (for example it checks the system's python3, which does
-not have Odd1's packages), say so with `tasks_escalate` and `tasks_release` with `blocked`: the task needs a better
+For a Python package it is `python3 /var/lib/odd1/tasks/roles/updater/python-installed.py ATTR B`: it reads the
+deployed /etc/odd1/tasks/python-packages.json, so it passes only after odd1-tasks-land deployed the pin.
+These commands (and read-only git, ls, cat, grep) are all your permissions allow, each as its own command or chained
+with `&&`; anything else is refused. If the done_when cannot pass even though the update is in (for example an older
+task that checks the system's python3, which does not have Odd1's packages), say so with `tasks_escalate` and `tasks_release` with `blocked`: the task needs a better
 check, which you may not change. Never apply an update that was not approved, and never more than the task names.

@@ -97,10 +97,13 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
   components' own Python (nothing else rebuilds); then `odd1-tasks-check` with the components that use it, and
   `odd1-tasks-land`. A pin keeps nixpkgs' recipe: it builds when the recipe still fits (PyGObject 3.50 -> 3.58 did);
   when it does not (selenium's patches, jsonschema's rpds-py), the updater escalates: that needs a newer nixpkgs.
-  Starts at 1 run a day.
+  Its Bash is exactly that: pin-python.py, `python-installed.py` (the done_when), git add/commit (and read-only
+  git), odd1-tasks-check, odd1-tasks-land, and the exact Claude Code install; no `python3 -c`, rebase or push.
 - **update-watcher** (`updates`): a daily recurring task; `check-versions.py` compares Claude Code (npm) and the
   Python packages components install (from the Nix build, `/etc/odd1/tasks/python-packages.json`; PyPI) and it
-  proposes "Update X from a to b" tagged `apply-update`. It never applies updates (no role holds that tag yet).
+  proposes "Update X from a to b" tagged `apply-update` with the done_when check-versions.py prints for it (a Python
+  package: `python-installed.py ATTR B`, Odd1's own Python by Nix attribute, never the system python3's
+  importlib.metadata, which lacks those packages). It never applies updates; the updater does, once approved.
 - **worker** (`routine` + every routine, `all_routines`): runs the cron manager's routines, any of them.
 Routines (the cron manager, `odd1_tasks/cron.py`): pre-planned work on a schedule. Each is a folder in `routines/`,
 seeded to `/var/lib/odd1/tasks/routines/<name>/` (the person's edits kept; a folder added there is a routine too):

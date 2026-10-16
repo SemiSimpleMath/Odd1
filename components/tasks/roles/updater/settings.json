@@ -3,17 +3,19 @@
     "allow": [
       "Read", "Glob", "Grep", "Edit(./nix/python-updates.json)",
       "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git add:*)",
-      "Bash(git commit:*)", "Bash(git restore:*)", "Bash(git rebase:*)",
+      "Bash(git commit:*)", "Bash(git restore:*)",
       "Bash(python3 /var/lib/odd1/tasks/roles/updater/pin-python.py:*)",
+      "Bash(python3 /var/lib/odd1/tasks/roles/updater/python-installed.py:*)",
       "Bash(odd1-tasks-check:*)", "Bash(odd1-tasks-land:*)",
-      "Bash(claude --version)", "Bash(claude update)", "Bash(npm install -g @anthropic-ai/claude-code@*)",
+      "Bash(claude --version)", "Bash(npm install -g @anthropic-ai/claude-code@*)",
       "Bash(npm view:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)", "Bash(journalctl:*)",
       "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)",
       "mcp__tasks__tasks_show", "mcp__tasks__tasks_list", "mcp__tasks__tasks_log", "mcp__tasks__tasks_create",
       "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish", "mcp__tasks__tasks_escalate"
     ],
     "deny": ["mcp__tasks__tasks_approve", "mcp__tasks__tasks_decline", "mcp__tasks__tasks_cancel",
-             "mcp__tasks__tasks_claim", "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(sudo:*)",
-             "Bash(odd1-deploy:*)", "Bash(pip:*)", "WebSearch", "WebFetch"]
+             "mcp__tasks__tasks_claim", "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(git rebase:*)",
+             "Bash(git -C:*)", "Bash(sudo:*)", "Bash(odd1-deploy:*)", "Bash(pip:*)", "Bash(python3 -c:*)",
+             "Bash(claude update)", "WebSearch", "WebFetch"]
   }
 }

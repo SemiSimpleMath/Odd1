@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Installed vs available versions, as JSON: Claude Code (npm) and the Python packages Odd1's components install
-(PyPI). The package list comes from the Nix build ($ODD1_TASKS_PYPKGS). Reads only; never changes anything.
+(PyPI). The package list comes from the Nix build ($ODD1_TASKS_PYPKGS). Each update's row carries the done_when its
+task gets. Reads only; never changes anything.
 
     python3 check-versions.py
 """
@@ -51,7 +52,18 @@ def main():
                          "available": pypi(found[0])})
     for r in rows:
         r["update"] = r["installed"] != r["available"] and not r["available"].startswith("unknown")
+        if r["update"]:
+            r["done_when"] = done_when(r)
     print(json.dumps(rows, indent=1))
+
+
+def done_when(row):
+    """The check that passes once the available version is installed: for a Python package, Odd1's own Python by its
+    Nix attribute (python-packages.json, rebuilt with each deploy), never the system python3's importlib.metadata."""
+    if "attr" not in row:
+        return f"claude --version | grep -q '{row['available']}'"
+    state = os.environ.get("ODD1_TASKS_STATE", "/var/lib/odd1/tasks")
+    return f"python3 {state}/roles/updater/python-installed.py {row['attr']} {row['available']}"
 
 
 if __name__ == "__main__":

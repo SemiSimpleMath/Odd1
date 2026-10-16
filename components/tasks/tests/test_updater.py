@@ -1,15 +1,19 @@
 """The updater's pin helper: a Python package pinned in nix/python-updates.json from PyPI's own release data, the
 components that use it named, and major version jumps refused (they go to a person) unless --major says a person
 approved one."""
+import importlib.util
 import io
 import json
 import runpy
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-PIN = Path(__file__).resolve().parents[1] / "roles" / "updater" / "pin-python.py"
+ROLES = Path(__file__).resolve().parents[1] / "roles"
+PIN = ROLES / "updater" / "pin-python.py"
+CHECK_VERSIONS = ROLES / "update-watcher" / "check-versions.py"
 SHA = "ab" * 32
 
 
@@ -74,3 +78,62 @@ def test_a_major_update_a_person_approved_is_pinned_with_major(worktree, monkeyp
     code, out, _ = run(monkeypatch, capsys, "pillow", "12.3.0", "--major", release=release)
     assert code == 0 and json.loads(out)["to"] == "12.3.0"
     assert json.loads((worktree / "nix" / "python-updates.json").read_text())["pillow"]["version"] == "12.3.0"
+
+
+def watcher_rows(monkeypatch, capsys, available):
+    spec = importlib.util.spec_from_file_location("check_versions", CHECK_VERSIONS)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "run", lambda *cmd: "2.1.0 (Claude Code)" if cmd[0] == "claude" else "2.1.5")
+    monkeypatch.setattr(module, "pypi", lambda name: available)
+    monkeypatch.setattr(module, "dist", lambda p: ("PyGObject", p["version"]) if p["attr"] == "pygobject3" else None)
+    module.main()
+    return {r["name"]: r for r in json.loads(capsys.readouterr().out)}
+
+
+def test_python_update_check_reads_odd1s_own_python_by_attribute(worktree, monkeypatch, capsys, tmp_path):
+    monkeypatch.setenv("ODD1_TASKS_STATE", str(tmp_path / "state"))
+    rows = watcher_rows(monkeypatch, capsys, "3.58.1")
+    check = rows["PyGObject"]["done_when"]
+    assert check == f"python3 {tmp_path}/state/roles/updater/python-installed.py pygobject3 3.58.1"
+    assert "importlib" not in check
+    assert rows["@anthropic-ai/claude-code"]["done_when"] == "claude --version | grep -q '2.1.5'"
+    assert "done_when" not in rows["selenium"]  # no update, no task
+    # The check fails before the pin is deployed and passes once python-packages.json has the new version.
+    (tmp_path / "state" / "roles").mkdir(parents=True)
+    (tmp_path / "state" / "roles" / "updater").symlink_to(ROLES / "updater")
+    command = check.replace("python3", sys.executable, 1)
+    assert subprocess.run(command, shell=True, capture_output=True).returncode == 1
+    known = worktree / "python-packages.json"
+    packages = json.loads(known.read_text())
+    next(p for p in packages if p["attr"] == "pygobject3")["version"] = "3.58.1"
+    known.write_text(json.dumps(packages))
+    assert subprocess.run(command, shell=True, capture_output=True).returncode == 0
+
+
+def test_python_update_check_is_what_the_watcher_is_told_to_copy():
+    text = (ROLES / "update-watcher" / "CLAUDE.md").read_text()
+    assert "check-versions.py printed" in text and "python3 -c" not in text
+
+
+def test_updater_may_apply_a_python_update_and_nothing_broader():
+    perms = json.loads((ROLES / "updater" / "settings.json").read_text())["permissions"]
+    bash = {a for a in perms["allow"] if a.startswith("Bash")}
+    applying = {"Bash(python3 /var/lib/odd1/tasks/roles/updater/pin-python.py:*)",
+                "Bash(python3 /var/lib/odd1/tasks/roles/updater/python-installed.py:*)",
+                "Bash(git add:*)", "Bash(git commit:*)", "Bash(odd1-tasks-check:*)", "Bash(odd1-tasks-land:*)",
+                "Bash(claude --version)", "Bash(npm install -g @anthropic-ai/claude-code@*)"}
+    looking = {"Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
+               "Bash(git restore:*)", "Bash(npm view:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)",
+               "Bash(journalctl:*)", "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)"}
+    assert bash == applying | looking
+    assert {"Bash(python3 -c:*)", "Bash(git push:*)", "Bash(git rebase:*)", "Bash(odd1-deploy:*)",
+            "Bash(sudo:*)"} <= set(perms["deny"])
+    assert [a for a in perms["allow"] if a.startswith(("Edit", "Write"))] == ["Edit(./nix/python-updates.json)"]
+
+
+def test_updater_may_apply_what_its_instructions_name():
+    text = (ROLES / "updater" / "CLAUDE.md").read_text()
+    for step in ("pin-python.py", "git add nix/python-updates.json && git commit", "odd1-tasks-check",
+                 "odd1-tasks-land", "python-installed.py"):
+        assert step in text
