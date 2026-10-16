@@ -14,14 +14,17 @@ _INTERRUPTS = re.compile(r" {0,3}([-*+]|1\.) +\S")  # what may start a list righ
 def _lists_after_lines(text):
     """A blank line before a list that directly follows a paragraph line: CommonMark starts the list there,
     Python-Markdown would fold it into the paragraph. Fenced code is left as it is."""
-    out, fenced, previous = [], False, ""
+    out, fenced, in_list, previous = [], False, False, ""
     for line in text.split("\n"):
         if _FENCE_LINE.match(line):
             fenced = not fenced
-        elif (not fenced and _INTERRUPTS.match(line) and previous.strip()
-              and not _LIST_ITEM.match(previous) and not previous.startswith("    ")):
+        elif (not fenced and not in_list and _INTERRUPTS.match(line) and previous.strip()
+              and not previous.startswith("    ")):
             out.append("")
         out.append(line)
+        if not fenced:
+            # an item's continuation lines are still the list: the next item needs no blank line
+            in_list = bool(_LIST_ITEM.match(line)) or (in_list and bool(line.strip()))
         previous = "" if fenced else line
     return "\n".join(out)
 

@@ -29,6 +29,11 @@ def test_list_right_after_a_line_is_a_list():
     assert "<ol>" in page
 
 
+def test_list_with_continuation_lines_stays_tight():
+    page = render.reply("- one\n  more\n- two\nlazy\n- three")
+    assert page.count("<li>") == 3 and "<p>" not in page
+
+
 def test_list_lines_inside_code_and_paragraphs_stay():
     code = render.reply("```\nx\n- not a list\n```")
     assert "<li>" not in code and "x\n- not a list" in code
