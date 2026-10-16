@@ -254,11 +254,11 @@ class Shell:
     # The rest of the screen -----------------------------------------------------------------------------------
     def paint_wallpaper(self):
         """Draw the wallpaper for this size, set it on the root window and hand it to xfdesktop for every monitor
-        (a new file name per size, so xfdesktop reloads it)."""
+        (a new file name every time: xfdesktop reloads only when the name changes)."""
         width, height = self.size
         folder = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "odd1-desktop")
         os.makedirs(folder, exist_ok=True)
-        path = os.path.join(folder, f"wallpaper-{self.name.lstrip(':')}-{width}x{height}.png")
+        path = os.path.join(folder, f"wallpaper-{self.name.lstrip(':')}-{width}x{height}-{time.time_ns()}.png")
         for old in os.listdir(folder):
             if old.startswith(f"wallpaper-{self.name.lstrip(':')}-") and os.path.join(folder, old) != path:
                 os.remove(os.path.join(folder, old))
