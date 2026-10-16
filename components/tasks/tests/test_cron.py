@@ -164,7 +164,7 @@ DOJO = COMPONENT / "routines" / "dojo" / "dojo-material.py"
 
 
 def test_the_dojo_routine_loads_and_its_material_shows_where_runs_stumbled(store, tmp_path):
-    cron.seed(store)
+    cron.seed(store, COMPONENT / "routines")  # this checkout's routines, not the deployed seed a runner's env names
     assert cron.load(store, "dojo")["schedule"] == "1d"
     t = store.create("Fix the thing", "true", ["friction", "desktop"], actor=PERSON)
     events = [{"type": "assistant", "message": {"content": [
