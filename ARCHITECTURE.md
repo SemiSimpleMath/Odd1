@@ -7,7 +7,8 @@ prints the generated part from each README's first line. Keep the "connections" 
 - `nix/base.nix`: the machine-independent OS: user `agent`, the screen (X display :0 1280x800, window manager,
   VNC + noVNC on :6080 for the person; Remote Desktop next), AT-SPI, the app collection (Firefox, LibreOffice,
   GIMP, Inkscape, VSCodium, jEdit, Gnumeric, FeatherPad, ...), xdotool, tesseract.
-- `nix/odd1.nix`: the Odd1 module: every component's module.nix, the MCP registry, the default coding agent
+- `nix/odd1.nix`: the Odd1 module: every component's module.nix, the MCP registry, the agent systems registry
+  (`odd1.agents`, /etc/odd1/agents.json: what a person can talk to; the desktop's New chat menu lists it), the default coding agent
   (Claude Code, with the person's own sign-in; other agent harnesses can plug in through the same MCP servers).
 - `nix/hosts/<host>.nix`: one per kind of machine (disks, boot, network); it imports base.nix and odd1.nix and is
   all `/etc/nixos/configuration.nix` imports. `dev-vm.nix` is the development VM (QEMU, egress proxy).
@@ -38,6 +39,8 @@ Every component's agent entry point is an MCP server of the same name, registere
   Its apps run in `odd1-agent.slice`, which `caretaker` can deprioritize or freeze for the person.
 - `intent` is the safe hands for file changes: plan -> approve -> apply -> undo.
 - `caretaker` watches pressure; giving the foreground program slack and pausing background agents is its next step (M2).
+- Talking to agents: every agent system registers in `odd1.agents` (title, command); the desktop's chat column
+  opens a tab per conversation, labelled by system. Claude Code is one; `tasks` registers its console.
 - `tasks` is the agent process manager: `odd1-tasks-runner@<role>` starts Claude Code headless per approved task, under
   the role's permissions and budgets; tasks are proposed by anyone, approved by the person. Its runs' cost and
   failures are the structured source `caretaker` should watch; budgets beyond turns and minutes grow there.

@@ -9,6 +9,7 @@ let
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_TASKS_STATE=''${ODD1_TASKS_STATE:-${state}}
+    export ODD1_TASKS_ROLES_SEED=${./roles} ODD1_TASKS_CONSOLE_SEED=${./console}
   '';
   wrap = name: module: pkgs.writeShellScriptBin name ''
     ${env}
@@ -41,6 +42,9 @@ in {
   environment.etc."odd1/tasks/python-packages.json".text = builtins.toJSON pyPackages;
   # The agent entry point (Odd1 convention): tasks_create/list/show/approve/claim/renew/release/log/finish.
   odd1.mcpServers.tasks = { command = "${server}/bin/odd1-tasks-mcp"; args = [ ]; };
+  # The person's line to it (the chat column's "New chat" menu): a console that reports what it is doing and acts on it.
+  odd1.agents.tasks = { title = "Task manager"; description = "What it is doing; approve, stop, leave notes";
+                        command = "${cli}/bin/odd1-tasks console"; };
   systemd.tmpfiles.rules = [ "d ${state} 0755 agent users -" "d ${state}/roles 0755 agent users -" ];
 
   # One runner per role: cheap SQL polling, and `claude -p` only when a ready task for the role exists.

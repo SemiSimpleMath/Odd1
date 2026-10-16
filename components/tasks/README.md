@@ -14,6 +14,12 @@ odd1-tasks create "Disk use under 80%" --done-when 'test $(df --output=pcent / |
     --tag housekeeping --resource /tmp --turns 10 --minutes 5 [--every 1d] [--depends-on 2] [--priority 5]
 systemctl status odd1-tasks-runner@housekeeper    # the runners; journalctl -u 'odd1-tasks-runner@*' -f
 ```
+Talk to it: **+ New chat > Task manager** in the desktop's chat column, or `odd1-tasks console`: Claude Code in
+`/var/lib/odd1/tasks/console` (its `CLAUDE.md` and `settings.json`, yours to edit) that opens by saying what the
+task manager is doing, with `odd1-tasks status` as its status line (every 5 s). Approving and stopping a task
+(`release --blocked`; the runner stops its agent at the next lease renewal) always ask you first; a note on a task
+(`tasks_log`) reaches its next run, since a running agent cannot be interrupted.
+
 Agents use the same operations through the MCP server `tasks` (`tasks_create/list/show/approve/claim/renew/
 release/log/finish`); the caller is `$ODD1_TASKS_AGENT` when a runner started it, otherwise `person:$USER`.
 

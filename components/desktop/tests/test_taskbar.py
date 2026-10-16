@@ -90,3 +90,8 @@ def test_silence_turns_the_bell_volume_to_zero_and_reports_a_missing_display():
         pytest.skip("no libX11 here")
     assert shell.silence(Screen(), ":97", libx11) is False  # no such display: only the volume was set
     assert calls == [{"bell_percent": 0}, "sync"]
+
+
+def test_chats_are_labelled_with_their_agent_system():
+    items = layout.taskbar_items([], (None, 0), ["a", "b", "c"], ["Claude", "Task manager", "Claude"])
+    assert [label for _, _, label in items] == ["Claude 1", "Task manager", "Claude 2"]

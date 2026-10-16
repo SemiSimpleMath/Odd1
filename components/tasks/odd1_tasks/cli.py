@@ -10,6 +10,8 @@
     odd1-tasks release ID [--blocked REASON]
     odd1-tasks log ID TEXT               append to the task's log
     odd1-tasks finish ID [NOTE]          the claimer is done; the runner then checks done_when
+    odd1-tasks status                    one line: what each role is doing, what waits for a person
+    odd1-tasks console                   talk to the task manager (Claude Code with its console instructions)
 
 The caller is $ODD1_TASKS_AGENT when the runner set it (an agent), otherwise person:$USER.
 State: $ODD1_TASKS_STATE (default /var/lib/odd1/tasks).
@@ -79,8 +81,16 @@ def main(argv=None) -> int:
     p = sub.add_parser("finish")
     p.add_argument("id", type=int)
     p.add_argument("note", nargs="?", default="")
+    sub.add_parser("status")
+    sub.add_parser("console")
     a = ap.parse_args(argv)
     actor, store = actor_from_env(), Store()
+    if a.cmd in ("status", "console"):
+        from . import console
+        if a.cmd == "console":
+            return console.run(store)
+        print(console.summary(store))
+        return 0
     try:
         if a.cmd == "create":
             t = store.create(a.goal, a.done_when, a.tag, actor, priority=a.priority, max_turns=a.turns,

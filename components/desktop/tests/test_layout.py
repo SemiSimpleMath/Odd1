@@ -37,8 +37,9 @@ def test_fit_leaves_fitting_windows_alone_and_moves_others_inside():
 
 
 def test_tabs_and_hits():
-    assert layout.tab_labels(1) == ["Claude"]
-    assert layout.tab_labels(3) == ["Claude 1", "Claude 2", "Claude 3"]
+    assert layout.tab_labels(["Claude"]) == ["Claude"]
+    assert layout.tab_labels(["Claude"] * 3) == ["Claude 1", "Claude 2", "Claude 3"]
+    assert layout.tab_labels(["Claude", "Task manager", "Claude"]) == ["Claude 1", "Task manager", "Claude 2"]
     boxes = layout.tab_boxes(["Claude 1", "Claude 2"], measure=lambda text: 50)
     assert boxes == [(14, 74), (92, 74)]
     assert [layout.hit(boxes, x) for x in (10, 20, 90, 100, 200)] == [None, 0, None, 1, None]
@@ -71,3 +72,18 @@ def test_watermark_is_a_faint_owl_in_the_middle_of_the_work_area():
     assert abs(marked.getpixel(centre)[0] - expected) <= 3
     assert marked.getpixel((20, 20)) == plain.getpixel((20, 20))  # nowhere else
     assert layout.watermark_height(1440) == 562
+
+
+def test_a_chat_names_its_agent_system_in_its_window_role():
+    assert layout.agent_name("odd1-agent:tasks") == "tasks"
+    assert layout.agent_name("odd1-agent:") is None
+    assert layout.agent_name("xfce4-terminal-1234") is None and layout.agent_name("") is None
+
+
+def test_new_chat_menu_hangs_under_its_button_inside_the_column():
+    header = layout.header_box((2560, 1440))  # x 1880, 680 wide
+    x, y, width, height = layout.menu_box(header, (580, 88), 2)
+    assert (x + width, y, height) == (1880 + 580 + 88, layout.HEADER_HEIGHT, 2 * layout.MENU_ITEM + 2 * layout.MENU_PAD)
+    assert layout.menu_box(header, (10, 88), 2)[0] == 1880 + 4  # never left of the column
+    pad, item = layout.MENU_PAD, layout.MENU_ITEM
+    assert [layout.menu_hit(y, 2) for y in (0, pad, pad + item - 1, pad + item, pad + 2 * item)] == [None, 0, 0, 1, None]

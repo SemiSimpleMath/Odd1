@@ -10,6 +10,7 @@ Everything follows the screen size (Remote Desktop resizes the screen with the v
 
 Window-manager independent (EWMH, XInput 2, RandR), so it runs on any X display.
 """
+import json
 import os
 import select
 import shutil
@@ -40,18 +41,37 @@ def log(message):
 
 
 def chat_command():
-    """The command a new chat runs: Claude Code by default; any agent harness via $ODD1_CHAT_COMMAND."""
+    """The command a new Claude chat runs: Claude Code by default; any agent harness via $ODD1_CHAT_COMMAND."""
     return os.environ.get("ODD1_CHAT_COMMAND") or "claude"
 
 
-def open_chat(cwd=None):
-    """A new chat window: a terminal titled like a chat (the shell docks it), running the chat command. It runs in
-    its own systemd scope, so a chat outlives the shell (and the shell's restarts)."""
-    command = f"{chat_command()}; exec bash"
+def load_agents():
+    """The agent systems a person can talk to, Claude first: {name: {title, description, command}} from
+    $ODD1_AGENTS (/etc/odd1/agents.json, nix/odd1.nix's odd1.agents)."""
+    try:
+        with open(os.environ.get("ODD1_AGENTS", "/etc/odd1/agents.json")) as f:
+            agents = json.load(f)
+    except (OSError, ValueError):
+        agents = {}
+    agents.setdefault("claude", {"title": "Claude", "description": "A new conversation with Claude Code"})
+    agents["claude"]["command"] = chat_command() if os.environ.get("ODD1_CHAT_COMMAND") else \
+        agents["claude"].get("command", "claude")
+    return dict(sorted(agents.items(), key=lambda item: item[0] != "claude"))
+
+
+def open_chat(cwd=None, agent="claude"):
+    """A new chat window with an agent system: a terminal carrying the role odd1-agent:<name> (the shell docks it
+    and labels its tab), running the system's command. It runs in its own systemd scope, so a chat outlives the
+    shell (and the shell's restarts)."""
+    agents = load_agents()
+    entry = agents.get(agent) or agents["claude"]
+    title = layout.CHAT_TITLES[0] if agent == "claude" else entry["title"]
+    command = f"{entry['command']}; exec bash"
     scope = ["systemd-run", "--user", "--scope", "--collect", "--quiet", f"--unit=odd1-chat-{time.time_ns()}"]
-    subprocess.Popen((scope if shutil.which("systemd-run") else []) + ["xfce4-terminal", "--disable-server", f"--title={layout.CHAT_TITLES[0]}",
-                      f"--working-directory={cwd or os.path.expanduser('~')}", "-x", "bash", "-lc", command],
-                     start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.Popen((scope if shutil.which("systemd-run") else []) + [
+        "xfce4-terminal", "--disable-server", f"--title={title}", f"--role={layout.AGENT_ROLE}{agent}",
+        f"--working-directory={cwd or os.path.expanduser('~')}", "-x", "bash", "-lc", command],
+        start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def launcher(text, overrides):
@@ -154,6 +174,10 @@ class Shell:
         self.top = 0
         self.header = None
         self.chats = []  # chat windows in the order they opened
+        self.chat_agents = {}  # chat window id -> its agent system's name
+        self.agents = load_agents()
+        self.menu = None  # the New chat menu (an override-redirect window), while it is open
+        self.menu_hover = None
         self.shown = None  # the chat on top of the column
         self.fitted = set()  # app windows already kept out of the column once
         self.tabs = []  # (x, width) of each tab in the header
@@ -187,8 +211,9 @@ class Shell:
         self.dock(self.header, box, layout.strut(self.size))
         self.header.map()
 
-    def adopt(self, window):
+    def adopt(self, window, agent="claude"):
         """Take a new chat window into the column (unmap, retype as a dock, map again)."""
+        self.chat_agents[window.id] = agent
         window.unmap()
         self.display.sync()
         time.sleep(0.2)
@@ -222,7 +247,7 @@ class Shell:
         image = Image.new("RGB", (width, height), layout.CHAT_BACKGROUND)
         draw = ImageDraw.Draw(image)
         measure = lambda text: round(draw.textlength(text, font=self.font))
-        labels = layout.tab_labels(len(self.chats)) if self.chats else []
+        labels = layout.tab_labels(self.chat_titles())
         self.tabs = layout.tab_boxes(labels, measure)
         for index, ((x, w), label) in enumerate(zip(self.tabs, labels)):
             active = self.chats[index] is self.shown
@@ -241,15 +266,93 @@ class Shell:
         data = image.tobytes("raw", "BGRX")
         self.header.put_image(self.gc, 0, 0, width, height, self.X.ZPixmap, 24, 0, data)
 
+    def chat_titles(self):
+        """Each chat's agent system's title, in tab order."""
+        return [self.agents.get(self.chat_agents.get(chat.id, "claude"), {}).get("title", "Claude")
+                for chat in self.chats]
+
     def click_header(self, x):
         log(f"header click at {x}; tabs {self.tabs}; new chat {self.new_chat}")
         start, width = self.new_chat
         if start <= x < start + width:
-            open_chat("/srv/odd1" if os.path.isdir("/srv/odd1") else None)
+            self.toggle_menu()
             return
+        self.close_menu()
         index = layout.hit(self.tabs, x)
         if index is not None and index < len(self.chats):
             self.show(self.chats[index])
+
+    # The New chat menu: one item per agent system ----------------------------------------------------------------
+    def start_chat(self, agent):
+        open_chat("/srv/odd1" if agent == "claude" and os.path.isdir("/srv/odd1") else None, agent)
+
+    def toggle_menu(self):
+        if self.menu is not None:
+            self.close_menu()
+            return
+        self.agents = load_agents()
+        if len(self.agents) == 1:
+            self.start_chat("claude")
+            return
+        X = self.X
+        x, y, width, height = layout.menu_box(layout.header_box(self.size), self.new_chat, len(self.agents))
+        self.menu = self.root.create_window(
+            x, y, width, height, 0, X.CopyFromParent, X.InputOutput, X.CopyFromParent, override_redirect=True,
+            background_pixel=0x202229,
+            event_mask=X.ExposureMask | X.ButtonPressMask | X.PointerMotionMask | X.LeaveWindowMask)
+        self.menu_gc, self.menu_hover = self.menu.create_gc(), None
+        self.menu.map()
+        self.menu.configure(stack_mode=X.Above)
+        self.draw_menu()
+
+    def close_menu(self):
+        if self.menu is not None:
+            self.menu.destroy()
+            self.menu = None
+
+    def draw_menu(self):
+        from PIL import Image, ImageDraw
+        if self.menu is None:
+            return
+        names = list(self.agents)
+        _, _, width, height = layout.menu_box(layout.header_box(self.size), self.new_chat, len(names))
+        image = Image.new("RGB", (width, height), layout.MENU_BACKGROUND)
+        draw = ImageDraw.Draw(image)
+        small = font(12, "Regular")
+        for index, name in enumerate(names):
+            top = layout.MENU_PAD + index * layout.MENU_ITEM
+            if index == self.menu_hover:
+                draw.rounded_rectangle([4, top + 2, width - 5, top + layout.MENU_ITEM - 3], radius=6,
+                                       fill=layout.MENU_HOVER)
+            entry = self.agents[name]
+            draw.text((16, top + 17), entry.get("title", name), font=self.font, anchor="lm", fill=layout.HEADER_TEXT)
+            draw.text((16, top + 36), entry.get("description", ""), font=small, anchor="lm",
+                      fill=layout.HEADER_TEXT_DIM)
+        draw.rectangle([0, 0, width - 1, height - 1], outline=layout.CHAT_EDGE)
+        self.menu.put_image(self.menu_gc, 0, 0, width, height, self.X.ZPixmap, 24, 0, image.tobytes("raw", "BGRX"))
+
+    def hover_menu(self, y):
+        index = None if y is None else layout.menu_hit(y, len(self.agents))
+        if index != self.menu_hover:
+            self.menu_hover = index
+            self.draw_menu()
+
+    def click_menu(self, y):
+        index = layout.menu_hit(y, len(self.agents))
+        self.close_menu()
+        if index is not None:
+            self.start_chat(list(self.agents)[index])
+
+    def pointer_in_menu_or_button(self):
+        """Whether the pointer is on the open menu or on the New chat button (whose own click toggles the menu)."""
+        pointer = self.root.query_pointer()
+        x, y, width, height = layout.menu_box(layout.header_box(self.size), self.new_chat, len(self.agents))
+        if x <= pointer.root_x < x + width and y <= pointer.root_y < y + height:
+            return True
+        header_x, header_y, _, header_height = layout.header_box(self.size)
+        start, button = self.new_chat
+        return (header_x + start <= pointer.root_x < header_x + start + button
+                and header_y <= pointer.root_y < header_y + header_height)
 
     # The rest of the screen -----------------------------------------------------------------------------------
     def paint_wallpaper(self):
@@ -371,8 +474,9 @@ class Shell:
             alive.add(window.id)
             if window in self.chats or window in (self.header, self.taskbar.window):
                 continue
-            if layout.is_chat(title):
-                self.adopt(window)
+            agent = layout.agent_name(self.role(window))
+            if agent or layout.is_chat(title):
+                self.adopt(window, agent or "claude")
                 continue
             if kind and normal not in kind:
                 continue
@@ -402,6 +506,14 @@ class Shell:
         self.display.flush()
 
     # Windows ------------------------------------------------------------------------------------------------------
+    def role(self, window):
+        """WM_WINDOW_ROLE, or "" (a chat's terminal names its agent system there)."""
+        try:
+            prop = window.get_full_property(self.atom("WM_WINDOW_ROLE"), self.X.AnyPropertyType)
+            return prop.value.decode("utf-8", "replace") if prop else ""
+        except Exception:
+            return ""
+
     def app_class(self, window):
         try:
             names = window.get_wm_class()
@@ -471,7 +583,17 @@ class Shell:
                 self.layout()  # titles, minimized state or focus changed: the taskbar follows
             elif event.type == X.ButtonPress and self.header is not None and event.window == self.header:
                 self.click_header(event.event_x)
+            elif self.menu is not None and event.type == X.Expose and event.window == self.menu:
+                self.draw_menu()
+            elif self.menu is not None and event.type == X.ButtonPress and event.window == self.menu:
+                self.click_menu(event.event_y)
+            elif self.menu is not None and event.type == X.MotionNotify and event.window == self.menu:
+                self.hover_menu(event.event_y)
+            elif self.menu is not None and event.type == X.LeaveNotify and event.window == self.menu:
+                self.hover_menu(None)
             elif event.type == GENERIC_EVENT and getattr(event, "evtype", None) == self.xinput.RawButtonPress:
+                if self.menu is not None and not self.pointer_in_menu_or_button():
+                    self.close_menu()  # a click anywhere else closes the menu
                 if self.pointer_in_chat():
                     self.focus()
             elif event.type == X.PropertyNotify and event.atom not in watched:

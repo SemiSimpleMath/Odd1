@@ -1,0 +1,11 @@
+{
+  "statusLine": { "type": "command", "command": "odd1-tasks status", "refreshInterval": 5 },
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep",
+      "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)", "Bash(odd1-tasks status)",
+      "Bash(journalctl -u odd1-tasks-runner*)",
+      "mcp__tasks__tasks_list", "mcp__tasks__tasks_show", "mcp__tasks__tasks_log", "mcp__tasks__tasks_create"
+    ]
+  }
+}

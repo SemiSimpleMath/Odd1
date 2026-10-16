@@ -12,6 +12,7 @@ let
         (builtins.attrNames (lib.filterAttrs (_: kind: kind == "directory") (builtins.readDir components)))));
   servers = config.odd1.mcpServers;
   registry = pkgs.writeText "odd1-mcp-servers.json" (builtins.toJSON servers);
+  agents = pkgs.writeText "odd1-agents.json" (builtins.toJSON config.odd1.agents);
 in {
   imports = modules;
 
@@ -23,8 +24,24 @@ in {
     description = "MCP servers (name -> { command, args, env? }) offered to every agent on Odd1.";
   };
 
+  # The agent systems a person can talk to (the desktop's chat column offers each one under "New chat"): a component
+  # that runs agents registers how to open a conversation with them. Claude Code itself is the first.
+  options.odd1.agents = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.submodule {
+      options = {
+        title = lib.mkOption { type = lib.types.str; description = "Its name in the chat column, e.g. \"Task manager\"."; };
+        description = lib.mkOption { type = lib.types.str; default = ""; description = "One line: what talking to it is for."; };
+        command = lib.mkOption { type = lib.types.str; description = "Shell command that opens a conversation in a terminal."; };
+      };
+    });
+    default = { };
+    description = "Agent systems (name -> { title, description, command }) offered to the person (/etc/odd1/agents.json).";
+  };
+
   config = {
   environment.etc."odd1/mcp-servers.json".source = registry;
+  environment.etc."odd1/agents.json".source = agents;
+  odd1.agents.claude = { title = "Claude"; description = "A new conversation with Claude Code"; command = "claude"; };
 
   networking.hostName = "odd1";
 

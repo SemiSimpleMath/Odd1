@@ -144,7 +144,7 @@ class Taskbar:
         self.agent_count = self.count_agent_windows()
         listed = [(window.id, app, title) for window, app, title in apps]
         self.items = layout.taskbar_items(listed, (agent_window.id if agent_window else None, self.agent_count),
-                                          self.shell.chats)
+                                          self.shell.chats, self.shell.chat_titles())
         self.slots, width = layout.taskbar_slots(self.items)
         box = layout.taskbar_box(self.shell.size, self.shell.top, width)
         if box != self.box:
@@ -209,15 +209,19 @@ class Taskbar:
                 icon = agents_icon(size)
                 focused = key == active
                 running = self.agent_window is not None and hidden not in self.state(self.agent_window)
-            else:
+            elif self.shell.chat_agents.get(key.id, "claude") == "claude":
                 icon = chat_icon(size)
+                focused = key is self.shell.shown
+                running = True
+            else:  # another agent system: its initial, like an app without an icon
+                icon = letter_icon(label, size, self.label_font)
                 focused = key is self.shell.shown
                 running = True
             image.paste(icon, (x, top), icon)
             if kind == "agents" and self.agent_count:  # badges go over the icon
                 self.badge(image, x + size - 6, top - 3, str(self.agent_count))
-            if kind == "chat" and len(self.shell.chats) > 1:
-                self.badge(image, x + size - 6, top + size - 12, str(self.shell.chats.index(key) + 1),
+            if kind == "chat" and label[-1:].isdigit() and label.rsplit(" ", 1)[0] in self.shell.chat_titles():
+                self.badge(image, x + size - 6, top + size - 12, label.rsplit(" ", 1)[1],
                            colour=(40, 42, 50))
             dot_y = top + size + 5
             if focused:

@@ -15,9 +15,9 @@ WALLPAPER_FIELDS = (
     ((1.00, 0.85, 0.50), (200, 110, 90), 0.24),  # a warm glow, low right
     ((0.45, 0.45, 0.50), (60, 90, 170), 0.30),  # blue, centre
 )
-# The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (40% brightness), 55%
+# The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (40% brightness), 85%
 # opaque, 39% of the screen's height.
-WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.40, 0.55, 0.39
+WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.40, 0.85, 0.39
 CHAT_BACKGROUND, CHAT_EDGE = (23, 24, 28), (44, 46, 54)  # the chat column and its 1px left edge
 HEADER_HEIGHT = 34
 HEADER_TEXT, HEADER_TEXT_DIM, HEADER_ACCENT = (228, 228, 232), (138, 140, 150), (217, 119, 87)
@@ -80,9 +80,42 @@ def is_chat(title, titles=CHAT_TITLES):
     return title in titles
 
 
-def tab_labels(count):
-    """Labels for the chat tabs: one chat is just "Claude"; several are numbered in the order they opened."""
-    return ["Claude"] if count == 1 else [f"Claude {n}" for n in range(1, count + 1)]
+def tab_labels(titles):
+    """Labels for the chat tabs, from each chat's agent system ("Claude", "Task manager"): one chat of a system is
+    just its title; several of one system are numbered in the order they opened."""
+    total = {title: titles.count(title) for title in titles}
+    seen, labels = {}, []
+    for title in titles:
+        seen[title] = seen.get(title, 0) + 1
+        labels.append(title if total[title] == 1 else f"{title} {seen[title]}")
+    return labels
+
+
+# The agent systems a person can talk to (/etc/odd1/agents.json, nix/odd1.nix's odd1.agents): each chat's terminal
+# carries the role "odd1-agent:<name>", so the column knows whose chat it is whatever title the agent sets.
+AGENT_ROLE = "odd1-agent:"
+MENU_WIDTH, MENU_ITEM, MENU_PAD = 340, 52, 6
+MENU_BACKGROUND, MENU_HOVER = (32, 34, 41), (44, 47, 56)
+
+
+def agent_name(role):
+    """The agent system a chat window belongs to, from its WM_WINDOW_ROLE; None for other windows."""
+    return role[len(AGENT_ROLE):] or None if role and role.startswith(AGENT_ROLE) else None
+
+
+def menu_box(header, button, count):
+    """(x, y, width, height) on the screen of the New chat menu: below the header, its right edge under the button's
+    right edge, and never left of the column."""
+    header_x, header_y, _, header_height = header
+    button_x, button_width = button
+    x = max(header_x + button_x + button_width - MENU_WIDTH, header_x + 4)
+    return (x, header_y + header_height, MENU_WIDTH, count * MENU_ITEM + 2 * MENU_PAD)
+
+
+def menu_hit(y, count):
+    """Index of the menu item at y (inside the menu), or None."""
+    index = (y - MENU_PAD) // MENU_ITEM
+    return index if y >= MENU_PAD and index < count else None
 
 
 def tab_boxes(labels, measure, start=14, pad=12, gap=4):
@@ -162,11 +195,12 @@ TASKBAR_BACKGROUND, TASKBAR_ALPHA = (18, 20, 28), 0.72  # dark glass over the wa
 TASKBAR_SEPARATOR = 12  # the gap (with a hairline) between apps, agents and chats
 
 
-def taskbar_items(apps, agents, chats):
+def taskbar_items(apps, agents, chats, titles=None):
     """The taskbar's items, in order: [(kind, key, label)].
     apps: [(window id, app class, title)] of the person's windows, oldest first; one item per class, labelled with
     its newest window's title when it has one window, else with the class. agents: the agent desktop's window id
-    (or None) and how many windows agents have open there. chats: one entry per chat window, in tab order."""
+    (or None) and how many windows agents have open there. chats: one entry per chat window, in tab order, and
+    titles: each chat's agent system ("Claude" for all when not given)."""
     groups = {}
     for xid, app, title in apps:
         groups.setdefault(app or title, []).append((xid, title))
@@ -174,7 +208,7 @@ def taskbar_items(apps, agents, chats):
     agent_id, count = agents
     if agent_id is not None:
         items.append(("agents", agent_id, f"Agents · {count} app{'s' if count != 1 else ''}" if count else "Agents"))
-    labels = tab_labels(len(chats)) if chats else []
+    labels = tab_labels(titles or ["Claude"] * len(chats))
     items += [("chat", chat, label) for chat, label in zip(chats, labels)]
     return items
 

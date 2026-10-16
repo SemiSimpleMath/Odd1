@@ -14,7 +14,9 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
   item** for everything agents run on the agent desktop (badge: how many windows; click shows or hides it); one
   item per chat in the column. Hover names an item; clicking an app brings it forward or, if focused, minimizes it.
   The rule is the display: windows on the person's screen are the person's, windows on :1 are agents'.
-- Chat column (right, a third of the screen, 460-680px, full height): a tab per chat and **+ New chat** at the top; the chat itself is a
+- Chat column (right, a third of the screen, 460-680px, full height): a tab per chat, labelled with its agent
+  system, and **+ New chat** at the top, a menu of the agent systems a person can talk to (`odd1.agents`,
+  /etc/odd1/agents.json: Claude, the Task manager, ...); the chat itself is a
   terminal running Claude Code (`$ODD1_CHAT_COMMAND` for any other agent harness). Apps can't cover it, maximized
   windows stop at it, and new windows open beside it.
 - Remote Desktop carries the clipboard both ways, images included (paste a screenshot into a chat with Ctrl+V),
@@ -36,7 +38,7 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
 ## Use
 - Switch on: `odd1.desktop.enable = true;` in a host profile (base.nix then runs Xvnc, xrdp and this session
   instead of Xvfb, openbox and x11vnc). Connect with Windows' Remote Desktop to the machine's port 3389.
-- `odd1-desktop new-chat [DIR]`, `odd1-desktop focus-chat`, `odd1-desktop shell --display :N` (the session runs it).
+- `odd1-desktop new-chat [DIR]` (Claude), `odd1-desktop focus-chat`, `odd1-desktop shell --display :N` (the session runs it).
 - Session units (user): `odd1-desktop-settings` (xfsettingsd), `-wm` (xfwm4), `-panel`, `-icons` (xfdesktop),
   `-shell`. Restarting the shell keeps chats open (KillMode=process; new chats run in their own scope).
 - Settings: Odd1 owns the Xfce channels in `xfconf/`. At session start their copies in `~/.config/xfce4` are
@@ -46,7 +48,8 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
 ## How it works
 `odd1_desktop/taskbar.py` draws the taskbar (window icons from `_NET_WM_ICON`, the Agents and chat icons drawn
 here, translucency faked over the wallpaper it covers) and counts the agent desktop's windows every 2s.
-`odd1_desktop/shell.py` turns every window titled "Claude Code" into a dock window under its header (docks are
+`odd1_desktop/shell.py` turns every chat window (role `odd1-agent:<name>`, set by `open_chat`, or titled "Claude
+Code") into a dock window under its header (docks are
 never covered and never constrained), puts the EWMH strut that reserves the column on the header, focuses the shown
 chat on clicks in the column (window managers do not focus docks; XInput 2 raw button events), moves new app
 windows out of the column once, and repaints the wallpaper on every resize (RandR). Pure rules live in `layout.py`.

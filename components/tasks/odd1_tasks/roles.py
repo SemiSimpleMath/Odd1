@@ -30,18 +30,23 @@ def load(store: Store, role: str) -> dict:
     return cfg
 
 
+def copy_missing(src: Path, dst: Path) -> None:
+    """Copy src's files into dst where dst has none yet, writable (files from the Nix store are read-only)."""
+    dst.mkdir(parents=True, exist_ok=True)
+    for f in src.rglob("*") if src.is_dir() else []:
+        target = dst / f.relative_to(src)
+        if f.is_dir() or target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(f, target)
+        target.chmod(0o755 if os.access(f, os.X_OK) else 0o644)
+
+
 def seed(store: Store, role: str, source: Path = SEED) -> dict:
     """Copy the role's files from the repository where missing (the person's edits are kept), register the role's
     tags with the store, and create its starter tasks once, as proposed."""
-    src, dst = source / role, folder(store, role)
-    if src.is_dir():
-        for f in src.rglob("*"):
-            target = dst / f.relative_to(src)
-            if f.is_dir() or target.exists():
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(f, target)  # not copy2: files from the Nix store are read-only
-            target.chmod(0o755 if os.access(f, os.X_OK) else 0o644)
+    dst = folder(store, role)
+    copy_missing(source / role, dst)
     (dst / "reports").mkdir(parents=True, exist_ok=True)
     cfg = load(store, role)
     store.register_agent(role, cfg["tags"])
