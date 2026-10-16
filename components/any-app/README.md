@@ -12,10 +12,11 @@ Milestone: ★ (any app, through interfaces agents write themselves). The observ
     [{text, confidence, bounds}]}`; with no argument it captures the whole screen.
   - `app_screenshot(window, out, frame)`: one window as a PNG even when other windows cover it or it hangs off
     screen, `{path, window, title, app, width, height, sha256}`; `window` is a title or app-name (WM_CLASS)
-    substring matching exactly one window, or an X11 id. Read the PNG at `path` to see it.
+    substring matching exactly one window, or an X11 id; empty for the whole screen (`window: "root"`). Read the
+    PNG at `path` to see it.
   - Every capture takes `display`: `"user"` (the person's screen, default) or `"agent"` (the agent desktop, `:1`,
     where agents run apps out of the person's way; see agent-desktop); `app_ocr` takes it too.
-- Command line: `odd1-any-app describe "Calculator"`, `odd1-any-app ocr shot.png`, `odd1-any-app screenshot featherpad [-o out.png] [--frame] [--display agent]`, `odd1-any-app geometry "Calculator"`
+- Command line: `odd1-any-app describe "Calculator"`, `odd1-any-app ocr shot.png`, `odd1-any-app screenshot featherpad [-o out.png] [--frame] [--display agent]`, `odd1-any-app screenshot --screen`, `odd1-any-app geometry "Calculator"`
   (AT-SPI vs X11 vs screenshot geometry), `odd1-any-app eval-ocr ocr.json labels.json` (token P/R/F1),
   `odd1-any-app eval-boxes ocr.json boxes.json [--iou-threshold 0.5]` (box localization).
 - Python: `PYTHONPATH=$ODD1_ANY_APP_PYTHONPATH python3`, then `from any_app import describe_pixels`
@@ -40,6 +41,9 @@ and ImageMagick; the MCP tests skip without the `mcp` package (1.x, `FastMCP`). 
   black for them. `screenshot` redirects the window's frame with XComposite (automatic mode, the screen is
   unchanged), waits 0.3 s for the app to repaint into its offscreen pixmap, and reads that. GTK, Qt, Firefox, Tk
   all repaint; a minimized (unmapped) window has no pixels and is an error. `app_ocr(window_id)` uses it too.
+- The whole screen (`--screen`, `app_screenshot` with no window, `app_ocr` with nothing) is the root window read with
+  IncludeInferiors: Xvnc (:0) and Xephyr (:1) return what is on screen, windows included, so per-window stacking
+  was not needed. `capture` itself cannot take the root (its walk up to a top-level frame starts above the root).
 
 - OCR reads each image twice in parallel, as given and in grayscale at 2x, and keeps whichever pass read each region
   more confidently: small fonts gain (FeatherPad 10 -> 19 words at confidence >= 60, xterm 0 -> 3) and large text
@@ -48,9 +52,6 @@ and ImageMagick; the MCP tests skip without the `mcp` package (1.x, `FastMCP`). 
   multithreaded passes oversubscribed the CPUs and timed out. 0.3-0.6 s per window.
 
 ## Next
-- A full-screen grab (`screenshot --screen`, and an MCP tool), to see a whole desktop's layout at once. Today the root
-  window crashes `capture` (its parent walk gets 0 from the root), and the root has no pixmap of its own under
-  xfwm4's compositor: stack every viewable top-level's composite pixmap in stacking order, or read the overlay window.
 - Calibrate coordinates per toolkit (AT-SPI and OCR boxes to screen pixels) so observations become click targets.
 - A held-out labelled set of app screens to measure OCR recognition and box localization separately.
 - The merged screen model with stable ids now lives in `screen`, which uses this component's readers; grow the

@@ -77,3 +77,29 @@ def test_live_capture_of_a_covered_window(tmp_path):
     finally:
         below.kill()
         above.kill()
+
+
+def test_main_takes_a_window_or_the_screen(capsys):
+    for argv in ([], ["calc", "--screen"], ["--screen", "--frame"]):
+        with pytest.raises(SystemExit):
+            screenshot.main(argv)
+        assert "give a WINDOW" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(not live_ready(), reason="needs DISPLAY, python-xlib, Pillow, tkinter and xdotool")
+def test_live_capture_of_the_whole_screen(tmp_path):
+    from PIL import Image
+    from Xlib import display as xdisplay
+    connection = xdisplay.Display()
+    geometry = connection.screen().root.get_geometry()
+    connection.close()
+    window = subprocess.Popen([sys.executable, "-c", TK_WINDOW, f"odd1-screen-{os.getpid()}", "#00ff00",
+                               "300x200+100+100"])
+    try:
+        time.sleep(1.5)
+        shot = screenshot.capture_screen(tmp_path / "screen.png")
+    finally:
+        window.kill()
+    picture = Image.open(shot["path"]).convert("RGB")
+    assert shot["window"] == "root" and picture.size == (geometry.width, geometry.height)
+    assert (0, 255, 0) in {colour for _, colour in picture.getcolors(1 << 24)}, "the open window is in the grab"

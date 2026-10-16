@@ -2,7 +2,7 @@
 
     any-app describe WINDOW        AT-SPI tree of one window (title substring) as compact JSON
     any-app ocr PNG                Tesseract words with image-local boxes and confidence
-    any-app screenshot WINDOW      PNG of one window, even when covered by others (-o OUT, --frame)
+    any-app screenshot WINDOW      PNG of one window, even when covered by others (-o OUT, --frame); --screen: all
     any-app geometry WINDOW        AT-SPI vs X11 vs screenshot geometry for one window
     any-app eval-ocr OCR LABELS    token precision/recall/F1 of an OCR result against labels
     any-app eval-boxes OCR LABELS  box localization (IoU) of an OCR result against labelled boxes

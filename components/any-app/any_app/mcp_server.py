@@ -37,8 +37,7 @@ def ocr(png: str = "", window_id: str = "", max_words: int = 2000, display: str 
         if window_id:
             screenshot.capture(window_id, target, display_name=display)
         else:
-            subprocess.run(["import", "-display", screenshot.resolve_display(display), "-window", "root",
-                            f"png:{target}"], check=True, capture_output=True, timeout=10)
+            screenshot.capture_screen(target, display_name=display)
         return describe_pixels.describe_image(target, max_words=max_words)
 
 
@@ -58,12 +57,15 @@ def app_ocr(png: str = "", window_id: str = "", max_words: int = 2000, display: 
 
 
 @mcp.tool()
-def app_screenshot(window: str, out: str = "", frame: bool = False, display: str = "user") -> dict:
-    """Screenshot one window to a PNG, even when other windows cover it: {"path", "window", "title", "app",
-    "width", "height", "sha256"}. window: a title or app-name substring matching exactly one window, or an X11 id; out: PNG path
+def app_screenshot(window: str = "", out: str = "", frame: bool = False, display: str = "user") -> dict:
+    """Screenshot one window to a PNG, even when other windows cover it, or the whole screen: {"path", "window",
+    "title", "app", "width", "height", "sha256"}. window: a title or app-name substring matching exactly one
+    window, or an X11 id; empty for the whole screen (window "root"; frame is ignored); out: PNG path
     (default: a new file under $TMPDIR/odd1-any-app); frame: include the window manager's title bar and border.
     Read the PNG at "path" to see it. Minimized windows have no pixels and are an error. display: "user" (the
     person's screen) or "agent" (the agent desktop, where agents run their own apps)."""
+    if not window:
+        return screenshot.capture_screen(out or None, display_name=display)
     return screenshot.capture(window, out or None, frame, display_name=display)
 
 

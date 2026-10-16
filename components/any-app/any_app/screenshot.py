@@ -4,8 +4,11 @@ Odd1's X server has no compositor, so covered pixels do not exist on screen and 
 them. The X Composite extension renders a redirected window into its own offscreen pixmap instead: redirect the
 window's top-level frame (automatic mode, so the screen looks the same), let the app repaint, read the pixmap, crop
 the client area. The redirect ends when this connection closes. A minimized (unmapped) window has no pixels at all.
+The whole screen is the root window read with IncludeInferiors: the X server (Xvnc) returns what is on screen,
+windows included, so no per-window stacking is needed.
 
     any-app screenshot WINDOW [-o OUT.png] [--frame] [--display user|agent|:N]   WINDOW: title or app substring (exactly one match), or X11 id
+    any-app screenshot --screen [-o OUT.png] [--display user|agent|:N]           the whole screen
 """
 import argparse
 import hashlib
@@ -57,10 +60,11 @@ def resolve_display(name=None):
     raise ValueError(f'display must be "user", "agent" or an X display like ":1", not {name!r}')
 
 
-def default_path(xid):
+def default_path(xid=None):
     folder = Path(tempfile.gettempdir()) / "odd1-any-app"
     folder.mkdir(exist_ok=True)
-    return folder / f"window-{xid:x}-{time.strftime('%Y%m%d-%H%M%S')}.png"
+    name = "screen" if xid is None else f"window-{xid:x}"
+    return folder / f"{name}-{time.strftime('%Y%m%d-%H%M%S')}.png"
 
 
 def clients(display):
@@ -116,15 +120,42 @@ def capture(query, out=None, frame=False, settle=SETTLE_SECONDS, display_name=No
             "height": picture.height, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
+def capture_screen(out=None, display_name=None):
+    """Capture the whole screen to a PNG; returns {path, window: "root", title, app, width, height, sha256} like
+    capture. display_name: "user" (default), "agent" or an X display such as ":1"."""
+    from PIL import Image
+    from Xlib import X, display as xdisplay
+
+    name = resolve_display(display_name)
+    display = xdisplay.Display(name)
+    try:
+        root = display.screen().root
+        geometry = root.get_geometry()
+        image = root.get_image(0, 0, geometry.width, geometry.height, X.ZPixmap, 0xFFFFFFFF)
+    finally:
+        display.close()
+    picture = Image.frombytes("RGB", (geometry.width, geometry.height), image.data, "raw", "BGRX")
+    path = Path(out) if out else default_path()
+    picture.save(path, "PNG")
+    return {"path": str(path), "window": "root", "title": f"screen {name}", "app": "", "width": picture.width,
+            "height": picture.height, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="any-app screenshot", description=__doc__.splitlines()[0])
-    parser.add_argument("window", help="title or app substring (must match exactly one window), or X11 id")
+    parser.add_argument("window", nargs="?", help="title or app substring (must match exactly one window), or X11 id")
+    parser.add_argument("--screen", action="store_true", help="the whole screen instead of one window")
     parser.add_argument("-o", "--out", help="PNG path (default: a new file under $TMPDIR/odd1-any-app)")
     parser.add_argument("--frame", action="store_true", help="include the window manager's frame")
     parser.add_argument("--display", default="user", help='"user" (default), "agent" or an X display like ":1"')
     args = parser.parse_args(argv)
+    if bool(args.window) == args.screen or (args.screen and args.frame):
+        parser.error("give a WINDOW (optionally --frame) or --screen")
     try:
-        print(json.dumps(capture(args.window, args.out, args.frame, display_name=args.display)))
+        if args.screen:
+            print(json.dumps(capture_screen(args.out, display_name=args.display)))
+        else:
+            print(json.dumps(capture(args.window, args.out, args.frame, display_name=args.display)))
     except (LookupError, RuntimeError, ValueError) as exc:
         print(f"any-app screenshot: {exc}", file=sys.stderr)
         return 1
