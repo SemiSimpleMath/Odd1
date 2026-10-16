@@ -13,6 +13,8 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
 - Chat column (right, a third of the screen, 460-680px): a tab per chat and **+ New chat**; the chat itself is a
   terminal running Claude Code (`$ODD1_CHAT_COMMAND` for any other agent harness). Apps can't cover it, maximized
   windows stop at it, and new windows open beside it.
+- Quiet: the X bell is off (the shell sets its volume to 0), so agents typing into apps make no beeps over Remote
+  Desktop.
 - Look: Colloid (GTK, window frames, icons), Inter for the interface, JetBrains Mono in the chat, xfwm4's
   compositor for soft shadows. Grayscale antialiasing, so text stays crisp over Remote Desktop.
 - The screen follows the viewer: Remote Desktop (xrdp, port 3389) and noVNC (6080) ask Xvnc for their window's

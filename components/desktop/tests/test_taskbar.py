@@ -70,3 +70,17 @@ def test_launcher_overrides_replace_keys_and_drop_their_translations():
     text = "[Desktop Entry]\nName=Thunar File Manager\nName[de]=Thunar\nExec=thunar\n[Desktop Action x]\nName=Keep\n"
     out = shell.launcher(text, {"Name": "Files"})
     assert out == "[Desktop Entry]\nName=Files\nExec=thunar\n[Desktop Action x]\nName=Keep\n"
+
+
+def test_silence_turns_the_bell_volume_to_zero():
+    calls = []
+
+    class Screen:
+        def change_keyboard_control(self, **values):
+            calls.append(values)
+
+        def sync(self):
+            calls.append("sync")
+
+    shell.silence(Screen())
+    assert calls == [{"bell_percent": 0}, "sync"]

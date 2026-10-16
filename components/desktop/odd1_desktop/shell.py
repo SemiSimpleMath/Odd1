@@ -69,6 +69,13 @@ def launcher(text, overrides):
     return "\n".join(lines) + "\n"
 
 
+def silence(screen):
+    """Turn the X bell off. Apps ring it on every refused key (agents type a lot), the agent desktop passes its
+    rings on to this display, and Xvnc sends each one to the viewer, where Remote Desktop beeps."""
+    screen.change_keyboard_control(bell_percent=0)
+    screen.sync()
+
+
 def seed_desktop(home=None, applications=APPLICATIONS, apps=DESKTOP_APPS):
     """Put the default launchers on ~/Desktop, once (a marker remembers it, so removed ones stay removed).
     Launchers there must be executable to be trusted (xfdesktop asks otherwise)."""
@@ -118,6 +125,7 @@ class Shell:
         self.root.change_attributes(event_mask=X.PropertyChangeMask | X.StructureNotifyMask)
         randr.select_input(self.root, randr.RRScreenChangeNotifyMask)
         self.root.xinput_select_events([(xinput.AllMasterDevices, xinput.RawButtonPressMask)])
+        silence(self.display)
         self.font = font(13)
         self.size = None
         self.top = 0
