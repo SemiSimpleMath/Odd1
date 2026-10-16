@@ -16,7 +16,7 @@ from pathlib import Path
 from .store import Store
 
 SEED = Path(os.environ.get("ODD1_TASKS_ROLES_SEED", Path(__file__).resolve().parent.parent / "roles"))
-DEFAULTS = {"tags": [], "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
+DEFAULTS = {"enabled": True, "tags": [], "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
 
 
 def folder(store: Store, role: str) -> Path:

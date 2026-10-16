@@ -27,6 +27,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 | any-app-broker | ★ | Private Xvfb sessions driven through a capability-gated broker (test harness for now) | (planned) |
 | intent | M4 | Plain-words file intents: plan, approve per action, apply transactionally, verify, undo | intent_plan/apply/undo/history |
 | tasks | M4 | Persistent work for role agents (housekeeper, update-watcher): store with enforced rules, a runner per role | tasks_create/list/show/approve/claim/renew/release/log/finish |
+| agents | M4 | The Agents app: health and settings of every agent system (roles, tasks, Claude Code, tools) | (none: its changes are tasks' and role files) |
 | caretaker | M1 | Machine health and foreground pressure (PSI, cgroups); restarts listed failed units | caretaker_status/pressure/repair |
 
 ## Connections
@@ -41,6 +42,8 @@ Every component's agent entry point is an MCP server of the same name, registere
 - `caretaker` watches pressure; giving the foreground program slack and pausing background agents is its next step (M2).
 - Talking to agents: every agent system registers in `odd1.agents` (title, command); the desktop's chat column
   opens a tab per conversation, labelled by system. Claude Code is one; `tasks` registers its console.
+- `agents` is the person's window onto all of it: it reads and changes `tasks` (store, role files) and reads
+  `caretaker`, the registries and Claude Code; no state of its own.
 - `tasks` is the agent process manager: `odd1-tasks-runner@<role>` starts Claude Code headless per approved task, under
   the role's permissions and budgets; tasks are proposed by anyone, approved by the person. Its runs' cost and
   failures are the structured source `caretaker` should watch; budgets beyond turns and minutes grow there.

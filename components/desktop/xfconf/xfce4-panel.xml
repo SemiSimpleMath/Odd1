@@ -62,6 +62,7 @@
         <value type="string" value="thunar.desktop"/>
         <value type="string" value="firefox.desktop"/>
         <value type="string" value="xfce4-terminal.desktop"/>
+        <value type="string" value="odd1-agents.desktop"/>
         <value type="string" value="codium.desktop"/>
         <value type="string" value="org.gnome.Calculator.desktop"/>
         <value type="string" value="startcenter.desktop"/>

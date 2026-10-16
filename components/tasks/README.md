@@ -47,7 +47,7 @@ with `--max-turns` = min(task, role) and a kill at min(task, role) minutes. Then
 records done, retry or parked. Cost and turns of each run are in the log (`run-end`).
 
 Role folders, `/var/lib/odd1/tasks/roles/<role>/`: `CLAUDE.md` (the role), `settings.json` (Claude Code permissions:
-an allow-list; anything else is refused), `role.toml` (tags, runs_per_day, max_turns, max_minutes, model, starter
+an allow-list; anything else is refused), `role.toml` (enabled: false pauses the role, tags, runs_per_day, max_turns, max_minutes, model, starter
 tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here: a file you edited stays yours; files you did not edit follow the repository
 (`.seeded` records what was copied). The console folder is seeded the same way.
 - **housekeeper** (`housekeeping`): reports disk use; deletes only through `clean.sh` (files owned by agent unchanged

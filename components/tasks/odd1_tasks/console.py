@@ -51,6 +51,8 @@ def summary(store: Store, now: float | None = None) -> str:
             parts.append(f"{role} idle")
         if down:
             parts[-1] += f" (runner {down})"
+        elif not roles.load(store, role)["enabled"]:
+            parts[-1] += " (paused)"
     waiting = {s: sum(t["status"] == s for t in tasks) for s in ("proposed", "blocked", "parked")}
     parts += [f"{n} {s}" for s, n in waiting.items() if n]
     due = []

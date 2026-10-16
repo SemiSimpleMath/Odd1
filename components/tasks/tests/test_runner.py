@@ -175,3 +175,12 @@ def test_seed_follows_the_repository_except_where_the_person_edited(store, tmp_p
     roles.seed(store, "r", source)
     assert (folder / "role.toml").read_text() == 'tags = ["x", "y"]\n'  # kept
     assert (folder / "CLAUDE.md").read_text() == "v2"  # followed
+
+
+def test_a_paused_role_takes_no_new_task(store, monkeypatch):
+    plan(monkeypatch, finish=True)
+    approved(store)
+    edit_role(store, "housekeeper", enabled="false")
+    assert runner.run_once(store, "housekeeper") is None and calls() == []
+    edit_role(store, "housekeeper", enabled="true")
+    assert runner.run_once(store, "housekeeper")["status"] == "done"

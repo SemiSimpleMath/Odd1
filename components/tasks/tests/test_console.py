@@ -51,3 +51,10 @@ def test_console_runs_claude_in_its_folder_as_the_person(store, monkeypatch):
     assert not any("release" in a for a in allowed)  # so does stopping a task
     asked = settings["permissions"]["ask"]  # and they ask even in auto mode, which may otherwise approve on its own
     assert {"mcp__tasks__tasks_approve", "mcp__tasks__tasks_release", "Bash(odd1-tasks approve:*)"} <= set(asked)
+
+
+def test_status_says_a_role_is_paused(store, monkeypatch):
+    monkeypatch.setattr(console, "_runner", lambda role: "")
+    path = store.state / "roles" / "housekeeper" / "role.toml"
+    path.write_text(path.read_text().replace("enabled = true", "enabled = false"))
+    assert "housekeeper idle (paused)" in console.summary(store)

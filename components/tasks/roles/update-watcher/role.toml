@@ -1,4 +1,5 @@
 # The update-watcher role. Edit freely; the runner rereads this file before each task (no rebuild needed).
+enabled = true            # false: the runner takes no new tasks for this role (paused)
 tags = ["updates"]        # it claims only tasks whose every tag is in this list
 runs_per_day = 2          # at most this many runs in any 24 hours
 max_turns = 30            # cap on any task's turn budget

@@ -151,8 +151,8 @@ def run_once(store: Store, role: str) -> dict | None:
     for t in store.list(status="verifying"):
         if t["claim_agent"] == role:
             store.verify(t["id"], f"runner:{role}", cwd=cfg["folder"])
-    if store.runs_since(role, time.time() - 86400) >= cfg["runs_per_day"]:
-        return None
+    if not cfg["enabled"] or store.runs_since(role, time.time() - 86400) >= cfg["runs_per_day"]:
+        return None  # paused by the person (role.toml enabled = false), or today's runs are used up
     task = store.claim(role)
     return run_task(store, cfg, task) if task else None
 
