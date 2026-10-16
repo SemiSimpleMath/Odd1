@@ -126,6 +126,10 @@ in {
   # The clipboard with images: xrdp hands the clipboard channel to chansrv, which runs as agent on :0 (user unit
   # odd1-desktop-clipboard) and listens in /run/xrdp/<uid>/; setgid xrdp, so xrdp may connect to its socket.
   systemd.tmpfiles.rules = lib.mkIf desktop [ "d /run/xrdp/1000 2770 agent xrdp -" ];
+  # A deploy never drops the person's Remote Desktop connection (restarting xrdp did, 2026-10-16 04:51): a changed
+  # xrdp configuration applies at the next boot, or at `systemctl restart xrdp` while nobody is connected.
+  systemd.services.xrdp.restartIfChanged = lib.mkIf desktop false;
+  systemd.services.xrdp-sesman.restartIfChanged = lib.mkIf desktop false;
 
   environment.sessionVariables = {
     DISPLAY = ":0";
