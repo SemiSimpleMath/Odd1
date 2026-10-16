@@ -153,7 +153,7 @@ def test_seed_keeps_the_persons_edits_and_proposes_starters_once(store):
     assert os.access(roles.folder(store, "housekeeper") / "clean.sh", os.X_OK)
 
 
-@pytest.mark.parametrize("role", ["housekeeper", "update-watcher", "manager", "fixer", "updater"])
+@pytest.mark.parametrize("role", ["housekeeper", "update-watcher", "manager", "fixer", "updater", "worker"])
 def test_role_settings_never_bypass_permissions(store, role):
     roles.seed(store, role)
     settings = json.loads((roles.folder(store, role) / "settings.json").read_text())

@@ -1,0 +1,11 @@
+# A routine of the cron manager (odd1-tasks cron): once a day a worker writes the person's journal with the
+# `journal` skill (SKILL.md here). Edit freely; enabled = false stops it.
+enabled = true
+schedule = "1d"
+goal = "Today's journal entry records the major decisions (the person's and the agents'), tickets and shipped changes since the last entry, in journal/YYYY-MM-DD.md."
+done_when = "test -s journal/$(date +%F).md"
+max_turns = 40
+max_minutes = 20
+# What the run may do on top of the worker role's permissions (paths are relative to this folder).
+allow = ["Bash(python3 journal-sources.py)", "Bash(python3 journal-sources.py:*)", "Write(./journal/**)",
+         "Edit(./journal/**)"]

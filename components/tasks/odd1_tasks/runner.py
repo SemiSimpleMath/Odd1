@@ -19,8 +19,9 @@ import sys
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 
-from . import roles, workspace
+from . import cron, roles, workspace
 from .store import CLOSED, Store, TaskError
 
 RENEW_SECONDS = float(os.environ.get("ODD1_TASKS_RENEW_SECONDS", 120))
@@ -35,7 +36,7 @@ def say(role: str, text: str) -> None:
 REPLIES_S = 86400  # answers from the task manager shown in a role's prompt: those of the last day
 
 
-def prompt(task: dict, role: str, turns: int, minutes: float, workdir=None, replies=()) -> str:
+def prompt(task: dict, role: str, turns: int, minutes: float, workdir=None, replies=(), routine=None) -> str:
     log = "\n".join(f"- {datetime.fromtimestamp(e['at']):%Y-%m-%d %H:%M} {e['actor']} [{e['kind']}] {e['text']}"
                     for e in task["log"])
     answers = "".join(f"\n- #{r['reply_to']} you asked \u201c{r['question']}\u201d; the task manager: {r['text']}"
@@ -49,6 +50,8 @@ Resources this task may change: {', '.join(task['resources']) or '(none named)'}
 Budget: {turns} turns, {minutes:g} minutes. Attempt {task['attempts'] + 1} of {task['max_attempts']}.
 {f"Your workspace: {workdir} (git branch {workspace.branch(task['id'])}, made from main; your own, nobody else's)."
  if workdir else ""}
+{f"This is the routine `{routine['name']}` of the cron manager. Use the `{routine['name']}` skill: it says how. You "
+ f"work in its folder, {routine['folder']}." if routine else ""}
 The task's log so far (an earlier run may have been interrupted: resume from it, do not repeat finished steps):
 {log}
 
@@ -58,16 +61,38 @@ person, call tasks_release with the reason in `blocked`. Anything outside your r
 """
 
 
-def command(cfg: dict, task_id: int, turns: int, workdir=None) -> list[str]:
+def command(cfg: dict, task_id: int, turns: int, workdir=None, settings=None) -> list[str]:
     mcp = {"mcpServers": {"tasks": {"command": sys.executable, "args": ["-m", "odd1_tasks.mcp_server"], "env": {
         "PYTHONPATH": os.environ.get("PYTHONPATH", ""), "ODD1_TASKS_STATE": os.environ.get("ODD1_TASKS_STATE", ""),
         "ODD1_TASKS_AGENT": cfg["name"], "ODD1_TASKS_TASK": str(task_id)}}}}
     cmd = CLAUDE + ["-p", "--output-format", "json", "--max-turns", str(turns), "--permission-mode", "dontAsk",
-                    "--settings", str(cfg["folder"] / "settings.json"), "--setting-sources", "project",
+                    "--settings", str(settings or cfg["folder"] / "settings.json"), "--setting-sources", "project",
                     "--mcp-config", json.dumps(mcp), "--strict-mcp-config", "--no-session-persistence"]
     if workdir:  # the repository's own CLAUDE.md applies there; the role's instructions come along
         cmd += ["--add-dir", str(cfg["folder"]), "--append-system-prompt-file", str(cfg["folder"] / "CLAUDE.md")]
     return cmd + (["--model", cfg["model"]] if cfg["model"] else [])
+
+
+def routine_run(cfg: dict, routine: dict) -> Path:
+    """Hand a worker a routine: the routine's SKILL.md as a skill of its folder (where the agent starts), and the
+    worker's permissions plus the routine's `allow`. Returns the settings file for the run."""
+    folder, name = routine["folder"], routine["name"]
+    skill = folder / ".claude" / "skills" / name / "SKILL.md"
+    skill.parent.mkdir(parents=True, exist_ok=True)
+    skill.write_text((folder / "SKILL.md").read_text())
+    settings = json.loads((cfg["folder"] / "settings.json").read_text())
+    allow = settings.setdefault("permissions", {}).setdefault("allow", [])
+    allow += [rule for rule in routine["allow"] if rule not in allow]
+    path = cfg["folder"] / "routine-settings" / f"{name}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(settings, indent=1))
+    return path
+
+
+def task_folder(store: Store, cfg: dict, task: dict) -> Path:
+    """Where a task's agent starts and its done_when runs: its routine's folder, else the role's."""
+    routine = cron.routine_of(store, task) if cfg["all_routines"] else None
+    return routine["folder"] if routine else cfg["folder"]
 
 
 def _stop(proc: subprocess.Popen) -> None:
@@ -90,15 +115,20 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
               minutes=minutes)
     say(role, f"task {tid}: {task['goal']}")
     workdir = workspace.prepare(store.state, tid) if cfg["workspace"] == "git-worktree" else None
+    routine = cron.routine_of(store, task) if cfg["all_routines"] else None
+    settings = routine_run(cfg, routine) if routine else None
     env = dict(os.environ, **{k: str(v) for k, v in cfg["env"].items()}, ODD1_TASKS_AGENT=role,
                ODD1_TASKS_TASK=str(tid), ODD1_TASKS_ROLE_FOLDER=str(cfg["folder"]))
     if workdir:
         env["ODD1_TASKS_WORKTREE"] = str(workdir)
-    proc = subprocess.Popen(command(cfg, tid, turns, workdir), cwd=workdir or cfg["folder"], env=env,
+    cmd = command(cfg, tid, turns, workdir, settings)
+    if routine:  # the worker's own instructions come along; the routine's folder has the skill
+        cmd += ["--append-system-prompt-file", str(cfg["folder"] / "CLAUDE.md")]
+    proc = subprocess.Popen(cmd, cwd=workdir or (routine["folder"] if routine else cfg["folder"]), env=env,
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                             start_new_session=True)
     proc.stdin.write(prompt(store.show(tid), role, turns, minutes, workdir,
-                            store.replies(role, time.time() - REPLIES_S)))
+                            store.replies(role, time.time() - REPLIES_S), routine))
     proc.stdin.close()
     out: list[str] = []
     reader = _drain(proc, out)
@@ -133,7 +163,7 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
     if task["status"] == "claimed" and task["claim_agent"] == role:
         task = store.finish(tid, f"runner:{role}", "run ended without tasks_finish; checking done_when anyway")
     if task["status"] == "verifying":
-        task = store.verify(tid, f"runner:{role}", cwd=cfg["folder"])
+        task = store.verify(tid, f"runner:{role}", cwd=routine["folder"] if routine else cfg["folder"])
     if workdir and task["status"] in CLOSED:
         workspace.remove(store.state, tid)
     say(role, f"task {tid}: {task['status']}")
@@ -167,7 +197,7 @@ def run_once(store: Store, role: str) -> dict | None:
     store.maintain()
     for t in store.list(status="verifying"):
         if t["claim_agent"] == role:
-            store.verify(t["id"], f"runner:{role}", cwd=cfg["folder"])
+            store.verify(t["id"], f"runner:{role}", cwd=task_folder(store, cfg, t))
     if cfg["workspace"] == "git-worktree":
         workspace.tidy(store)
     if not cfg["enabled"] or store.runs_since(role, time.time() - 86400) >= cfg["runs_per_day"]:

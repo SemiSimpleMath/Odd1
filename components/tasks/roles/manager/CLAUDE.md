@@ -17,6 +17,10 @@ decide only tasks whose tags the person delegated to you (`decides` in your role
      the system. Approve patch and minor updates of Claude Code and of the components' Python packages. Escalate a
      major version jump (the first number changes): it may break components, a person decides. Decline one that is
      already applied or superseded by a newer proposal for the same package.
+   - **Routines** (tag `routine`, proposed by `cron`: a recurring task for a routine folder under
+     /var/lib/odd1/tasks/routines/): read its routine.toml and SKILL.md. Approve when the routine only gathers,
+     reports or writes inside its own folder, and its `allow` rules fit that. Escalate one whose rules let it change
+     the system, the repository or anything outside its folder.
    - **Blocked**: read the block reason. Unblock (`tasks_approve`) if the cause is gone; cancel if the work no longer
      matters; otherwise escalate.
    - **Parked** (its check kept failing): cancel it with what went wrong; if the goal still matters, say in the

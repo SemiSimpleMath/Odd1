@@ -22,6 +22,8 @@
     odd1-tasks watch                     tell the person (desktop notification) what needs them, once each
     odd1-tasks status                    one line: what each role is doing, what waits for a person
     odd1-tasks console                   talk to the task manager (Claude Code with its console instructions)
+    odd1-tasks routines [--json]         the cron manager's routines, their schedules and tasks
+    odd1-tasks cron [--watch]            sync routines with their recurring tasks (the cron manager; no model calls)
 
 The caller is $ODD1_TASKS_AGENT when the runner set it (an agent), otherwise person:$USER.
 State: $ODD1_TASKS_STATE (default /var/lib/odd1/tasks).
@@ -56,6 +58,10 @@ def _print_task(t: dict) -> None:
 
 
 def main(argv=None) -> int:
+    args = sys.argv[1:] if argv is None else list(argv)
+    if args[:1] in (["cron"], ["routines"]):
+        from . import cron
+        return cron.main(args if args[0] == "routines" else args[1:])
     ap = argparse.ArgumentParser(prog="odd1-tasks", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)

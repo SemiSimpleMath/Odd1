@@ -310,7 +310,8 @@ class Store:
             raise TaskError(f"say why it is {status} (the reason stays in its log)")
         with self._tx():
             t = self._get(task_id)
-            self._authority(actor, t)
+            if t["created_by"] != actor:  # whoever made a task may withdraw it; anyone else needs authority
+                self._authority(actor, t)
             if t["status"] not in allowed:
                 raise TaskError(f"task {task_id} is {t['status']}; it cannot be {status}")
             self._set(task_id, status=status, claim_agent=None, lease_until=None)

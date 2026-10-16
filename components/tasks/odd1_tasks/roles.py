@@ -16,7 +16,7 @@ from pathlib import Path
 from .store import Store
 
 SEED = Path(os.environ.get("ODD1_TASKS_ROLES_SEED", Path(__file__).resolve().parent.parent / "roles"))
-DEFAULTS = {"enabled": True, "tags": [], "decides": [], "backlog_tags": [], "escalate_after_minutes": 120, "all_components": False,
+DEFAULTS = {"enabled": True, "tags": [], "decides": [], "backlog_tags": [], "escalate_after_minutes": 120, "all_components": False, "all_routines": False,
             "workspace": "", "env": {}, "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
 
 
@@ -34,6 +34,9 @@ def load(store: Store, role: str) -> dict:
         from .workspace import REPO
         found = (REPO / "components").iterdir() if (REPO / "components").is_dir() else []
         cfg["tags"] = sorted(set(cfg["tags"]) | {p.name for p in found if p.is_dir()} | {"odd1"})
+    if cfg["all_routines"]:  # a worker: it runs any routine of the cron manager, handed that routine's skill
+        from . import cron
+        cfg["tags"] = sorted(set(cfg["tags"]) | {"routine"} | {cron.tag(n) for n in cron.names(store)})
     return cfg
 
 

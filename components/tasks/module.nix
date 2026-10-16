@@ -5,11 +5,11 @@
 let
   python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp ]);
   state = "/var/lib/odd1/tasks";
-  roles = [ "housekeeper" "update-watcher" "manager" "fixer" "updater" ];
+  roles = [ "housekeeper" "update-watcher" "manager" "fixer" "updater" "worker" ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_TASKS_STATE=''${ODD1_TASKS_STATE:-${state}}
-    export ODD1_TASKS_ROLES_SEED=${./roles} ODD1_TASKS_CONSOLE_SEED=${./console}
+    export ODD1_TASKS_ROLES_SEED=${./roles} ODD1_TASKS_CONSOLE_SEED=${./console} ODD1_TASKS_ROUTINES_SEED=${./routines}
   '';
   wrap = name: module: pkgs.writeShellScriptBin name ''
     ${env}
@@ -52,7 +52,27 @@ in {
   # The person's line to it (the chat column's "New chat" menu): a console that reports what it is doing and acts on it.
   odd1.agents.tasks = { title = "Task manager"; description = "What it is doing; approve, stop, leave notes";
                         command = "${cli}/bin/odd1-tasks console"; };
-  systemd.tmpfiles.rules = [ "d ${state} 0755 agent users -" "d ${state}/roles 0755 agent users -" ];
+  systemd.tmpfiles.rules = [ "d ${state} 0755 agent users -" "d ${state}/roles 0755 agent users -"
+    # The journal routine's daily entries, where the person finds them: ~/Journal.
+    "d ${state}/routines 0755 agent users -" "d ${state}/routines/journal 0755 agent users -"
+    "d ${state}/routines/journal/journal 0755 agent users -"
+    "L+ /home/agent/Journal - - - - ${state}/routines/journal/journal" ];
+
+  # The cron manager: keeps one recurring task per routine (routines/, odd1_tasks/cron.py); no model calls. The
+  # worker role's runner runs them, each handed its routine's skill.
+  systemd.services.odd1-tasks-cron = {
+    description = "Odd1 cron manager: routines on their schedules, as tasks for the worker role";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "systemd-tmpfiles-setup.service" ];
+    environment = { PYTHONPATH = "${./.}"; ODD1_TASKS_STATE = state; ODD1_TASKS_ROUTINES_SEED = "${./routines}"; };
+    serviceConfig = {
+      User = "agent";
+      ExecStart = "${python}/bin/python3 -m odd1_tasks.cli cron --watch";
+      Restart = "always";
+      RestartSec = "30s";
+      MemoryMax = "128M";
+    };
+  };
 
   # One runner per role: cheap SQL polling, and `claude -p` only when a ready task for the role exists.
   systemd.services."odd1-tasks-runner@" = {
@@ -70,6 +90,7 @@ in {
       PYTHONPATH = "${./.}";
       ODD1_TASKS_STATE = state;
       ODD1_TASKS_ROLES_SEED = "${./roles}";
+      ODD1_TASKS_ROUTINES_SEED = "${./routines}";
       ODD1_TASKS_PYPKGS = "/etc/odd1/tasks/python-packages.json";
       ODD1_REPO = "/srv/odd1";
       NIX_PATH = lib.concatStringsSep ":" config.nix.nixPath;

@@ -2,7 +2,7 @@
 # Edit freely (or in the Agents app); the runner rereads this file before each task (no rebuild needed).
 enabled = true            # false: the runner takes no new tasks for this role (paused); its decisions go to the person
 tags = ["manage"]         # it claims only tasks whose every tag is in this list
-decides = ["housekeeping", "updates", "friction", "apply-update"]   # kinds of task it decides for you; the rest is yours
+decides = ["housekeeping", "updates", "friction", "apply-update", "routine"]   # kinds of task it decides for you; the rest is yours
 backlog_tags = ["friction"]    # approved tasks of these kinds wait for people and their chats, not for a role
 escalate_after_minutes = 120   # a decision it leaves this long goes to the person
 runs_per_day = 12         # at most this many runs in any 24 hours

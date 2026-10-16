@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep", "Skill", "Bash(date:*)",
+      "mcp__tasks__tasks_show", "mcp__tasks__tasks_list", "mcp__tasks__tasks_log",
+      "mcp__tasks__tasks_create", "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish", "mcp__tasks__tasks_ask"
+    ],
+    "deny": ["mcp__tasks__tasks_approve", "mcp__tasks__tasks_claim", "mcp__tasks__tasks_decline",
+             "mcp__tasks__tasks_cancel", "Bash(odd1-deploy:*)", "Bash(git commit:*)", "Bash(git push:*)",
+             "Bash(sudo:*)"]
+  }
+}

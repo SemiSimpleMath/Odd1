@@ -101,6 +101,19 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
 - **update-watcher** (`updates`): a daily recurring task; `check-versions.py` compares Claude Code (npm) and the
   Python packages components install (from the Nix build, `/etc/odd1/tasks/python-packages.json`; PyPI) and it
   proposes "Update X from a to b" tagged `apply-update`. It never applies updates (no role holds that tag yet).
+- **worker** (`routine` + every routine, `all_routines`): runs the cron manager's routines, any of them.
+Routines (the cron manager, `odd1_tasks/cron.py`): pre-planned work on a schedule. Each is a folder in `routines/`,
+seeded to `/var/lib/odd1/tasks/routines/<name>/` (the person's edits kept; a folder added there is a routine too):
+`routine.toml` (enabled, schedule, goal, done_when, budgets, `allow`: permission rules the run needs) and `SKILL.md`,
+the skill that says how, plus its helpers. The `odd1-tasks-cron` service (no model calls) keeps one recurring task
+per enabled routine, tagged `routine`/`routine-<name>` and proposed by `cron` (the manager decides `routine`); off,
+changed or removed routines end their series. The worker's runner starts the agent in the routine's folder with
+the skill installed there (`.claude/skills/<name>/`), the worker's permissions plus the routine's `allow`, and the
+worker's instructions; done_when runs in that folder. `odd1-tasks routines` lists them, `odd1-tasks cron` syncs now.
+- **journal** routine (daily): the person's journal, `journal/YYYY-MM-DD.md` (also `~/Journal`): major decisions
+  (the person's and the agents'), tickets, what shipped. `journal-sources.py` gathers the material since the last
+  entry: the task log, commits on main, deploys, and the person's own messages in their chats (`~/.claude/projects`,
+  each with the end of the answer it replied to; roles' and scratch folders skipped).
 Permission rules in a role's settings.json (checked with dontAsk): `Bash(cmd:*)` matches `cmd` followed by a space
 and arguments, not `cmd@1.2`; `Bash(cmd*)` matches any suffix. Every command of a chain (`a && b`, `a | b`) must be
 allowed; read-only ones (echo, tail, ls) always are. Each role proposes one starter task when its runner first starts; approve it to begin.
