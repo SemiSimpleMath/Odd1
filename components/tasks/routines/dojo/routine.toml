@@ -1,0 +1,10 @@
+# A routine of the cron manager: once a day a worker reviews the agents' recent runs with the `dojo` skill and turns
+# their stumbles into fixes: the OS's faults into friction tickets, the skills' faults into proposed skill changes.
+enabled = true
+schedule = "1d"
+goal = "Today's dojo report reviews the last day's agent runs, files a friction ticket for each OS fault found (with the evidence) and proposes each skill change, in reports/YYYY-MM-DD.md."
+done_when = "test -s reports/$(date +%F).md"
+max_turns = 60
+max_minutes = 25
+allow = ["Bash(python3 dojo-material.py)", "Bash(python3 dojo-material.py:*)", "Write(./reports/**)",
+         "Edit(./reports/**)"]

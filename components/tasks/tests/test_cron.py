@@ -157,3 +157,28 @@ def test_journal_sources_gather_the_window_and_leave_out_what_is_not_the_persons
     assert "deploy: odd1-deploy" in out and "aaaaaaaaaaaa switch ok" in out
     for absent in ("tool output", "system-reminder", "an old message", "a role's own prompt", "agent working note"):
         assert absent not in out
+
+
+# -- the dojo --------------------------------------------------------------------------------------------------------
+DOJO = COMPONENT / "routines" / "dojo" / "dojo-material.py"
+
+
+def test_the_dojo_routine_loads_and_its_material_shows_where_runs_stumbled(store, tmp_path):
+    cron.seed(store)
+    assert cron.load(store, "dojo")["schedule"] == "1d"
+    t = store.create("Fix the thing", "true", ["friction", "desktop"], actor=PERSON)
+    events = [{"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": f"u{i}", "name": "Bash", "input": {"command": "ls /nowhere"}}]}} for i in range(3)]
+    events.append({"type": "user", "message": {"content": [
+        {"type": "tool_result", "tool_use_id": "u2", "is_error": True, "content": "ls: cannot access '/nowhere'"}]}})
+    transcript = tmp_path / "run.jsonl"
+    transcript.write_text("\n".join(json.dumps(e) for e in events))
+    with store._tx():
+        store._log(t["id"], "runner:fixer", "run-end", "run ended", num_turns=7, total_cost_usd=0.5,
+                   transcript=str(transcript),
+                   permission_denials=[{"tool_name": "Bash", "tool_input": {"command": "python -m pytest -q"}}])
+    out = subprocess.run([sys.executable, str(DOJO)], env=dict(os.environ, ODD1_TASKS_STATE=str(store.state)),
+                         capture_output=True, text=True, check=True).stdout
+    assert "## fixer: 1 runs, 7 turns, $0.50" in out
+    assert 'DENIED Bash: {"command": "python -m pytest -q"}' in out
+    assert "ERROR Bash" in out and "cannot access" in out and "REPEATED 3x Bash" in out

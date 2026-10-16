@@ -195,3 +195,14 @@ def test_the_updater_may_install_an_exact_claude_code_version(store):
     allow = json.loads((roles.folder(store, "updater") / "settings.json").read_text())["permissions"]["allow"]
     # `cmd:*` needs a space after cmd (tested against Claude Code): a version is `cmd@1.2`, so the rule is `cmd@*`
     assert "Bash(npm install -g @anthropic-ai/claude-code@*)" in allow
+
+
+def test_each_runs_whole_transcript_is_kept_for_the_dojo(store, monkeypatch):
+    plan(monkeypatch, finish=True)
+    t = approved(store)
+    runner.run_once(store, "housekeeper")
+    end = [e for e in store.show(t["id"])["log"] if e["kind"] == "run-end"][-1]
+    path = end["data"]["transcript"]
+    assert path.startswith(str(store.state / "runs" / f"task-{t['id']}-"))
+    assert '"type": "result"' in open(path).read()
+    assert "--output-format" in calls()[-1]["argv"] and "stream-json" in calls()[-1]["argv"]

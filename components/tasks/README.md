@@ -118,6 +118,11 @@ worker's instructions; done_when runs in that folder. `odd1-tasks routines` list
   (the person's and the agents'), tickets, what shipped. `journal-sources.py` gathers the material since the last
   entry: the task log, commits on main, deploys, and the person's own messages in their chats (`~/.claude/projects`,
   each with the end of the answer it replied to; roles' and scratch folders skipped).
+- **dojo** routine (daily): a worker reviews the last day's runs (`dojo-material.py`: turns, cost, checks,
+  permission denials, failed tool calls, repeated calls, from the run-end entries and the transcripts the runner now
+  keeps in `runs/`, 30 days) with the `dojo` skill: the OS's faults become friction tickets with evidence, the skills'
+  faults become proposed skill changes (never edited directly, never workarounds for OS faults). From Emi's dojo,
+  without its weak spot (it wrote environment problems into the skill).
 Closing work done outside the runners (`closing.py`): chats don't claim tickets, so `odd1-tasks close-by-check ID`
 (MCP `tasks_close_by_check`) has the task system rerun an approved, ready ticket's done_when where a runner would
 (the folder and systemd environment of the role holding its tags) and closes it only if it passes (no claimant, no

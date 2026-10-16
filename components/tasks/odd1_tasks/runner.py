@@ -65,7 +65,7 @@ def command(cfg: dict, task_id: int, turns: int, workdir=None, settings=None) ->
     mcp = {"mcpServers": {"tasks": {"command": sys.executable, "args": ["-m", "odd1_tasks.mcp_server"], "env": {
         "PYTHONPATH": os.environ.get("PYTHONPATH", ""), "ODD1_TASKS_STATE": os.environ.get("ODD1_TASKS_STATE", ""),
         "ODD1_TASKS_AGENT": cfg["name"], "ODD1_TASKS_TASK": str(task_id)}}}}
-    cmd = CLAUDE + ["-p", "--output-format", "json", "--max-turns", str(turns), "--permission-mode", "dontAsk",
+    cmd = CLAUDE + ["-p", "--output-format", "stream-json", "--verbose", "--max-turns", str(turns), "--permission-mode", "dontAsk",
                     "--settings", str(settings or cfg["folder"] / "settings.json"), "--setting-sources", "project",
                     "--mcp-config", json.dumps(mcp), "--strict-mcp-config", "--no-session-persistence"]
     if workdir:  # the repository's own CLAUDE.md applies there; the role's instructions come along
@@ -156,13 +156,15 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
         break
     reader.join()
     result = _parse("".join(out))
+    transcript = _keep_transcript(store, tid, "".join(out))
     if stopped:
         store.log(tid, f"runner:{role}", stopped, kind="budget")
     elif result.get("subtype") == "error_max_turns":
         store.log(tid, f"runner:{role}", f"turn budget reached ({turns} turns): stopped", kind="budget")
     store.log(tid, f"runner:{role}", f"run ended: exit {proc.returncode}, {result.get('num_turns', '?')} turns, "
               f"${result.get('total_cost_usd', 0):.2f}", kind="run-end", exit=proc.returncode,
-              **{k: result[k] for k in ("subtype", "num_turns", "total_cost_usd", "result", "permission_denials") if k in result})
+              transcript=transcript, **{k: result[k] for k in ("subtype", "num_turns", "total_cost_usd", "result",
+                                                               "permission_denials") if k in result})
     task = store.show(tid)
     if task["status"] == "claimed" and task["claim_agent"] == role:
         task = store.finish(tid, f"runner:{role}", "run ended without tasks_finish; checking done_when anyway")
@@ -172,6 +174,23 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
         workspace.remove(store.state, tid)
     say(role, f"task {tid}: {task['status']}")
     return task
+
+
+TRANSCRIPT_DAYS = 30
+
+
+def _keep_transcript(store: Store, tid: int, text: str) -> str | None:
+    """Every run's whole event stream (Claude Code's stream-json), for the dojo to learn from; kept 30 days."""
+    if not text.strip():
+        return None
+    folder = store.state / "runs"
+    folder.mkdir(exist_ok=True)
+    path = folder / f"task-{tid}-{time.strftime('%Y%m%dT%H%M%S')}.jsonl"
+    path.write_text(text)
+    for old in folder.glob("task-*.jsonl"):
+        if time.time() - old.stat().st_mtime > TRANSCRIPT_DAYS * 86400:
+            old.unlink(missing_ok=True)
+    return str(path)
 
 
 def _drain(proc, out):
