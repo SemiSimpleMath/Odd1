@@ -14,7 +14,17 @@ let
     ${env}
     exec ${python}/bin/python3 -m ${module} "$@"
   '';
-  cli = wrap "odd1-deploy" "odd1_deploy.cli";
+  real = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
+  cli = pkgs.writeShellScriptBin "odd1-deploy" ''
+    ${env}
+    export ODD1_DEPLOY_REAL_REBUILD=${real}
+    exec ${python}/bin/python3 -m odd1_deploy.cli "$@"
+  '';
+  # Ahead of the real nixos-rebuild (hiPrio): activating the development folder is refused (guard.py).
+  guard = lib.hiPrio (pkgs.writeShellScriptBin "nixos-rebuild" ''
+    export PYTHONPATH=${./.} ODD1_DEPLOY_REAL_REBUILD=${real}
+    exec ${python}/bin/python3 -m odd1_deploy.guard "$@"
+  '');
   server = wrap "odd1-deploy-mcp" "odd1_deploy.mcp_server";
   test = pkgs.writeShellScriptBin "odd1-deploy-test" ''
     ${env}
@@ -22,7 +32,7 @@ let
     exec ${python}/bin/python3 -m pytest -q ${./.}/tests -p no:cacheprovider "$@"
   '';
 in {
-  environment.systemPackages = [ cli server test ];
+  environment.systemPackages = [ cli server test guard ];
   # The agent entry point (Odd1 convention): deploy_status, deploy_commit, deploy_rollback.
   odd1.mcpServers.deploy = { command = "${server}/bin/odd1-deploy-mcp"; args = [ ]; };
   systemd.tmpfiles.rules = [ "d ${state} 0755 agent users -" ];

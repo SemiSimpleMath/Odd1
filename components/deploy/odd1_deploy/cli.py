@@ -3,6 +3,8 @@
     odd1-deploy [COMMIT] [--boot | --build] [--no-wait] [--reason TEXT]
                                    deploy COMMIT (default main; it must be on main); one deploy at a time
     odd1-deploy rollback           deploy again the commit that was current before
+    odd1-deploy --force [--reason TEXT]
+                                   a person ships /srv/odd1's working tree as it is (asks at the terminal; logged)
     odd1-deploy status [--json]    the deployed commit, how far main is ahead, recent deploys
     odd1-deploy host               the host's configuration file inside the repository (e.g. nix/hosts/dev-vm.nix)
 """
@@ -36,6 +38,10 @@ def main(argv=None) -> int:
             print(f"current {now[:12] if now else 'none'} {subject}".rstrip())
             print(f"main    {s['main'][:12]}" + ("" if s["main_ahead_by"] is None else
                                                  f" ({s['main_ahead_by']} commits not deployed)"))
+            if s["forced"]:
+                f = s["forced"]
+                print(f"FORCED  the system runs {d.repo}'s working tree ({len(f['dirty'])} uncommitted changes), "
+                      f"by {f['actor']} on {f['terminal']}: {f['reason']}")
             print(f"configuration {'imports the deployed release' if s['configuration_uses_release'] else 'does NOT import the deployed release'}"
                   f" ({d.nixos_config})")
             for h in s["history"]:
@@ -55,7 +61,11 @@ def main(argv=None) -> int:
         g.add_argument("--build", action="store_const", const="build", dest="action")
         p.add_argument("--no-wait", action="store_true", help="fail at once if another deploy is running")
         p.add_argument("--reason", default="")
+        p.add_argument("--force", action="store_true", help="a person ships the working tree (asks at the terminal)")
         a = p.parse_args(argv)
+        if a.force:
+            print(_line(d.force(a.reason)))
+            return 0
         print(_line(d.deploy(a.commit, a.action or "switch", wait=not a.no_wait, reason=a.reason)))
         return 0
     except DeployError as e:

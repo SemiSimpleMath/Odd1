@@ -9,6 +9,15 @@ Milestone: M1 (the machine changes only through committed, checked work; deploys
   `odd1-deploy host` prints the host file (e.g. `nix/hosts/dev-vm.nix`) for scripts that build a checkout.
 - Agents: MCP server `deploy` (`deploy_status`, `deploy_commit`, `deploy_rollback`).
 - `sudo nixos-rebuild switch` alone rebuilds the deployed release (the same commit), not `/srv/odd1`.
+- After a switch the deploy proves itself: no unit failed that was fine before, and the installed tests of the
+  components it changed pass (a failure is retried once). Otherwise it rolls back to the previous release on its own;
+  the log keeps the failed deploy, its health and the rollback.
+- The guard: `nixos-rebuild` is wrapped (`guard.py`): `switch`, `boot` or `test` of a configuration under /srv/odd1
+  is refused, with no variable or flag to turn it off; `tools/check.py` refuses a direct `nixos-rebuild switch` in
+  the repository outside this component. The one override is the person's: `odd1-deploy --force` ships the working
+  tree as it is only when run at a terminal and confirmed by typing a one-time code, and records who, which
+  terminal, why and the uncommitted changes (`status` shows FORCED until the next normal deploy). An agent with
+  sudo could still get around it; it stops accidents, not intent.
 
 ## How
 - The commit is exported with `git archive` into `/var/lib/odd1/deploy/releases/<sha>` (read-only, `.odd1-release`

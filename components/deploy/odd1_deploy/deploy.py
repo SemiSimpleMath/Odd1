@@ -17,6 +17,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -41,6 +42,15 @@ class Deployer:
         # The prefix that may write /etc/nixos (empty when the file is the caller's own, as in tests).
         self.sudo = shlex.split(sudo if sudo is not None else env.get("ODD1_DEPLOY_SUDO", "sudo -n"))
         self._host = host or env.get("ODD1_DEPLOY_HOST")
+        # After a switch: units that failed since, and the installed tests of the components the deploy changed.
+        self.failed_units_cmd = shlex.split(env.get("ODD1_DEPLOY_FAILED_UNITS",
+                                                    "systemctl --failed --plain --no-legend --no-pager"))
+        self.tests_bin = Path(env.get("ODD1_DEPLOY_TESTS_BIN", "/run/current-system/sw/bin"))
+        self.settle = float(env.get("ODD1_DEPLOY_SETTLE", 10))
+        self.test_timeout = float(env.get("ODD1_DEPLOY_TEST_TIMEOUT", 900))
+        # --force bypasses the nixos-rebuild guard (guard.py), so it calls the real one.
+        self.force_rebuild = shlex.split(env.get("ODD1_DEPLOY_FORCE_REBUILD") or
+                                         f"sudo -n {env.get('ODD1_DEPLOY_REAL_REBUILD', 'nixos-rebuild')}")
 
     # -- git, read-only -----------------------------------------------------------------------------------------------
     def _git(self, *args) -> str:
@@ -149,32 +159,123 @@ class Deployer:
             yield
 
     def deploy(self, commit: str = BRANCH, action: str = "switch", actor: str = "", wait: bool = True,
-               reason: str = "") -> dict:
+               reason: str = "", health: bool = True) -> dict:
         """Build COMMIT (on main) from its own release folder and activate it (`switch`), or only on next boot
-        (`boot`), or only build it (`build`: nothing changes). Returns the deployment's record."""
+        (`boot`), or only build it (`build`: nothing changes). After a switch the deploy proves itself (health): if
+        a unit failed that was fine before, or a changed component's installed tests fail, it rolls back to the
+        previous release on its own and says why. Returns the deployment's record."""
         if action not in ("switch", "boot", "build"):
             raise DeployError("action is switch, boot or build")
         with self._lock(wait):
-            sha = self.resolve(commit)
-            where = self.release(sha)
-            config = where / self.host()
-            if not config.exists():
-                raise DeployError(f"{sha[:12]} has no {self.host()}")
-            before = self.current()
+            return self._deploy(self.resolve(commit), action, actor or _actor(), reason, health)
+
+    def _deploy(self, sha: str, action: str, actor: str, reason: str, health: bool) -> dict:
+        where = self.release(sha)
+        config = where / self.host()
+        if not config.exists():
+            raise DeployError(f"{sha[:12]} has no {self.host()}")
+        before = self.current()
+        failed_before = self.failed_units() if action == "switch" and health else set()
+        started = time.time()
+        p = subprocess.run([*self.rebuild, action, "-I", f"nixos-config={config}"])
+        record = {"at": started, "seconds": round(time.time() - started, 1), "commit": sha, "action": action,
+                  "ok": p.returncode == 0, "previous": before, "actor": actor, "reason": reason,
+                  "system": os.path.realpath("/run/current-system") if action == "switch" else None}
+        if not record["ok"]:
+            self._record(record)
+            raise DeployError(f"nixos-rebuild {action} of {sha[:12]} failed ({p.returncode}); the system still "
+                              f"runs {(before or 'what it ran')[:12]}")
+        if action != "build":
+            self._point(sha)
+        if action == "switch" and health:
+            record["health"] = self.health(failed_before, before, sha)
+            if not record["health"]["ok"] and before and before != sha:
+                record["ok"], record["rolled_back_to"] = False, before
+                self._record(record)
+                why = self.why(record["health"])
+                back = self._deploy(before, "switch", actor, f"automatic rollback from {sha[:12]}: {why}", False)
+                raise DeployError(f"{sha[:12]} switched but is not healthy ({why}); rolled back to "
+                                  f"{back['commit'][:12]}")
+        self._record(record)
+        if action == "switch":
+            (self.state / "forced.json").unlink(missing_ok=True)  # a release runs again
+        self._prune()
+        return record
+
+    # -- the person's override ----------------------------------------------------------------------------------------
+    def force(self, reason: str, ask=input, say=print, at_terminal=None) -> dict:
+        """Ship /srv/odd1's working tree as it is (uncommitted work included). Only a person at a terminal: stdin and
+        stdout must be a terminal and they type a one-time code; no variable or flag does it. Logged; the next
+        normal deploy returns to a release (the configuration still imports it)."""
+        import secrets
+        at_terminal = at_terminal or (lambda: sys.stdin.isatty() and sys.stdout.isatty())
+        if not at_terminal():
+            raise DeployError("--force needs a person at a terminal (it ships uncommitted work); agents deploy "
+                              "committed work with odd1-deploy")
+        dirty = subprocess.run(["git", "-C", str(self.repo), "status", "--porcelain"], capture_output=True,
+                               text=True).stdout.splitlines()
+        code = f"{secrets.randbelow(10000):04d}"
+        say(f"This switches the system to {self.repo} as it is now, {len(dirty)} uncommitted changes included:")
+        for line in dirty[:20]:
+            say(f"  {line}")
+        if ask(f"Type {code} to confirm: ").strip() != code:
+            raise DeployError("not confirmed; nothing changed")
+        reason = reason.strip() or ask("Why (kept in the deploy log): ").strip()
+        if not reason:
+            raise DeployError("say why (kept in the deploy log); nothing changed")
+        with self._lock(True):
+            config = self.repo / self.host()
             started = time.time()
-            p = subprocess.run([*self.rebuild, action, "-I", f"nixos-config={config}"])
-            record = {"at": started, "seconds": round(time.time() - started, 1), "commit": sha, "action": action,
-                      "ok": p.returncode == 0, "previous": before, "actor": actor or _actor(), "reason": reason,
-                      "system": os.path.realpath("/run/current-system") if action == "switch" else None}
-            if record["ok"] and action != "build":
-                self._point(sha)
+            p = subprocess.run([*self.force_rebuild, "switch", "-I", f"nixos-config={config}"])
+            record = {"at": started, "seconds": round(time.time() - started, 1), "commit": self._git("rev-parse",
+                      "HEAD"), "action": "switch", "ok": p.returncode == 0, "previous": self.current(),
+                      "actor": _actor(), "reason": reason, "forced": True, "dirty": dirty,
+                      "terminal": _terminal(), "system": os.path.realpath("/run/current-system")}
             self._record(record)
             if record["ok"]:
-                self._prune()
+                (self.state / "forced.json").write_text(json.dumps(record) + "\n")
             if not record["ok"]:
-                raise DeployError(f"nixos-rebuild {action} of {sha[:12]} failed ({p.returncode}); the system still "
-                                  f"runs {(before or 'what it ran')[:12]}")
+                raise DeployError(f"forced switch failed ({p.returncode})")
             return record
+
+    # -- health after a switch ----------------------------------------------------------------------------------------
+    def failed_units(self) -> set[str]:
+        try:
+            out = subprocess.run(self.failed_units_cmd, capture_output=True, text=True, timeout=30).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return set()
+        return {line.split()[0] for line in out.splitlines() if line.split()}
+
+    def changed_components(self, old: str | None, new: str) -> list[str]:
+        if not old:
+            return []
+        names = self._git("diff", "--name-only", old, new).splitlines()
+        return sorted({n.split("/")[1] for n in names if n.startswith("components/") and n.count("/") >= 2})
+
+    def _test(self, component: str) -> int | None:
+        test = self.tests_bin / f"odd1-{component}-test"
+        if not os.access(test, os.X_OK):
+            return None
+        for _ in range(2):  # a failure is retried once: one flaky test should not undo a good deploy
+            try:
+                code = subprocess.run([str(test), "-q"], capture_output=True, timeout=self.test_timeout).returncode
+            except subprocess.TimeoutExpired:
+                code = 124
+            if code in (0, 5):  # 5: no tests collected
+                return 0
+        return code
+
+    def health(self, failed_before: set[str], old: str | None, new: str) -> dict:
+        time.sleep(self.settle)  # units starting after the switch get a moment to fail or settle
+        failed = sorted(self.failed_units() - failed_before)
+        tests = {c: code for c in self.changed_components(old, new) if (code := self._test(c)) is not None}
+        return {"ok": not failed and not any(tests.values()), "new_failed_units": failed, "tests": tests}
+
+    @staticmethod
+    def why(h: dict) -> str:
+        parts = [f"units failed: {', '.join(h['new_failed_units'])}"] if h["new_failed_units"] else []
+        parts += [f"odd1-{c}-test exited {code}" for c, code in h["tests"].items() if code]
+        return "; ".join(parts)
 
     def rollback(self, actor: str = "", wait: bool = True) -> dict:
         """Deploy again the commit that was current before the current one."""
@@ -182,7 +283,8 @@ class Deployer:
         earlier = [d["commit"] for d in self.history() if d["ok"] and d["action"] == "switch" and d["commit"] != now]
         if not earlier:
             raise DeployError("nothing to roll back to: no earlier successful deploy")
-        return self.deploy(earlier[-1], actor=actor, wait=wait, reason=f"rollback from {(now or '?')[:12]}")
+        return self.deploy(earlier[-1], actor=actor, wait=wait, reason=f"rollback from {(now or '?')[:12]}",
+                           health=False)
 
     def _record(self, record: dict) -> None:
         with open(self.state / "deployments.jsonl", "a") as f:
@@ -200,9 +302,17 @@ class Deployer:
         main = self._git("rev-parse", BRANCH)
         behind = int(self._git("rev-list", "--count", f"{now}..{main}")) if now else None
         text = self.nixos_config.read_text() if self.nixos_config.exists() else ""
-        return {"current": now, "main": main, "main_ahead_by": behind, "host": self.host(),
+        forced = self.state / "forced.json"
+        return {"forced": json.loads(forced.read_text()) if forced.exists() else None, "current": now, "main": main, "main_ahead_by": behind, "host": self.host(),
                 "configuration_uses_release": f"{self.state}/current/" in text and str(self.repo) + "/" not in text,
                 "history": self.history()[-5:]}
+
+
+def _terminal() -> str:
+    try:
+        return os.ttyname(0)
+    except OSError:
+        return "?"
 
 
 def _actor() -> str:

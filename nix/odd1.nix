@@ -140,7 +140,7 @@ in {
     '';
   };
 
-  # `sudo nixos-rebuild switch` finds this system's configuration (the base Desktop sets only nixpkgs).
+  # A plain nixos-rebuild finds this system's configuration (the base Desktop sets only nixpkgs); deploy with odd1-deploy.
   # toString refers to the pinned nixpkgs without copying it again (a copy per rebuild nests the store name).
   nix.nixPath = lib.mkForce [ "nixpkgs=${toString pkgs.path}" "nixos-config=/etc/nixos/configuration.nix" ];
   nix.registry.nixpkgs.to = lib.mkForce { type = "path"; path = toString pkgs.path; };

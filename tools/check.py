@@ -5,6 +5,7 @@
 
 Plain string checks only. A problem is a prompt to split, merge or delete, not to weaken this file.
 """
+import re
 import sys
 from pathlib import Path
 
@@ -18,6 +19,9 @@ NAME_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-")
 NEVER = ("__pycache__", ".venv", "node_modules", ".pytest_cache")
 NEVER_SUFFIXES = (".log", ".pyc", ".qcow2", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4")
 NOTE_NAMES = ("CONVERSATION", "TRANSCRIPT", "PROGRESS", "SESSION")
+# Only components/deploy activates a system; anywhere else a direct nixos-rebuild could ship uncommitted work.
+DIRECT_DEPLOY = re.compile(r"nixos-rebuild +(switch|boot|test)\b")
+DIRECT_DEPLOY_SUFFIXES = {".sh", ".py", ".nix", ".md"}
 
 
 def components() -> list[Path]:
@@ -85,6 +89,10 @@ def check() -> list[str]:
             problems.append(f"{rel}: over {MAX_FILE_BYTES // 1_000_000} MB")
         elif f.suffix == ".md" and (f.stat().st_size > MAX_NOTE_BYTES or any(n in f.name.upper() for n in NOTE_NAMES)):
             problems.append(f"{rel}: notes stay short (under {MAX_NOTE_BYTES // 1000} KB, no transcripts or progress logs)")
+        if f.suffix in DIRECT_DEPLOY_SUFFIXES and rel.parts[:2] != ("components", "deploy") and \
+                DIRECT_DEPLOY.search(f.read_text(encoding="utf-8", errors="replace")):
+            problems.append(f"{rel}: activates a system with nixos-rebuild directly; deploy with odd1-deploy "
+                            "(it ships a clean release of a commit, never uncommitted work)")
     return problems
 
 
