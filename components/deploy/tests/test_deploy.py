@@ -97,7 +97,7 @@ def test_the_running_system_imports_the_release_not_the_development_folder(world
     d = world["d"]
     d.deploy()
     text = world["config"].read_text()
-    assert f"{d.state}/current/nix/hosts/test.nix" in text and f"{world['repo']}/" not in text
+    assert f"{d.state}/current/nix/hosts/test.nix" in text and str(world["repo"]) not in text
     assert (d.state / "current").resolve() == (d.state / "releases" / world["first"]).resolve()
     assert d.status()["configuration_uses_release"] and d.host() == "nix/hosts/test.nix"
 

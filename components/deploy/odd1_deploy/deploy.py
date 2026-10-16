@@ -117,7 +117,7 @@ class Deployer:
             tmp.unlink()
         tmp.symlink_to(Path("releases") / sha)
         os.replace(tmp, link)
-        want = (f"# Written by odd1-deploy: this machine runs the deployed release of /srv/odd1 (an exact commit,\n"
+        want = (f"# Written by odd1-deploy: this machine runs the deployed release of the Odd1 repository (one commit,\n"
                 f"# {link} -> releases/<sha>), never the development folder. Deploy with: odd1-deploy\n"
                 f"{{ imports = [ {link}/{self.host()} ]; }}\n")
         if self.nixos_config.exists() and self.nixos_config.read_text() == want:
