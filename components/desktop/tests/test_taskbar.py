@@ -72,7 +72,7 @@ def test_launcher_overrides_replace_keys_and_drop_their_translations():
     assert out == "[Desktop Entry]\nName=Files\nExec=thunar\n[Desktop Action x]\nName=Keep\n"
 
 
-def test_silence_turns_the_bell_volume_to_zero():
+def test_silence_turns_the_bell_volume_to_zero_and_reports_a_missing_display():
     calls = []
 
     class Screen:
@@ -82,5 +82,11 @@ def test_silence_turns_the_bell_volume_to_zero():
         def sync(self):
             calls.append("sync")
 
-    shell.silence(Screen())
+    import ctypes.util
+    import os
+    libx11 = os.environ.get("ODD1_LIBX11") or ctypes.util.find_library("X11")
+    if libx11 is None:
+        import pytest
+        pytest.skip("no libX11 here")
+    assert shell.silence(Screen(), ":97", libx11) is False  # no such display: only the volume was set
     assert calls == [{"bell_percent": 0}, "sync"]

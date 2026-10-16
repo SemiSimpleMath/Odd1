@@ -69,11 +69,34 @@ def launcher(text, overrides):
     return "\n".join(lines) + "\n"
 
 
-def silence(screen):
-    """Turn the X bell off. Apps ring it on every refused key (agents type a lot), the agent desktop passes its
-    rings on to this display, and Xvnc sends each one to the viewer, where Remote Desktop beeps."""
+def silence(screen, name, libx11=None):
+    """Turn the X bell off on a display. Apps ring it on every refused key (agents type a lot), the agent desktop
+    passes its rings on to the person's display, and Xvnc sends each one to the viewer, where Remote Desktop beeps.
+    The volume alone is not enough (a ring may ask for 100%), so XKB's AudibleBell control goes off too (libX11
+    through ctypes: python-xlib has no XKB)."""
+    import ctypes
+    import ctypes.util
     screen.change_keyboard_control(bell_percent=0)
     screen.sync()
+    path = libx11 or os.environ.get("ODD1_LIBX11") or ctypes.util.find_library("X11")
+    if not path:
+        log("bell: no libX11, volume only")
+        return False
+    x11 = ctypes.CDLL(path)
+    x11.XOpenDisplay.restype = ctypes.c_void_p
+    x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x11.XkbChangeEnabledControls.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]
+    x11.XSync.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    connection = x11.XOpenDisplay(name.encode())
+    if not connection:
+        return False
+    try:
+        XKB_USE_CORE_KBD, XKB_AUDIBLE_BELL = 0x100, 1 << 9
+        return bool(x11.XkbChangeEnabledControls(connection, XKB_USE_CORE_KBD, XKB_AUDIBLE_BELL, 0))
+    finally:
+        x11.XSync(connection, 0)
+        x11.XCloseDisplay(connection)
 
 
 def seed_desktop(home=None, applications=APPLICATIONS, apps=DESKTOP_APPS):
@@ -125,7 +148,7 @@ class Shell:
         self.root.change_attributes(event_mask=X.PropertyChangeMask | X.StructureNotifyMask)
         randr.select_input(self.root, randr.RRScreenChangeNotifyMask)
         self.root.xinput_select_events([(xinput.AllMasterDevices, xinput.RawButtonPressMask)])
-        silence(self.display)
+        silence(self.display, display_name)
         self.font = font(13)
         self.size = None
         self.top = 0

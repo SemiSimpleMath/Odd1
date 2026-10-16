@@ -9,6 +9,7 @@ let
   tools = with pkgs; [ hsetroot xfce.xfce4-terminal fontconfig xfce.xfconf ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
+    export ODD1_LIBX11=${pkgs.xorg.libX11}/lib/libX11.so.6  # the shell turns XKB's audible bell off through it
     export PATH=${lib.makeBinPath tools}:$PATH
   '';
   cli = pkgs.writeShellScriptBin "odd1-desktop" ''

@@ -125,6 +125,8 @@ class Taskbar:
         try:
             if self.agent_display is None:
                 self.agent_display = display.Display(AGENT_DISPLAY)
+                from .shell import silence
+                silence(self.agent_display, AGENT_DISPLAY)  # a (re)started agent desktop rings again otherwise
             root = self.agent_display.screen().root
             atom = self.agent_display.intern_atom
             listed = root.get_full_property(atom("_NET_CLIENT_LIST"), self.X.AnyPropertyType)
