@@ -8,8 +8,10 @@ that whole class of request easy, and build it.
 - The Odd1 repository (`/srv/odd1`, a git repo) is the source of truth. Read README.md, CONVENTIONS.md and
   ARCHITECTURE.md there before changing the system. Anything that should outlast this session goes into a component
   there and is committed; run `python tools/check.py` first.
-- Install system-wide changes through the repository (`nix/odd1.nix`, commit to main, then `odd1-deploy`: it builds
-  that exact commit from a clean export, never your uncommitted edits or anyone else's). Per-user experiments (pip,
+- Install system-wide changes through the repository (`nix/odd1.nix`). A chat changes it in its own git worktree,
+  made the first time it edits `/srv/odd1` (the edit is refused with the worktree's path), commits there and lands
+  with `odd1-chat-land`: it checks, fast-forwards main and runs `odd1-deploy`, which builds that exact commit from a
+  clean export, never your uncommitted edits or anyone else's. Per-user experiments (pip,
   scratch files) are fine anywhere under your home directory.
 - The graphical session is DISPLAY=:0 (user `agent`). xdotool, AT-SPI (pyatspi) and tesseract are installed; reuse the
   components in the repository for driving apps before writing new ones.

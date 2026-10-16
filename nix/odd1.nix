@@ -109,6 +109,9 @@ in {
   # settings override every session's own, so only what suits every chat.
   environment.etc."claude-code/managed-settings.json".text = builtins.toJSON {
     hooks.SessionStart = [ { hooks = [ { type = "command"; command = "odd1-person context"; } ]; } ];
+    # A chat changes the repository in its own git worktree, not the shared checkout (components/agents).
+    hooks.PreToolUse = [ { matcher = "Edit|Write|MultiEdit|NotebookEdit|Bash";
+                           hooks = [ { type = "command"; command = "odd1-agents guard"; } ]; } ];
     preferredNotifChannel = "terminal_bell";
     theme = "dark-ansi";
     spinnerTipsEnabled = false;

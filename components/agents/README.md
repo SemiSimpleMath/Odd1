@@ -20,6 +20,18 @@ Milestone: M4 (agent-native OS: the user-facing assistant layer; agents and thei
 for scripts and agents. Agents can also operate the window itself: GTK 4 is accessible over AT-SPI (the `screen`
 component). It has no MCP server of its own: its changes are the task manager's (`tasks` MCP) and role files.
 
+## Chats change the repository in their own worktree
+The shared checkout `/srv/odd1` is main as it landed; no chat edits or commits there (two chats once committed each
+other's unfinished edits). Claude Code's PreToolUse hook (`odd1-agents guard`, in the managed settings,
+nix/odd1.nix) refuses an Edit/Write of a file in it, and `git add`/`git commit` run there, and answers with the same
+path in the chat's own git worktree, made on the spot from main: `/var/lib/odd1/chats/<session>` on branch
+`chat/<session>` (first 8 characters of the session id). The chat works, tests and commits there, then lands it with
+`odd1-chat-land [COMPONENT...]`, the roles' path: rebase on main, `odd1-tasks-check`, fast-forward main, `odd1-deploy`.
+`odd1-agents worktree SESSION` prints (or makes) a chat's worktree; worktrees that landed, are clean and were not
+touched for 12 hours are removed with their branch (`odd1-agents worktree tidy`, also whenever one is made).
+Role runs (they have their own, odd1_tasks/workspace.py) are left alone; a chat started with `ODD1_SHARED_CHECKOUT=1`
+edits the shared checkout as before.
+
 ## How it works
 `odd1_agents/model.py` reads and writes everything as the person: the task store through `odd1_tasks` (its rules
 apply), role settings by editing `role.toml` lines in place after checking each value (bounds in `LIMITS`), the
@@ -29,7 +41,8 @@ application id names the display (`org.odd1.Agents.d1` on `:1`): one instance pe
 desktop opens a window there instead of raising the person's on `:0`.
 
 ## Tests
-`python -m pytest components/agents/tests -q` (on Odd1: `odd1-agents-test`): the model offline, against a temporary
+`python -m pytest components/agents/tests -q` (on Odd1: `odd1-agents-test`): the worktree guard against a
+throwaway repository; the model offline, against a temporary
 task store with both roles. The window was checked by hand on the agent desktop (`DISPLAY=:1 odd1-agents`).
 
 ## Next

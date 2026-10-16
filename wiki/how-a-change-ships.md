@@ -1,9 +1,12 @@
 # How a change reaches the system
-1. Change the repository (`/srv/odd1`), in your own git worktree when you are a role (`odd1-tasks` gives fixer and
-   updater tasks one). One component per folder under `components/` (CONVENTIONS.md).
+1. Change the repository (`/srv/odd1`) in your own git worktree, never in the shared checkout: `odd1-tasks` gives
+   fixer and updater tasks one, and a chat gets its own (`/var/lib/odd1/chats/<session>`, branch `chat/<session>`)
+   the first time it edits the repository (components/agents). One component per folder under `components/`
+   (CONVENTIONS.md).
 2. Check: `python tools/check.py` (the repository's shape; it also refuses personal data, secrets and direct
    system rebuilds), and the component's tests. Roles run `odd1-tasks-check`, which builds the whole system.
-3. Commit on main (roles: `odd1-tasks-land`, which rebases, checks again and fast-forwards main).
+3. Commit on your branch and land it: `odd1-tasks-land` (roles) or `odd1-chat-land` (chats) rebases, checks again,
+   fast-forwards main and deploys.
 4. Deploy: `odd1-deploy`. It builds a clean, read-only export of one commit on main plus this install's local
    settings (`/srv/odd1-local`), switches, then proves itself: no unit failed that was fine before, and the changed
    components' installed tests pass. Otherwise it rolls back on its own. `odd1-deploy status` says what runs;

@@ -23,6 +23,11 @@ let
     export PYTHONDONTWRITEBYTECODE=1
     exec ${python}/bin/python3 -m pytest -q ${./.}/tests -p no:cacheprovider "$@"
   '';
+  # A chat lands its worktree's branch (odd1_agents/worktree.py) through the roles' check and odd1-deploy.
+  land = pkgs.writeShellScriptBin "odd1-chat-land" ''
+    export PATH=${lib.makeBinPath [ pkgs.git pkgs.util-linux pkgs.coreutils ]}:/run/wrappers/bin:/run/current-system/sw/bin:$PATH
+    exec ${pkgs.bash}/bin/bash ${./scripts/land.sh} "$@"
+  '';
   # In the Odd1 menu (and its Favorites, desktop/xfconf/xfce4-panel.xml) and on the desktop as "Agent Settings" (the
   # taskbar's "Agents" is the agent desktop).
   launcher = pkgs.makeDesktopItem {
@@ -34,5 +39,7 @@ let
     categories = [ "System" "Settings" ];
   };
 in {
-  environment.systemPackages = [ cli test launcher ];
+  environment.systemPackages = [ cli test land launcher ];
+  # Chats' worktrees (branch chat/<session>), made by the PreToolUse hook `odd1-agents guard` (nix/odd1.nix).
+  systemd.tmpfiles.rules = [ "d /var/lib/odd1/chats 0755 agent users -" ];
 }
