@@ -14,7 +14,7 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person's c
   --output-format stream-json --include-partial-messages --permission-prompt-tool stdio --permission-mode auto`:
   auto mode approves routine actions itself; the permission requests it leaves to the person arrive as `control_request` (`can_use_tool`), answered with a `control_response` (allow + input, or deny).
 - `session.py`: the process and a reader thread; `app.py`: GTK window, WebKit transcript (`page.html`), native text
-  field. `render.py`: Markdown with raw HTML shown as text; code longer than 6 lines folds.
+  field. `render.py`: Markdown with raw HTML shown as text; a list right after a line is a list (as in CommonMark); code longer than 6 lines folds.
 - The conversation is the person's own session: Claude Code's session variables are not inherited.
 - No GPU: WebKit draws on the CPU (environment set in `app.py`; Mesa via `hardware.graphics`).
 
