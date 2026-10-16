@@ -24,6 +24,9 @@ Milestone: M1 (the machine changes only through committed, checked work; deploys
 - After a switch the deploy proves itself: no unit failed that was fine before, and the installed tests of the
   components it changed pass (a failure is retried once). Otherwise it rolls back to the previous release on its own;
   the log keeps the failed deploy, its health and the rollback.
+- A switch starts the user units it adds: `nixos-rebuild` reloads the user manager but starts none, so the deploy
+  compares what `default.target` wants (`systemctl --user`) before and after and starts the new ones (logged as
+  `user_units`). Units wanted before are left as they are, so one the person stopped stays stopped.
 - The guard: `nixos-rebuild` is wrapped (`guard.py`): `switch`, `boot` or `test` of a configuration under /srv/odd1
   is refused, with no variable or flag to turn it off; `tools/check.py` refuses a direct `nixos-rebuild switch` in
   the repository outside this component. The one override is the person's: `odd1-deploy --force` ships the working
@@ -46,4 +49,4 @@ Milestone: M1 (the machine changes only through committed, checked work; deploys
 `odd1-deploy-test` (or `python -m pytest components/deploy/tests -q` with `PYTHONPATH=components/deploy`): a
 throwaway repository and a fake nixos-rebuild prove that committed changes ship and uncommitted, staged, stashed,
 untracked and task-worktree edits do not and stay untouched; that the configuration imports the release; that
-off-main commits are refused, a failed switch keeps the running release, rollback works, deploys are serialized.
+off-main commits are refused, new user units start, a failed switch keeps the running release, rollback works, deploys are serialized.

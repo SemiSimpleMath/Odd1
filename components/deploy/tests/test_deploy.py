@@ -14,7 +14,13 @@ case $cfg in */odd1-config.nix) root=${cfg%/odd1-config.nix} ;; *) root=${cfg%/n
 echo "start $action $(cat "$root/app.txt") $(ls -A "$root" | tr '\n' ' ') local:$(cat "$root/local/host.nix" 2>/dev/null)" >> "$log"
 sleep "${FAKE_SLEEP:-0}"
 echo "end" >> "$log"
+cp "$root/wants" "$FAKE_WANTS" 2>/dev/null || : > "$FAKE_WANTS"  # the user units the commit's tree wants
 [ ! -e "$root/broken" ]
+"""
+
+# `systemctl --user`: default.target wants what the last switch installed; starts are logged.
+FAKE_USER_SYSTEMCTL = r"""
+case $1 in show) cat "$FAKE_WANTS" ;; start) echo "$2" >> "$FAKE_STARTED" ;; esac
 """
 
 
@@ -42,6 +48,9 @@ def world(tmp_path, monkeypatch):
     script = tmp_path / "rebuild.sh"
     script.write_text(FAKE_REBUILD)
     log = tmp_path / "rebuild.log"
+    user_systemctl = tmp_path / "systemctl-user.sh"
+    user_systemctl.write_text(FAKE_USER_SYSTEMCTL)
+    (tmp_path / "wants").write_text("")
     config = tmp_path / "configuration.nix"
     config.write_text(f"{{ imports = [ {repo}/nix/hosts/test.nix ]; }}\n")  # as the machine was before
     units, tests = tmp_path / "failed-units", tmp_path / "bin"
@@ -51,7 +60,9 @@ def world(tmp_path, monkeypatch):
                        ("ODD1_DEPLOY_NIXOS_CONFIG", config), ("ODD1_DEPLOY_REBUILD", f"sh {script} {log}"),
                        ("ODD1_DEPLOY_SUDO", ""), ("ODD1_DEPLOY_FAILED_UNITS", f"cat {units}"),
                        ("ODD1_DEPLOY_TESTS_BIN", tests), ("ODD1_DEPLOY_SETTLE", "0"),
-                       ("ODD1_LOCAL", tmp_path / "odd1-local")):
+                       ("ODD1_LOCAL", tmp_path / "odd1-local"),
+                       ("ODD1_DEPLOY_USER_SYSTEMCTL", f"sh {user_systemctl}"), ("FAKE_WANTS", tmp_path / "wants"),
+                       ("FAKE_STARTED", tmp_path / "started")):
         monkeypatch.setenv(key, str(value))
     monkeypatch.delenv("ODD1_DEPLOY_HOST", raising=False)
     d = Deployer(state=tmp_path / "state", repo=repo, nixos_config=config, rebuild=f"sh {script} {log}", sudo="")
@@ -245,6 +256,22 @@ def test_health_passing_tests_keep_the_deploy(world):
     record = d.deploy()
     assert record["ok"] and record["health"] == {"ok": True, "new_failed_units": [], "tests": {"widget": 0}}
     assert d.current() == second
+
+
+def test_a_switch_starts_new_user_units_and_leaves_the_others(world):
+    repo, d = world["repo"], world["d"]
+    commit(repo, "a.service\n", name="wants")
+    d.deploy()
+    started = world["tmp"] / "started"
+    assert started.read_text().split() == ["a.service"]
+    started.unlink()  # a.service stopped by the person since: a deploy that does not add it leaves it stopped
+    commit(repo, "a.service b.service\n", name="wants")
+    assert d.deploy()["user_units"] == {"b.service": 0}
+    assert started.read_text().split() == ["b.service"]
+    commit(repo, "b.service\n", name="wants")
+    started.unlink()
+    assert d.deploy(action="build").get("user_units") is None and d.deploy()["user_units"] == {}
+    assert not started.exists()
 
 
 # -- the guard and the person's override ------------------------------------------------------------------------------

@@ -49,6 +49,8 @@ class Deployer:
         # After a switch: units that failed since, and the installed tests of the components the deploy changed.
         self.failed_units_cmd = shlex.split(env.get("ODD1_DEPLOY_FAILED_UNITS",
                                                     "systemctl --failed --plain --no-legend --no-pager"))
+        # The caller's user manager: a switch reloads it but starts no user unit a commit adds; the deploy does.
+        self.user_systemctl = shlex.split(env.get("ODD1_DEPLOY_USER_SYSTEMCTL", "systemctl --user"))
         self.tests_bin = Path(env.get("ODD1_DEPLOY_TESTS_BIN", "/run/current-system/sw/bin"))
         self.settle = float(env.get("ODD1_DEPLOY_SETTLE", 10))
         self.test_timeout = float(env.get("ODD1_DEPLOY_TEST_TIMEOUT", 900))
@@ -257,6 +259,7 @@ class Deployer:
         before, before_local = self.current(), self.current_local()
         before_name = (self.state / "current").resolve().name if before else None
         failed_before = self.failed_units() if action == "switch" and health else set()
+        wanted_before = self.wanted_user_units() if action == "switch" else None
         started = time.time()
         p = subprocess.run([*self.rebuild, action, "-I", f"nixos-config={config}", *self.nixpkgs_args(where)])
         record = {"at": started, "seconds": round(time.time() - started, 1), "commit": sha, "local": local,
@@ -269,6 +272,8 @@ class Deployer:
                               f"runs {(before or 'what it ran')[:12]}")
         if action != "build":
             self._point(where.name, rel)
+        if action == "switch":
+            record["user_units"] = self.start_new_user_units(wanted_before)
         if action == "switch" and health:
             record["health"] = self.health(failed_before, before, sha)
             if not record["health"]["ok"] and before and before_name != where.name:
@@ -321,6 +326,31 @@ class Deployer:
             if not record["ok"]:
                 raise DeployError(f"forced switch failed ({p.returncode})")
             return record
+
+    # -- user units ---------------------------------------------------------------------------------------------------
+    def _user(self, *args, timeout: float = 30) -> subprocess.CompletedProcess | None:
+        try:
+            return subprocess.run([*self.user_systemctl, *args], capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+    def wanted_user_units(self) -> set[str] | None:
+        """The units the caller's user manager wants at default.target; None without a user manager."""
+        p = self._user("show", "default.target", "-p", "Wants", "--value")
+        return set(p.stdout.split()) if p and p.returncode == 0 else None
+
+    def start_new_user_units(self, before: set[str] | None) -> dict[str, int]:
+        """Start the user units the switch made wanted (nixos-rebuild reloads user managers but starts none). Units
+        that were wanted before stay as they are, so one the person stopped is not started again."""
+        if before is None:
+            return {}
+        self._user("daemon-reload")
+        after = self.wanted_user_units() or set()
+        started = {}
+        for unit in sorted(after - before):
+            p = self._user("start", unit, timeout=120)
+            started[unit] = p.returncode if p else 124
+        return started
 
     # -- health after a switch ----------------------------------------------------------------------------------------
     def failed_units(self) -> set[str]:
