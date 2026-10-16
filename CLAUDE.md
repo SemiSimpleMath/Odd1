@@ -16,3 +16,7 @@ that whole class of request easy, and build it.
   -o out.png`), then read the PNG. It shows any window even when others cover it; `import`/`xwd` return black there.
 - The network reaches package registries and Anthropic only. The host computer is out of reach by design.
 - Prefer bash and existing programs. Keep notes short and in the component README, not in long logs.
+- Friction is a ticket. Whenever something surprised you (it should have worked and did not, a tool fought you, a
+  workaround was needed), file it, even if you fixed it: `odd1-tasks create "<what should work> (<what happened>)"
+  --done-when '<check that passes once fixed>' --tag friction --tag <component>`. A person approves tickets; never
+  approve your own.
