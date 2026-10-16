@@ -29,6 +29,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 | tasks | M4 | Persistent work for role agents (housekeeper, update-watcher): store with enforced rules, a runner per role | tasks_create/list/show/approve/claim/renew/release/log/finish |
 | agents | M4 | The Agents app: health and settings of every agent system (roles, tasks, Claude Code, tools) | (none: its changes are tasks' and role files) |
 | caretaker | M1 | Machine health and foreground pressure (PSI, cgroups); restarts listed failed units | caretaker_status/pressure/repair |
+| stats | M4 | Agent and system stats sampled every 15 min; summary and trend (is performance degrading, where is the friction) | stats_summary/trend |
 
 ## Connections
 - Claude Code (the person's front agent, and any other agent harness plugged in) reaches every component through MCP.
@@ -53,3 +54,5 @@ Every component's agent entry point is an MCP server of the same name, registere
 - `tasks` is the agent process manager: `odd1-tasks-runner@<role>` starts Claude Code headless per approved task, under
   the role's permissions and budgets; tasks are proposed by anyone, approved by the person. Its runs' cost and
   failures are the structured source `caretaker` should watch; budgets beyond turns and minutes grow there.
+- `stats` only reads: `tasks` (tasks.db), Claude Code's transcripts (counts, never text), `caretaker`'s history and
+  `deploy`'s record; it keeps samples of them under /var/lib/odd1/stats for summaries and trends.
