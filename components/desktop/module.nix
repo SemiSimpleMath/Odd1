@@ -144,6 +144,10 @@ in {
         odd1-desktop-clipboard = lib.recursiveUpdate (session
           "Odd1 desktop: clipboard and shared drives over Remote Desktop (xrdp-chansrv)" "${pkgs.xrdp}/bin/xrdp-chansrv")
           { environment.PATH = lib.mkForce "/run/wrappers/bin:/run/current-system/sw/bin:${lib.makeBinPath tools}"; };
+        # chansrv serves one connection at a time; xrdp connects through this proxy, which hands chansrv to the
+        # newest Remote Desktop connection (odd1_desktop/chansrv.py).
+        odd1-desktop-chansrv = session "Odd1 desktop: the newest Remote Desktop connection gets xrdp-chansrv"
+          "${cli}/bin/odd1-desktop chansrv --display :0";
         # Stopping the shell stops only the shell: chats it opened (and the person's conversations) live on.
         odd1-desktop-shell = lib.recursiveUpdate (afterSettings (session
           "Odd1 desktop: chat column, taskbar, wallpaper, layout" "${cli}/bin/odd1-desktop shell --display :0"))

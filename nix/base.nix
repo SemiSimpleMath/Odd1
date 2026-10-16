@@ -117,8 +117,9 @@ in {
       mv $out/xrdp.ini.odd1 $out/xrdp.ini
       sed -i 's/^autorun=.*/autorun=Odd1/' $out/xrdp.ini
       printf '%s\n' '[Odd1]' 'name=Odd1' 'lib=libvnc.so' 'ip=127.0.0.1' 'port=5900' 'username=na' 'password=' \
-        'chansrvport=/run/xrdp/1000/xrdp_chansrv_socket_0' >> $out/xrdp.ini
-      # chansrv (the clipboard bridge, components/desktop) mounts the viewer's shared drives at ~/Windows.
+        'chansrvport=/run/xrdp/1000/odd1_chansrv_socket_0' >> $out/xrdp.ini
+      # xrdp reaches chansrv (the clipboard bridge) through odd1-desktop-chansrv, which gives it to the newest
+      # connection (components/desktop); chansrv mounts the viewer's shared drives at ~/Windows.
       sed -i 's/^FuseMountName=.*/FuseMountName=Windows/' $out/sesman.ini
     '';
   };

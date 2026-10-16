@@ -24,7 +24,9 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
 - Remote Desktop carries the clipboard both ways, images included (paste a screenshot into a chat with Ctrl+V),
   and the drives the viewer shares (Remote Desktop: Local Resources, More, Drives) appear at `~/Windows`, so
   agents can read a file the person put in their Downloads. Both through `xrdp-chansrv` (unit
-  `odd1-desktop-clipboard`).
+  `odd1-desktop-clipboard`). chansrv serves one connection at a time, so xrdp reaches it through
+  `odd1-desktop chansrv` (unit `odd1-desktop-chansrv`, `odd1_desktop/chansrv.py`): a new connection closes the
+  older one's link and gets chansrv, even while the older Remote Desktop window is still open.
 - Focus is the person's: whoever used a window last keeps the focus. A new chat takes the column and the keyboard
   only when the person just clicked + New chat; otherwise it waits as a tab. A chat that needs the person (Claude
   Code rings the terminal bell: `preferredNotifChannel` in /etc/claude-code/managed-settings.json; the terminal
