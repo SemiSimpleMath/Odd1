@@ -52,3 +52,16 @@ def test_wallpaper_paints_the_chat_column():
     # The work area is dark (never a blinding white) and starts from the base colour where no field reaches.
     assert all(max(image.getpixel((x, y))) < 150 for x in range(0, 818, 37) for y in range(0, 800, 41))
     assert all(abs(a - b) <= 6 for a, b in zip(image.getpixel((10, 0)), layout.WALLPAPER[0]))
+
+
+def test_watermark_is_a_faint_owl_in_the_middle_of_the_work_area():
+    pytest.importorskip("PIL")
+    from PIL import Image
+    mark = Image.new("RGBA", (100, 100), (248, 245, 242, 255))  # a light square stands in for the owl
+    plain = layout.wallpaper((1280, 800), 461)
+    marked = layout.wallpaper((1280, 800), 461, mark)
+    centre = ((1280 - 461) // 2, 800 // 2 - 800 // 36)
+    lift = sum(marked.getpixel(centre)) - sum(plain.getpixel(centre))
+    assert 0 < lift < 3 * 255 * layout.WATERMARK[1] + 6  # brighter, but faint
+    assert marked.getpixel((20, 20)) == plain.getpixel((20, 20))  # nowhere else
+    assert layout.watermark_height(1440) == 562

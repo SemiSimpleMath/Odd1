@@ -15,6 +15,9 @@ WALLPAPER_FIELDS = (
     ((1.00, 0.85, 0.50), (200, 110, 90), 0.24),  # a warm glow, low right
     ((0.45, 0.45, 0.50), (60, 90, 170), 0.30),  # blue, centre
 )
+# The Odd1 owl, a faint emboss in the middle of the work area: white at 4% (its dark body) to 10% (its light face)
+# opacity, 39% of the screen's height.
+WATERMARK, WATERMARK_HEIGHT = (0.04, 0.10), 0.39
 CHAT_BACKGROUND, CHAT_EDGE = (23, 24, 28), (44, 46, 54)  # the chat column and its 1px left edge
 HEADER_HEIGHT = 34
 HEADER_TEXT, HEADER_TEXT_DIM, HEADER_ACCENT = (228, 228, 232), (138, 140, 150), (217, 119, 87)
@@ -93,11 +96,28 @@ def hit(boxes, x):
     return None
 
 
-def wallpaper(size, dock):
+def watermark_height(screen_height):
+    return round(screen_height * WATERMARK_HEIGHT)
+
+
+def ghost(mark):
+    """The owl (RGBA) as a faint white emboss: brighter where the owl is light, fainter where it is dark."""
+    from PIL import Image
+    low, high = WATERMARK
+    alpha = Image.eval(mark.convert("L"), lambda v: round(255 * (low + (high - low) * v / 255)))
+    alpha = Image.composite(alpha, Image.new("L", mark.size, 0), mark.getchannel("A"))
+    faint = Image.new("RGBA", mark.size, (235, 238, 255, 0))
+    faint.putalpha(alpha)
+    return faint
+
+
+def wallpaper(size, dock, mark=None):
     """The wallpaper for a (width, height) screen with a `dock`-wide chat column: the column is painted in, so it
     stays solid where a terminal stops short of the edge (terminals size in whole character cells). Computed at an
-    eighth of the size and scaled up (the fields are soft anyway), with a little grain so it never bands."""
+    eighth of the size and scaled up (the fields are soft anyway), with a little grain so it never bands. `mark`
+    (the owl, RGBA) goes faintly in the middle of the work area, a little above centre."""
     import math
+    import random
     from PIL import Image, ImageDraw, ImageFilter
     width, height = size
     area = max(width - dock, 1)
@@ -115,7 +135,13 @@ def wallpaper(size, dock):
                 colour = [c + (f - c) * weight for c, f in zip(colour, field)]
             pixels[x, y] = tuple(round(c) for c in colour)
     image = image.filter(ImageFilter.GaussianBlur(2)).resize((area, height), Image.BICUBIC)
-    image = Image.blend(image, Image.effect_noise((area, height), 6).convert("RGB"), 0.02)
+    grain = random.Random(area * height).randbytes(area * height)  # the same grain every time for a size
+    image = Image.blend(image, Image.frombytes("L", (area, height), grain).convert("RGB"), 0.02)
+    if mark is not None:
+        faint = ghost(mark).convert("RGBA")
+        image = image.convert("RGBA")
+        image.alpha_composite(faint, ((area - faint.width) // 2, max((height - faint.height) // 2 - height // 36, 0)))
+        image = image.convert("RGB")
     canvas = Image.new("RGB", (width, height), CHAT_BACKGROUND)
     canvas.paste(image, (0, 0))
     draw = ImageDraw.Draw(canvas)

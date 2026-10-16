@@ -6,9 +6,10 @@
 let
   cfg = config.odd1.desktop;
   python = pkgs.python3.withPackages (p: [ p.xlib p.pillow p.pytest ]);
-  tools = with pkgs; [ hsetroot xfce.xfce4-terminal fontconfig xfce.xfconf ];
+  tools = with pkgs; [ hsetroot xfce.xfce4-terminal fontconfig xfce.xfconf librsvg ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
+    export ODD1_MARK=${./logo/odd1-icon.svg}  # the owl, faint on the wallpaper
     export ODD1_LIBX11=${pkgs.xorg.libX11}/lib/libX11.so.6  # the shell turns XKB's audible bell off through it
     export PATH=${lib.makeBinPath tools}:$PATH
   '';
@@ -36,8 +37,8 @@ let
     serviceConfig = { ExecStart = command; Restart = "always"; RestartSec = 2; };
   };
   afterSettings = unit: unit // { after = unit.after ++ [ "odd1-desktop-settings.service" ]; };
-  # The Odd1 mark (four dots, one odd) as the icon `odd1`: the menu button shows it.
-  icon = pkgs.runCommand "odd1-icon" { } "install -Dm644 ${./odd1.svg} $out/share/icons/hicolor/scalable/apps/odd1.svg";
+  # The Odd1 owl (logo/odd1-icon.svg, the owl from logo/odd1-logo.svg) as the icon `odd1`: the menu button shows it.
+  icon = pkgs.runCommand "odd1-icon" { } "install -Dm644 ${./logo/odd1-icon.svg} $out/share/icons/hicolor/scalable/apps/odd1.svg";
   xfconf = name: { "xdg/xfce4/xfconf/xfce-perchannel-xml/${name}".source = ./xfconf + "/${name}"; };
   # Odd1 owns these settings channels: the repository's defaults (xfconf/) apply at every session start, so a value
   # Xfce once wrote into ~/.config (first-run defaults, an old layout) never shadows them. xfconfd restarts on demand.
@@ -95,10 +96,12 @@ in {
         odd1-desktop-panel = afterSettings (session "Odd1 desktop: top bar" "${pkgs.xfce.xfce4-panel}/bin/xfce4-panel");
         odd1-desktop-icons = afterSettings (session "Odd1 desktop: wallpaper and desktop icons"
           "${pkgs.xfce.xfdesktop}/bin/xfdesktop");
-        # The clipboard over Remote Desktop, images included: xrdp's channel server on :0 (base.nix points xrdp at
-        # its socket). It waits for each connection and bridges Windows' clipboard to X's.
-        odd1-desktop-clipboard = session "Odd1 desktop: clipboard over Remote Desktop (xrdp-chansrv)"
-          "${pkgs.xrdp}/bin/xrdp-chansrv";
+        # The clipboard over Remote Desktop, images included, and the viewer's shared drives at ~/Windows: xrdp's
+        # channel server on :0 (base.nix points xrdp at its socket). It waits for each connection. FUSE mounts need
+        # the setuid fusermount3 in /run/wrappers.
+        odd1-desktop-clipboard = lib.recursiveUpdate (session
+          "Odd1 desktop: clipboard and shared drives over Remote Desktop (xrdp-chansrv)" "${pkgs.xrdp}/bin/xrdp-chansrv")
+          { environment.PATH = lib.mkForce "/run/wrappers/bin:/run/current-system/sw/bin:${lib.makeBinPath tools}"; };
         # Stopping the shell stops only the shell: chats it opened (and the person's conversations) live on.
         odd1-desktop-shell = lib.recursiveUpdate (afterSettings (session
           "Odd1 desktop: chat column, taskbar, wallpaper, layout" "${cli}/bin/odd1-desktop shell --display :0"))

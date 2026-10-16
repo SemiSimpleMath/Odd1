@@ -262,7 +262,7 @@ class Shell:
         for old in os.listdir(folder):
             if old.startswith(f"wallpaper-{self.name.lstrip(':')}-") and os.path.join(folder, old) != path:
                 os.remove(os.path.join(folder, old))
-        self.wallpaper = layout.wallpaper(self.size, layout.dock_width(width))
+        self.wallpaper = layout.wallpaper(self.size, layout.dock_width(width), self.mark(layout.watermark_height(height)))
         self.wallpaper.save(path)
         env = {**os.environ, "DISPLAY": self.name}
         subprocess.run(["hsetroot", "-full", path], check=False, env=env)
@@ -271,6 +271,20 @@ class Shell:
             for prop, kind, value in (("image-style", "int", "1"), ("last-image", "string", path)):
                 subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", f"{base}/{prop}", "-n", "-t", kind,
                                 "-s", value], check=False, env=env, stderr=subprocess.DEVNULL)
+
+    def mark(self, height):
+        """The owl ($ODD1_MARK, an SVG) rendered `height` pixels tall, or None if it cannot be."""
+        from PIL import Image
+        source = os.environ.get("ODD1_MARK")
+        if not source or not shutil.which("rsvg-convert"):
+            return None
+        out = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "odd1-desktop", f"mark-{height}.png")
+        if not os.path.exists(out):
+            subprocess.run(["rsvg-convert", "-h", str(height), source, "-o", out], check=False)
+        try:
+            return Image.open(out).convert("RGBA")
+        except OSError:
+            return None
 
     def monitors(self):
         """Names of the connected outputs (xfdesktop keeps a backdrop per output name)."""

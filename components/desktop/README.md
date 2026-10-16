@@ -13,8 +13,15 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
 - Chat column (right, a third of the screen, 460-680px): a tab per chat and **+ New chat**; the chat itself is a
   terminal running Claude Code (`$ODD1_CHAT_COMMAND` for any other agent harness). Apps can't cover it, maximized
   windows stop at it, and new windows open beside it.
+- Remote Desktop carries the clipboard both ways, images included (paste a screenshot into a chat with Ctrl+V),
+  and the drives the viewer shares (Remote Desktop: Local Resources, More, Drives) appear at `~/Windows`, so
+  agents can read a file the person put in their Downloads. Both through `xrdp-chansrv` (unit
+  `odd1-desktop-clipboard`).
 - Quiet: the X bell is off (the shell sets its volume to 0), so agents typing into apps make no beeps over Remote
   Desktop.
+- Logo: `logo/odd1-logo.svg` (the owl and the wordmark, its "1" in orange); `logo/odd1-icon.svg` is the owl
+  alone, installed as the icon `odd1` (the menu button). Traced from the person's artwork with potrace, one layer
+  per colour.
 - Look: Colloid (GTK, window frames, icons), Inter for the interface, JetBrains Mono in the chat, xfwm4's
   compositor for soft shadows. Grayscale antialiasing, so text stays crisp over Remote Desktop.
 - The screen follows the viewer: Remote Desktop (xrdp, port 3389) and noVNC (6080) ask Xvnc for their window's
@@ -47,7 +54,6 @@ Live checks were done on a scratch Xvnc display with a FreeRDP client: a 1600x90
 ## Next
 - Authentication before shipping an image: VNC is localhost-only and xrdp passes no password, which is fine behind
   the dev VM's port forward but not on a network. First boot should set a password (VncAuth or PAM in xrdp).
-- Clipboard over VNC is ISO-8859-1 text only (xrdp's VNC module); a native xorgxrdp session would lift that.
 - A keyboard shortcut for the chat (Super+Space) and for the menu (Super).
 - The libreoffice MCP opens documents on the person's screen (:0); it should use the agent desktop, so they fold
   into the Agents item until handed over.

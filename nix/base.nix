@@ -117,8 +117,8 @@ in {
       sed -i 's/^autorun=.*/autorun=Odd1/' $out/xrdp.ini
       printf '%s\n' '[Odd1]' 'name=Odd1' 'lib=libvnc.so' 'ip=127.0.0.1' 'port=5900' 'username=na' 'password=' \
         'chansrvport=/run/xrdp/1000/xrdp_chansrv_socket_0' >> $out/xrdp.ini
-      # chansrv (the clipboard bridge, components/desktop) mounts no Windows drives.
-      sed -i 's/^#EnableFuseMount=false/EnableFuseMount=false/' $out/sesman.ini
+      # chansrv (the clipboard bridge, components/desktop) mounts the viewer's shared drives at ~/Windows.
+      sed -i 's/^FuseMountName=.*/FuseMountName=Windows/' $out/sesman.ini
     '';
   };
   # The clipboard with images: xrdp hands the clipboard channel to chansrv, which runs as agent on :0 (user unit

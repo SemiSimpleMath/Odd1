@@ -9,7 +9,7 @@
       <property name="length" type="double" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
       <property name="size" type="uint" value="34"/>
-      <property name="icon-size" type="uint" value="18"/>
+      <property name="icon-size" type="uint" value="22"/>
       <property name="background-style" type="uint" value="1"/>
       <property name="background-rgba" type="array">
         <value type="double" value="0.094"/>

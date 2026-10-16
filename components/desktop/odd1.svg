@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- Odd1: four dots, one odd -->
-  <circle cx="19" cy="19" r="11" fill="#C9CBD3"/>
-  <circle cx="45" cy="19" r="11" fill="#D97757"/>
-  <circle cx="19" cy="45" r="11" fill="#C9CBD3"/>
-  <circle cx="45" cy="45" r="11" fill="#C9CBD3"/>
-</svg>
