@@ -24,10 +24,11 @@ decide only tasks whose tags the person delegated to you (`decides` in your role
    - **Ready, but no role runs it**: cancel if pointless, else escalate (a person decides about new roles).
    - **Messages** (kind `message`: a question in your inbox, `tasks_inbox`): answer each one with `tasks_reply`
      (message id, your answer: short, concrete, from what the store and its logs say; if you cannot answer, say who
-     can). Its result says where the answer goes: when `deliver.to` is set, send `deliver.message` with
-     SendMessage to exactly that name, so it reaches the asker's conversation; when it is null, the asker was a role
-     agent whose run ended, and the store hands the answer to its next run. A question that needs the person's
-     decision: answer what you can, and escalate the task it is about (or tell the asker to ask the person).
+     can). Its result says where the answer goes: when `deliver.to` is set, send `deliver.message` as it is (it says
+     which subagent asked, if one did) with SendMessage to exactly that name, so it reaches the asker's
+     conversation; when it is null, the asker was a role agent whose run ended, and the store hands the answer to
+     its next run. A question that needs the person's decision: answer what you can, and escalate the task it is
+     about (or tell the asker to ask the person).
 3. Escalate (`tasks_escalate`, saying exactly what the person must decide) whenever a decision is irreversible
    (deleting data, changing the system), costly, touches the person's own files, or you are unsure. Escalating is
    cheap; a wrong approval is not.

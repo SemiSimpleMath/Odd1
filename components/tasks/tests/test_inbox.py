@@ -73,3 +73,46 @@ def test_a_role_agent_reads_its_answers_in_its_next_runs_prompt(managed):
     assert "May I clean /var/tmp too?" in text and "No: only ~/.cache and /tmp." in text
     assert "tasks_ask" in text
     assert not managed.replies("fixer")
+
+
+def test_a_subagents_question_is_answered_to_its_parent_who_passes_it_on(managed, tmp_path):
+    folder = registry(tmp_path, os.getpid(), "abc-123", "odd1-3f")
+    q = managed.ask("odd1-3f", PERSON, "Which role runs updates?", session="abc-123", agent="researcher")
+    question, reply = managed.reply(q["id"], "manager", "The updater.")
+    out = inbox.delivery(question, reply, sessions=folder)
+    assert out["to"] == "odd1-3f" and out["message"].startswith("@odd1-3f, for your subagent researcher:")
+    assert 'SendMessage(to="researcher")' in out["message"]
+
+
+def test_an_asker_can_wait_for_the_answer_and_the_parent_still_hears_of_it(managed, tmp_path, monkeypatch):
+    import asyncio
+    monkeypatch.setattr(inbox, "POLL_S", 0.01)
+    q = managed.ask("odd1-3f", PERSON, "Quick one?", session="abc-123", agent="researcher", wait_minutes=1)
+    assert asyncio.run(inbox.wait_answer(managed, q["id"], 0.001)) is None  # nothing yet: gives up on time
+
+    async def ask_and_answer():
+        waiting = asyncio.ensure_future(inbox.wait_answer(managed, q["id"], 1))
+        await asyncio.sleep(0.05)
+        managed.reply(q["id"], "manager", "Yes.")
+        return await waiting
+
+    assert asyncio.run(ask_and_answer())["text"] == "Yes."
+    folder = registry(tmp_path, os.getpid(), "abc-123", "odd1-3f")
+    out = inbox.delivery(managed.message(q["id"]), managed.answer(q["id"]), sessions=folder)
+    assert out["to"] == "odd1-3f" and "has it already" in out["message"], "sent anyway, marked as already had"
+
+
+def test_an_older_store_gains_the_new_message_columns(tmp_path):
+    import sqlite3
+    from odd1_tasks.store import Store
+    state = tmp_path / "old"
+    state.mkdir()
+    db = sqlite3.connect(state / "tasks.db")
+    db.execute("CREATE TABLE messages(id INTEGER PRIMARY KEY, at REAL NOT NULL, sender TEXT NOT NULL, actor TEXT "
+               "NOT NULL, session TEXT, recipient TEXT NOT NULL, task_id INTEGER, reply_to INTEGER, text TEXT NOT NULL)")
+    db.execute("INSERT INTO messages(at, sender, actor, recipient, text) VALUES (1, 'a', 'b', 'manager', 'old one')")
+    db.commit()
+    db.close()
+    store = Store(state)
+    assert store.inbox()[0]["text"] == "old one" and store.inbox()[0]["agent"] is None
+    assert store.ask("a", "b", "new", agent="x", wait_minutes=1)["agent"] == "x"

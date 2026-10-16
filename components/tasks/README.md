@@ -60,7 +60,12 @@ manager runs, or after `escalate_after_minutes`). The manager answers with `task
 once (the `messages` table is append-only; a task's log keeps answers about it) and says where it goes: to the
 asker's session, by its current name, sent with Claude Code's SendMessage as "@name The task manager answers your
 message #N ...", so it arrives in the asker's conversation as a new event it reacts to. A role agent whose run has
-ended gets the answers of the last day in its next run's prompt. `odd1-tasks inbox [--all]` lists the messages.
+ended gets the answers of the last day in its next run's prompt. A subagent has no session of its own: it passes
+its name (`agent`), the answer goes to its parent session as "@parent, for your subagent NAME: ...", and the parent
+passes it on with SendMessage (a finished subagent resumes from its transcript). Any asker can instead wait for the
+answer (`wait_minutes`, up to 15; `odd1-tasks ask --wait MIN`) and get it as its call's result; the session still
+gets the message, marked as had already, so a wait cut short loses nothing. `odd1-tasks inbox [--all]` lists the
+messages.
 
 ## Runners and roles
 `odd1-tasks-runner@<role>` (one systemd unit per role): every 30 s, with no model call, it rereads the role's config,

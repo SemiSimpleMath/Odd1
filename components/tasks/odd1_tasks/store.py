@@ -22,7 +22,8 @@ CHECK_TIMEOUT = 300
 OPEN = ("proposed", "ready", "claimed", "blocked", "verifying")
 CLOSED = ("done", "parked", "declined", "cancelled")  # declined: a proposal a person turned down; cancelled: by a person
 STATUSES = OPEN + CLOSED
-VERSION = 2  # PRAGMA user_version: 1 added declined, cancelled, tasks.run_if and agents.decides; 2 messages
+VERSION = 3  # PRAGMA user_version: 1 added declined, cancelled, tasks.run_if and agents.decides; 2 messages;
+#             3 messages.agent (the subagent that asked) and messages.waits_until
 FIXED = "goal, done_when, tags, resources, depends_on, schedule, run_if, max_turns, max_minutes, max_attempts, created_by"
 MOVES = ("proposed>ready", "ready>claimed", "claimed>ready", "claimed>blocked", "claimed>verifying",
          "blocked>ready", "verifying>ready", "verifying>parked", "verifying>done", "proposed>declined",
@@ -57,7 +58,7 @@ CREATE TABLE IF NOT EXISTS agents(name TEXT PRIMARY KEY, tags TEXT NOT NULL CHEC
 CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY, at REAL NOT NULL, sender TEXT NOT NULL, actor TEXT NOT NULL, session TEXT,
   recipient TEXT NOT NULL, task_id INTEGER REFERENCES tasks(id), reply_to INTEGER REFERENCES messages(id),
-  text TEXT NOT NULL CHECK (length(trim(text)) > 0));
+  text TEXT NOT NULL CHECK (length(trim(text)) > 0), agent TEXT, waits_until REAL);
 CREATE INDEX IF NOT EXISTS messages_reply ON messages(reply_to);
 CREATE TRIGGER IF NOT EXISTS no_message_update BEFORE UPDATE ON messages
 BEGIN SELECT RAISE(ABORT, 'messages are append-only'); END;
@@ -178,6 +179,10 @@ class Store:
         """Bring an older store to this schema. Version 0 -> 1: the status column's CHECK gains declined and
         cancelled; SQLite cannot change a CHECK in place, so the table is rebuilt (every row kept, the log untouched;
         its triggers are recreated from SCHEMA right after)."""
+        messages = [r[1] for r in self.db.execute("PRAGMA table_info(messages)")]
+        for column in ("agent TEXT", "waits_until REAL"):
+            if messages and column.split()[0] not in messages:
+                self.db.execute(f"ALTER TABLE messages ADD COLUMN {column}")
         agents = [r[1] for r in self.db.execute("PRAGMA table_info(agents)")]
         if agents and "decides" not in agents:
             self.db.execute("ALTER TABLE agents ADD COLUMN decides TEXT NOT NULL DEFAULT '[]'")
@@ -334,15 +339,19 @@ class Store:
     # -- the task manager's inbox (inbox.py finds who is asking and where the answer goes)
     MANAGER = "manager"
 
-    def ask(self, sender: str, actor: str, text: str, session: str | None = None,
-            task_id: int | None = None) -> dict:
-        """Leave the task manager a message (a question, not a ticket). sender: the address its answer goes to."""
+    def ask(self, sender: str, actor: str, text: str, session: str | None = None, task_id: int | None = None,
+            agent: str | None = None, wait_minutes: float = 0) -> dict:
+        """Leave the task manager a message (a question, not a ticket). sender: the address its answer goes to (a
+        session); agent: the subagent of that session that asked, if one did; wait_minutes: how long the asker
+        waits for the answer itself (wait_answer), so the manager need not send it."""
         if task_id is not None:
             self._get(task_id)
+        now = time.time()
         try:
-            cur = self.db.execute("INSERT INTO messages(at, sender, actor, session, recipient, task_id, text) "
-                                  "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                  (time.time(), sender, actor, session, self.MANAGER, task_id, text.strip()))
+            cur = self.db.execute("INSERT INTO messages(at, sender, actor, session, recipient, task_id, text, agent, "
+                                  "waits_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                  (now, sender, actor, session, self.MANAGER, task_id, text.strip(),
+                                   (agent or "").strip() or None, now + wait_minutes * 60 if wait_minutes else None))
         except sqlite3.IntegrityError as e:
             raise TaskError("a message needs text" if "CHECK" in str(e) else str(e)) from None
         return self.message(cur.lastrowid)
@@ -379,6 +388,10 @@ class Store:
                 self._log(question["task_id"], actor, "note",
                           f"answered message #{message_id} from @{question['sender']}: {text.strip()}")
         return question, self.message(cur.lastrowid)
+
+    def answer(self, message_id: int) -> dict | None:
+        r = self.db.execute("SELECT * FROM messages WHERE reply_to = ?", (message_id,)).fetchone()
+        return dict(r) if r else None
 
     def inbox(self, answered: bool = False) -> list[dict]:
         """The task manager's messages, oldest first: unanswered ones (default), or all with their answers."""

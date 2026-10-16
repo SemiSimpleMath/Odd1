@@ -116,13 +116,28 @@ def tasks_changes(since: int = 0) -> dict:
 
 
 @mcp.tool()
-def tasks_ask(text: str, task_id: int = 0) -> dict:
+async def tasks_ask(text: str, task_id: int = 0, agent: str = "", wait_minutes: float = 0) -> dict:
     """Ask the task manager a question (for a bug or a piece of work, file a ticket with tasks_create instead).
-    task_id: the task it is about, if any. The answer arrives later in your own conversation as a message from
-    the task manager ("@your-name ..."); a role agent whose run has ended gets it in its next run's prompt."""
+    task_id: the task it is about, if any. The answer arrives later in your session's conversation as a message
+    from the task manager ("@your-name ..."); a role agent whose run has ended gets it in its next run's prompt.
+    agent: if you are a subagent, your name (the answer goes to your parent session, which passes it on to you).
+    wait_minutes (up to 15): wait for the answer and get it as this call's result (the manager runs at most every
+    15 minutes); on timeout the answer still comes as a message."""
     from . import inbox
-    who = inbox.caller()
-    return _do(Store().ask, who["name"], who["actor"], text, session=who["session"], task_id=task_id or None)
+    who, store = inbox.caller(), Store()
+    wait = max(0.0, min(float(wait_minutes or 0), inbox.MAX_WAIT_MINUTES))
+    try:
+        message = store.ask(who["name"], who["actor"], text, session=who["session"], task_id=task_id or None,
+                            agent=agent or None, wait_minutes=wait)
+    except TaskError as e:
+        return {"error": str(e)}
+    if not wait:
+        return message
+    found = await inbox.wait_answer(store, message["id"], wait)
+    if found is None:
+        return {"message": message, "answer": None,
+                "note": f"no answer within {wait:g} minutes; it will come to @{who['name']} as a message"}
+    return {"message": message, "answer": found["text"]}
 
 
 @mcp.tool()

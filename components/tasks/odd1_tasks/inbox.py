@@ -4,12 +4,15 @@ agent's own conversation (Claude Code's cross-session messages: it arrives as a 
 An asker is known by its Claude Code session: the MCP server or CLI walks up its parent processes to the Claude Code
 process, whose registry file (~/.claude/sessions/<pid>.json) holds the session's id and name, the address other
 sessions message it by. A role agent run by the runner is also known by its role; one that has stopped by the time
-the answer comes gets it in its next run's prompt.
+the answer comes gets it in its next run's prompt. A subagent has no session of its own (it runs inside its
+parent's): it names itself (`agent`), the answer goes to the parent session, which passes it on. Or the asker waits
+for the answer (`wait_minutes`) and gets it as the result of its call.
 """
 from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 from .store import actor_from_env
@@ -72,14 +75,40 @@ def live_name(session_id: str | None, sessions: Path | None = None) -> str | Non
     return None
 
 
+MAX_WAIT_MINUTES = 15
+POLL_S = 2
+
+
 def delivery(question: dict, reply: dict, sessions: Path | None = None) -> dict:
     """How the manager hands its reply over: {to, message} to send with SendMessage when the asker's session is
-    still running, else {to: None, note} (a role agent reads it in its next run's prompt)."""
-    to = live_name(question.get("session"), sessions)
+    still running (always, so nothing is lost: an asker that waited is told it has the answer already), else
+    {to: None, note} (the session ended; a role agent reads it in its next run's prompt). A subagent's question
+    goes to its session, which passes the answer on to that subagent."""
     quoted = question["text"] if len(question["text"]) <= 80 else question["text"][:77] + "..."
-    message = (f"@{to or question['sender']} The task manager answers your message #{question['id']} "
-               f"(“{quoted}”): {reply['text']}")
+    to = live_name(question.get("session"), sessions)
+    agent = question.get("agent")
+    waited = (question.get("waits_until") or 0) > reply["at"]  # the asker gets it as its call's result
+    head = f"@{to or question['sender']}" + (f", for your subagent {agent}:" if agent else "")
+    if agent and waited:
+        after = f"\n{agent} was waiting for this and has it already; no need to pass it on."
+    elif agent:
+        after = f"\nPass this to {agent} with SendMessage(to=\"{agent}\") (a finished subagent resumes from its transcript)."
+    else:
+        after = "\n(You were waiting for this and have it already.)" if waited else ""
+    message = f"{head} The task manager answers message #{question['id']} (\u201c{quoted}\u201d): {reply['text']}{after}"
     if to:
         return {"to": to, "message": message}
     return {"to": None, "message": message,
             "note": "the asker's session has ended; a role agent gets this reply in its next run's prompt"}
+
+
+async def wait_answer(store, message_id: int, minutes: float) -> dict | None:
+    """The answer to message_id once it exists, or None after `minutes` (async: the server keeps serving the
+    session's other calls, its subagents' too, while one waits)."""
+    import asyncio
+    deadline = time.time() + minutes * 60
+    while True:
+        found = store.answer(message_id)
+        if found or time.time() >= deadline:
+            return found
+        await asyncio.sleep(POLL_S)

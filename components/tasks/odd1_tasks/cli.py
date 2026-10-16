@@ -15,7 +15,8 @@
     odd1-tasks escalate ID REASON        hand a decision to a person
     odd1-tasks attention [--for WHO] [--quiet] [--json]   who has to act on what (exit 0: something waits)
     odd1-tasks changes [--since N] [--json]               what happened after log entry N (the cursor)
-    odd1-tasks ask TEXT [--task ID]      ask the task manager a question; the answer comes to your conversation
+    odd1-tasks ask TEXT [--task ID] [--agent SUBAGENT] [--wait MIN]
+                                         ask the task manager a question; the answer comes to your conversation
     odd1-tasks inbox [--all] [--json]    the task manager's unanswered messages (--all: with answers)
     odd1-tasks reply ID TEXT             answer one (prints where to send it: SendMessage to that session)
     odd1-tasks watch                     tell the person (desktop notification) what needs them, once each
@@ -105,6 +106,8 @@ def main(argv=None) -> int:
     p = sub.add_parser("ask")
     p.add_argument("text")
     p.add_argument("--task", type=int)
+    p.add_argument("--agent", help="the subagent asking (its answer goes to its parent session)")
+    p.add_argument("--wait", type=float, default=0, metavar="MINUTES", help="wait for the answer (up to 15)")
     p = sub.add_parser("inbox")
     p.add_argument("--all", action="store_true")
     p.add_argument("--json", action="store_true")
@@ -175,8 +178,15 @@ def main(argv=None) -> int:
         elif a.cmd == "ask":
             from . import inbox
             who = inbox.caller()
-            m = store.ask(who["name"], who["actor"], a.text, session=who["session"], task_id=a.task)
+            wait = max(0.0, min(a.wait, inbox.MAX_WAIT_MINUTES))
+            m = store.ask(who["name"], who["actor"], a.text, session=who["session"], task_id=a.task,
+                          agent=a.agent, wait_minutes=wait)
             print(f"message {m['id']} left for the task manager; its answer comes to @{m['sender']}")
+            if wait:
+                import asyncio
+                found = asyncio.run(inbox.wait_answer(store, m["id"], wait))
+                print(f"answer: {found['text']}" if found else f"no answer within {wait:g} minutes")
+                return 0 if found else 1
         elif a.cmd == "inbox":
             found = store.inbox(a.all)
             if a.json:
