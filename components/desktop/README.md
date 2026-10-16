@@ -16,7 +16,8 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
   item per chat in the column. Hover names an item; clicking an app brings it forward or, if focused, minimizes it.
   The rule is the display: windows on the person's screen are the person's, windows on :1 are agents'.
 - Chat column (right, a third of the screen, 460-680px, full height): a tab per chat, labelled with its agent
-  system, and **+ New chat** at the top, a menu of the agent systems a person can talk to (`odd1.agents`,
+  system and ending in a close mark (x: the chats are docks, without a title bar; the terminal is asked to close, as
+  its close button would, and the conversation stays resumable with `claude --resume`), and **+ New chat** at the top, a menu of the agent systems a person can talk to (`odd1.agents`,
   /etc/odd1/agents.json: Claude, the Task manager, ...); the chat itself is a
   terminal running Claude Code (`$ODD1_CHAT_COMMAND` for any other agent harness). Apps can't cover it, maximized
   windows stop at it, and new windows open beside it.

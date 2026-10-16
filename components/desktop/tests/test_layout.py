@@ -114,3 +114,10 @@ def test_a_soft_shadow_falls_on_the_wallpaper_beside_the_column():
     edge = 1280 - 461
     near, far = sum(image.getpixel((edge - 2, 400))), sum(image.getpixel((edge - layout.COLUMN_SHADOW - 4, 400)))
     assert near < far * (1 - plain_edge / 2)  # darkest against the column, gone a shadow's width away
+
+
+def test_each_tab_ends_in_a_close_mark_and_a_click_there_closes_that_chat():
+    boxes = layout.tab_boxes(["A", "B"], lambda t: 10, extra=[layout.CLOSE_ROOM] * 2)
+    marks = [layout.close_centre(box) for box in boxes]
+    assert all(left + 10 + 12 < mark < left + width for (left, width), mark in zip(boxes, marks)), "after the label"
+    assert [layout.on_close(boxes, x) for x in (marks[0], marks[1], boxes[0][0] + 14)] == [0, 1, None]

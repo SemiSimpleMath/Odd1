@@ -306,7 +306,7 @@ class Shell:
         measure = lambda text: round(draw.textlength(text, font=self.font))
         labels = layout.tab_labels(self.chat_titles())
         waiting = [chat.id in self.attention for chat in self.chats]
-        self.tabs = layout.tab_boxes(labels, measure, extra=[layout.ATTENTION_ROOM if w else 0 for w in waiting])
+        self.tabs = layout.tab_boxes(labels, measure, extra=[layout.CLOSE_ROOM + (layout.ATTENTION_ROOM if w else 0) for w in waiting])
         for index, ((x, w), label) in enumerate(zip(self.tabs, labels)):
             active = self.chats[index] is self.shown
             draw.text((x + 12, height // 2), label, font=self.font, anchor="lm",
@@ -315,6 +315,9 @@ class Shell:
                 cx, cy, r = x + 12 + measure(label) + 10, height // 2, layout.ATTENTION_RADIUS
                 draw.ellipse([cx - r, cy - r, cx + r, cy + r],
                              fill=layout.ATTENTION_COLOUR if self.blink else layout.ATTENTION_DIM)
+            cx, cy, r = layout.close_centre((x, w)), height // 2, layout.CLOSE_SIZE
+            for line in ([cx - r, cy - r, cx + r, cy + r], [cx - r, cy + r, cx + r, cy - r]):
+                draw.line(line, fill=layout.HEADER_TEXT_DIM, width=2)
             if active:
                 draw.rectangle([x + 10, height - 3, x + w - 10, height - 2], fill=layout.HEADER_ACCENT)
         if not labels:
@@ -340,9 +343,31 @@ class Shell:
             self.toggle_menu()
             return
         self.close_menu()
+        closing = layout.on_close(self.tabs, x)
+        if closing is not None and closing < len(self.chats):
+            self.close_chat(self.chats[closing])
+            return
         index = layout.hit(self.tabs, x)
         if index is not None and index < len(self.chats):
             self.show(self.chats[index])
+
+    def close_chat(self, window):
+        """Ask a chat's window to close, as its title bar's close button would (WM_DELETE_WINDOW): the terminal asks
+        the person first while Claude Code still runs, and the conversation stays resumable (claude --resume). The
+        tab goes when the window does (layout)."""
+        from Xlib.protocol import event
+        log(f"close {window.id:#x}")
+        try:
+            protocols = window.get_wm_protocols() or []
+        except Exception:
+            protocols = []
+        delete = self.atom("WM_DELETE_WINDOW")
+        if delete in protocols:
+            message = event.ClientMessage(window=window, client_type=self.atom("WM_PROTOCOLS"),
+                                          data=(32, [delete, self.X.CurrentTime, 0, 0, 0]))
+            window.send_event(message)
+        else:
+            window.destroy()  # a window that cannot be asked
 
     # The New chat menu: one item per agent system ----------------------------------------------------------------
     def start_chat(self, agent):

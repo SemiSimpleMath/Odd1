@@ -160,6 +160,24 @@ def hit(boxes, x):
     return None
 
 
+# Every tab ends in a close mark (x): the chats are docks, which have no title bar and so no close button.
+CLOSE_ROOM, CLOSE_SIZE = 20, 4  # the room the mark takes at the tab's right end; half the mark's width
+
+
+def close_centre(box, pad=12):
+    """The x of a tab's close mark."""
+    left, width = box
+    return left + width - pad - CLOSE_ROOM // 2 + 4
+
+
+def on_close(boxes, x):
+    """Index of the tab whose close mark is under x, or None."""
+    index = hit(boxes, x)
+    if index is not None and abs(x - close_centre(boxes[index])) <= CLOSE_ROOM // 2:
+        return index
+    return None
+
+
 def watermark_height(screen_height):
     return round(screen_height * WATERMARK_HEIGHT)
 
