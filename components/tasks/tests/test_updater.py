@@ -1,5 +1,6 @@
 """The updater's pin helper: a Python package pinned in nix/python-updates.json from PyPI's own release data, the
-components that use it named, and major version jumps refused (they go to a person)."""
+components that use it named, and major version jumps refused (they go to a person) unless --major says a person
+approved one."""
 import io
 import json
 import runpy
@@ -65,3 +66,11 @@ def test_a_major_update_is_refused_and_nothing_changes(worktree, monkeypatch, ca
     code, out, asked = run(monkeypatch, capsys, "pillow", "12.3.0")
     assert code == 4 and "major update" in out and asked == []
     assert (worktree / "nix" / "python-updates.json").read_text() == "{}\n"
+
+
+def test_a_major_update_a_person_approved_is_pinned_with_major(worktree, monkeypatch, capsys):
+    release = {"urls": [{"packagetype": "sdist", "url": "https://files/pillow-12.3.0.tar.gz",
+                         "digests": {"sha256": SHA}}]}
+    code, out, _ = run(monkeypatch, capsys, "pillow", "12.3.0", "--major", release=release)
+    assert code == 0 and json.loads(out)["to"] == "12.3.0"
+    assert json.loads((worktree / "nix" / "python-updates.json").read_text())["pillow"]["version"] == "12.3.0"

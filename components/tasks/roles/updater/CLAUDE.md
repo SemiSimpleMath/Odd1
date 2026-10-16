@@ -11,7 +11,8 @@ as its own command. Nothing in the repository changes; nothing to land.
 
 ## A Python package of Odd1's components (from Nix)
 1. `python3 /var/lib/odd1/tasks/roles/updater/pin-python.py NAME B`: pins it in nix/python-updates.json and prints
-   the components that use it. Exit 4 means a major version jump: do not pin; escalate.
+   the components that use it. Exit 4 means a major version jump: do not pin; escalate. Only when a person's note in
+   the task's log approves that jump, run it again with `--major`.
 2. `git add nix/python-updates.json && git commit -m "python: NAME A -> B"`.
 3. `odd1-tasks-check COMPONENT...` with every component it printed: builds the system from your branch (the package
    and what depends on it build from source; this takes a while) and runs those components' tests. If the build or a
