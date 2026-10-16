@@ -8,7 +8,7 @@ from pathlib import Path
 
 from any_app import describe_pixels, screenshot
 
-from . import model, x11
+from . import consent, model, x11
 
 ATSPI_TIMEOUT = 20
 
@@ -88,14 +88,18 @@ def _pointer_problem(screen: model.Screen, window: dict, element: dict, allow_un
     return None
 
 
-def _person_guard(screen: model.Screen, approved: bool, what: str) -> None:
-    """The person's pointer and keyboard focus are theirs: on their screen an agent moves them only after asking
-    (person_approved=True). Accessibility actions (via="app", set_text) and the agent desktop need no asking."""
-    if screen.prefix == "w" and not approved:
-        raise PermissionError(
-            f"{what} on the person's screen moves their pointer or keyboard focus. Prefer via='app' or "
-            "screen_set_text, or run the app on the agent desktop; otherwise ask the person first and call again "
-            "with person_approved=true.")
+def _person_guard(screen: model.Screen, approved: bool, what: str, window: dict | None, reason: str = "") -> str:
+    """The person's pointer, keyboard focus and windows are theirs: on their screen an agent acts only with their
+    yes. person_approved=True means they said yes in the chat; otherwise a dialog on their screen asks them (a yes
+    holds for that window a few minutes). Accessibility actions (via="app", set_text) and the agent desktop need
+    no asking. Returns how it was allowed."""
+    if screen.prefix != "w":
+        return "agent desktop"
+    if approved:
+        return "approved in the chat"
+    if window is None:
+        raise PermissionError(f"{what} on the person's screen: no window to ask about")
+    return consent.require(screen.display, window["xid"], window["title"], what, reason)
 
 
 def _active_window(screen: model.Screen) -> str:
@@ -120,7 +124,7 @@ def _settle(screen: model.Screen, before: dict, wait_ms: int) -> dict:
 
 
 def click(screen: model.Screen, element_id: str, *, via: str = "auto", button: int = 1,
-          allow_unverified: bool = False, wait_ms: int = 300, person_approved: bool = False) -> dict:
+          allow_unverified: bool = False, wait_ms: int = 300, person_approved: bool = False, reason: str = "") -> dict:
     """Press an element, then return what changed. via: "app" asks the app itself (accessibility action: works
     minimized or covered, and leaves the person's mouse alone), "pointer" clicks its centre with the real mouse
     (refused when minimized, covered, or its box is contradicted or unverified), "auto" uses the app when the
@@ -138,7 +142,8 @@ def click(screen: model.Screen, element_id: str, *, via: str = "auto", button: i
     problem = _pointer_problem(screen, window, element, allow_unverified)
     if problem:
         raise PermissionError(problem)
-    _person_guard(screen, person_approved, "A pointer click")
+    _person_guard(screen, person_approved, f"click {element['name'] or element_id!r} with your mouse in", window,
+                  reason)
     x, y = model.centre(element["box"])
     subprocess.run(["xdotool", "mousemove", "--sync", str(x), str(y), "click", str(button)], check=True,
                    capture_output=True, timeout=5, env=x11.env(screen.display))
@@ -161,14 +166,19 @@ TYPE_CHUNK = 16  # characters typed between checks that the focus is still where
 
 
 def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms: int = 300,
-              person_approved: bool = False, **click_args) -> dict:
+              person_approved: bool = False, reason: str = "", **click_args) -> dict:
     """Type with the real keyboard into the focused window, after clicking element_id with the pointer when given
     (keystrokes go where the focus is; for a minimized or covered field use set_text). Typing goes in chunks and
     stops as soon as the focus moves to another window (a person or another agent took it)."""
-    _person_guard(screen, person_approved, "Typing")
-    if element_id:
-        click(screen, element_id, via="pointer", person_approved=person_approved, **click_args)
     before = screen.last["view"] if screen.last else observe(screen, ocr="never")
+    window = None
+    if screen.prefix == "w" and not person_approved:  # the window the person is asked about
+        window = screen.find(element_id)[0] if element_id else \
+            next((w for w in observe(screen, ocr="never")["windows"] if w["active"]), None)
+    allowed = _person_guard(screen, person_approved, "type with your keyboard into", window, reason)
+    if element_id:  # one yes covers the click that puts the cursor in the field and the typing
+        click(screen, element_id, via="pointer", person_approved=person_approved or allowed != "agent desktop",
+              **click_args)
     target = _active_window(screen)
     for start in range(0, len(text), TYPE_CHUNK):
         if _active_window(screen) != target:
@@ -177,3 +187,37 @@ def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms:
         subprocess.run(["xdotool", "type", "--delay", "20", "--", chunk], check=True, capture_output=True,
                        timeout=5 + len(chunk) / 20, env=x11.env(screen.display))
     return {"typed": len(text), "changes": _settle(screen, before, wait_ms)}
+
+
+WINDOW_ACTIONS = {"maximize": "maximize", "restore": "restore (unmaximize)", "minimize": "minimize",
+                  "move": "move or resize"}
+
+
+def window_action(screen: model.Screen, window: str, action: str, *, box: list[int] | None = None,
+                  person_approved: bool = False, reason: str = "", wait_ms: int = 300) -> dict:
+    """Maximize, restore (unmaximize), minimize, or move/resize (box [x, y, width, height]; -1 keeps a value) one
+    window, without activating it or taking the focus. On the person's screen the person is asked first (a dialog
+    on their screen), unless person_approved. window: a window id (w3) or a title substring matching one window."""
+    if action not in WINDOW_ACTIONS:
+        raise ValueError(f"action must be one of {', '.join(WINDOW_ACTIONS)}")
+    if action == "move" and (not box or len(box) != 4):
+        raise ValueError("move needs box [x, y, width, height]")
+    view = observe(screen, ocr="never", include_hidden=True)
+    found = [w for w in view["windows"] if _selected(screen, w, window)]
+    if len(found) != 1:
+        listing = "; ".join(f"{w['id']} {w['title']!r}" for w in view["windows"])
+        raise LookupError(f"{len(found)} windows match {window!r}; windows: {listing}")
+    target = found[0]
+    allowed = _person_guard(screen, person_approved, WINDOW_ACTIONS[action], target, reason)
+    xid, env = target["xid"], x11.env(screen.display)
+    commands = {
+        "maximize": [["wmctrl", "-i", "-r", xid, "-b", "add,maximized_vert,maximized_horz"]],
+        "restore": [["wmctrl", "-i", "-r", xid, "-b", "remove,maximized_vert,maximized_horz"]],
+        "minimize": [["xdotool", "windowminimize", xid]],
+        "move": [["wmctrl", "-i", "-r", xid, "-b", "remove,maximized_vert,maximized_horz"],
+                 ["wmctrl", "-i", "-r", xid, "-e", "0," + ",".join(str(int(v)) for v in (box or []))]],
+    }[action]
+    for command in commands:
+        subprocess.run(command, check=True, capture_output=True, timeout=5, env=env)
+    return {"window": {"id": target["id"], "title": target["title"], "action": action, "allowed": allowed},
+            "changes": _settle(screen, view, wait_ms)}

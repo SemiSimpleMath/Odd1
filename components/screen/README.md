@@ -21,8 +21,10 @@ Milestone: ★ (any app, through interfaces agents write themselves). The screen
   - `screen_set_text(id, text)`: replace a field's text through the app (minimized or covered too; never password
     fields). Read back: an app that claims success but changes nothing is an error.
   - `screen_type(text, id)`: the real keyboard into the focused window (takes the person's focus; last resort).
+  - `screen_window(window, action, box, reason)`: `maximize`, `restore` (unmaximize), `minimize`, or `move` (box
+    `[x, y, width, height]`, -1 keeps a value) one window without activating it or taking the focus.
 - Command line: `odd1-screen [--display :1] view [WINDOW] [--ocr always]`, `odd1-screen at X Y`, `odd1-screen watch [WINDOW]`
-  (one JSON line per change).
+  (one JSON line per change), `odd1-screen window "Mousepad" maximize [--reason TEXT]`.
 - Python: `PYTHONPATH=$ODD1_SCREEN_PYTHONPATH python3`, then `from odd1_screen import live, model`;
   `live.observe(model.Screen())`.
 
@@ -52,10 +54,17 @@ window from an offscreen capture (any-app's `screenshot`, XComposite), so covere
 ids, occlusion, contradictions, change events, click refusals). `test_live_screen.py` reads a disposable Tk window
 and skips without DISPLAY and the tools. On Odd1: `odd1-screen-test`.
 
-## The person's pointer and keyboard
-On the person's screen (`w` ids) a pointer click or typing needs `person_approved=true`, which an agent passes only
-after asking them; accessibility actions (`via="app"`, `screen_set_text`) and the agent desktop need no asking.
-`screen_type` types in chunks of 16 characters and stops when the focus moves to another window.
+## The person's pointer, keyboard and windows
+On the person's screen (`w` ids) a pointer click, typing or a window action asks them first, with a dialog on their
+screen (`consent.py`, GTK 3): "Claude wants to maximize "Mousepad"", the agent's `reason`, [Deny] [Allow for 5
+minutes]. It rings the bell, opens above everything without taking the keyboard focus (they may be typing; its
+buttons take no focus, so a stray Enter answers nothing), and waits up to 2 minutes; no answer is a no. A yes is a
+grant for that window held in the agent's own MCP server for 5 minutes, so a few steps on one window ask once.
+`person_approved=true` skips the dialog when the person already said yes in the chat. Accessibility actions
+(`via="app"`, `screen_set_text`) and the agent desktop need no asking. `screen_type` types in chunks of 16
+characters and stops when the focus moves to another window.
+Limit: agents run as the same Unix user as the dialog, so the dialog is a courtesy agents keep, not a boundary
+they cannot cross.
 
 ## Next
 - Hold a permanent offscreen redirect (XComposite) and listen to Damage events: instant captures of any mapped

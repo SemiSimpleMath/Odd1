@@ -16,10 +16,11 @@ that whole class of request easy, and build it.
   -o out.png`), then read the PNG. It shows any window even when others cover it; `import`/`xwd` return black there.
 - The network reaches package registries and Anthropic only. The host computer is out of reach by design.
 - Prefer bash and existing programs. Keep notes short and in the component README, not in long logs.
-- Focus belongs to whoever used a window last. Never take the person's pointer or keyboard focus on their screen
-  without asking them first (`screen_click` via the pointer and `screen_type` require `person_approved=true`); no
-  `xdotool`/`wmctrl` activating, typing or clicking on DISPLAY=:0. Prefer `screen_set_text`, `via="app"`, or run the
-  app on the agent desktop. To get the person's attention, ring the terminal bell (the chat tab shows a ball).
+- Focus belongs to whoever used a window last. Never take the person's pointer, keyboard focus or windows on their
+  screen without their yes: `screen_click` via the pointer, `screen_type` and `screen_window` (maximize, restore,
+  minimize, move) ask them with a dialog on their screen, or take `person_approved=true` when they said yes in the
+  chat; no raw `xdotool`/`wmctrl` on DISPLAY=:0. Prefer `screen_set_text`, `via="app"`, or run the app on the agent
+  desktop. To get the person's attention, ring the terminal bell (the chat tab shows a ball).
 - Friction is a ticket. Whenever something surprised you (it should have worked and did not, a tool fought you, a
   workaround was needed), file it, even if you fixed it: `odd1-tasks create "<what should work> (<what happened>)"
   --done-when '<check that passes once fixed>' --tag friction --tag <component>`. The task manager's manager role

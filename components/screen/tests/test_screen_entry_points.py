@@ -52,12 +52,20 @@ def test_the_persons_pointer_and_keyboard_need_their_approval_the_agent_desktops
     x, atspi, words = calculator()
     person = model.Screen("w")
     seven = next(e["id"] for e in person.fuse(x, atspi, {"0x2": words})["windows"][0]["elements"] if e["name"] == "Seven")
-    with mock.patch.object(live.subprocess, "run") as run:
-        with pytest.raises(PermissionError, match="ask the person first"):
+    asked = []
+
+    def decline(display, xid, title, what, reason=""):
+        asked.append(what)
+        raise PermissionError("the person declined")
+
+    with mock.patch.object(live.subprocess, "run") as run, mock.patch.object(live.consent, "require", decline), \
+            mock.patch.object(live, "observe", side_effect=lambda s, **_: s.fuse(x, atspi, {})):
+        with pytest.raises(PermissionError, match="declined"):
             live.click(person, seven, via="pointer")
-        with pytest.raises(PermissionError, match="ask the person first"):
+        with pytest.raises(PermissionError, match="declined"):
             live.type_text(person, "hello")
     assert not run.called  # nothing moved, nothing typed
+    assert [what.split()[0] for what in asked] == ["click", "type"]  # the dialog asked them each time
     agent = model.Screen("a")
     seven = next(e["id"] for e in agent.fuse(x, atspi, {"0x2": words})["windows"][0]["elements"] if e["name"] == "Seven")
     with mock.patch.object(live.subprocess, "run") as run, \

@@ -3,11 +3,14 @@
     odd1-screen [--display :1] view [WINDOW] [--ocr auto|always|never] [--hidden]
     odd1-screen [--display :1] at X Y
     odd1-screen [--display :1] watch [WINDOW] [--interval S]   print changes as they happen (one JSON line each)
+    odd1-screen [--display :1] window WINDOW maximize|restore|minimize|move [--box X Y W H] [--reason TEXT]
+        on the person's screen a dialog asks them first
 
 --display picks the X display (default $DISPLAY); the agent desktop is :1.
 """
 import argparse
 import json
+import sys
 import time
 
 from . import live, model
@@ -28,11 +31,23 @@ def main(argv=None) -> int:
     watch = sub.add_parser("watch")
     watch.add_argument("window", nargs="?", default="")
     watch.add_argument("--interval", type=float, default=1.0)
+    window = sub.add_parser("window")
+    window.add_argument("window")
+    window.add_argument("action", choices=tuple(live.WINDOW_ACTIONS))
+    window.add_argument("--box", type=int, nargs=4, metavar=("X", "Y", "W", "H"))
+    window.add_argument("--reason", default="")
     args = parser.parse_args(argv)
     screen = model.Screen("a" if args.display == ":1" else "w", args.display)
     if args.command == "view":
         print(json.dumps(live.observe(screen, window=args.window, ocr=args.ocr, include_hidden=args.hidden),
                          ensure_ascii=False))
+    elif args.command == "window":
+        try:
+            print(json.dumps(live.window_action(screen, args.window, args.action, box=args.box, reason=args.reason),
+                             ensure_ascii=False))
+        except (PermissionError, LookupError, ValueError) as exc:
+            print(f"odd1-screen window: {exc}", file=sys.stderr)
+            return 1
     elif args.command == "at":
         live.observe(screen, ocr="never")
         print(json.dumps(screen.at(args.x, args.y), ensure_ascii=False))

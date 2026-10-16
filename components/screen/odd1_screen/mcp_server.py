@@ -69,14 +69,16 @@ def screen_find(text: str, role: str = "", display: str = "user") -> list:
 
 @mcp.tool()
 def screen_click(id: str, via: str = "auto", button: int = 1, allow_unverified: bool = False,
-                 person_approved: bool = False) -> dict:
+                 person_approved: bool = False, reason: str = "") -> dict:
     """Press an element ("w3.e12" on the person's screen, "a3.e12" on the agent desktop) and return what changed.
     via: "auto" (the app's own accessibility action when the element has one: works on minimized and covered
     windows and leaves the person's mouse alone; else the real pointer), "app", or "pointer" (that display's mouse
     at the element's centre; refused if minimized, covered or unverified). The agent desktop's pointer is its own.
-    On the person's screen the pointer is theirs: ask them first, then pass person_approved=true."""
+    On the person's screen the pointer is theirs: a dialog on their screen asks them (reason: one sentence shown
+    to them), and waits up to 2 minutes; a yes holds for that window 5 minutes. person_approved=true only when they
+    already said yes to this in the chat."""
     return live.click(_owner(id), id, via=via, button=button, allow_unverified=allow_unverified,
-                      person_approved=person_approved)
+                      person_approved=person_approved, reason=reason)
 
 
 @mcp.tool()
@@ -88,14 +90,27 @@ def screen_set_text(id: str, text: str) -> dict:
 
 @mcp.tool()
 def screen_type(text: str, id: str = "", display: str = "", allow_unverified: bool = False,
-                person_approved: bool = False) -> dict:
+                person_approved: bool = False, reason: str = "") -> dict:
     """Type text with a display's keyboard into its focused window, clicking element id with the pointer first
     when given (the display then follows the id); stops if the focus moves to another window. On the person's
-    screen the keyboard is theirs: prefer screen_set_text or the agent desktop; else ask them first, then pass
-    person_approved=true."""
+    screen the keyboard is theirs: prefer screen_set_text or the agent desktop; else a dialog on their screen asks
+    them first (reason: one sentence shown to them). person_approved=true only when they already said yes in the
+    chat."""
     screen = _owner(id) if id else _screen(display or "user")
     return live.type_text(screen, text, element_id=id, allow_unverified=allow_unverified,
-                          person_approved=person_approved)
+                          person_approved=person_approved, reason=reason)
+
+
+@mcp.tool()
+def screen_window(window: str, action: str, box: list[int] | None = None, display: str = "user",
+                  reason: str = "", person_approved: bool = False) -> dict:
+    """Maximize, restore (unmaximize), minimize, or move/resize one window (action "move", box [x, y, width,
+    height] in screen pixels, -1 keeps a value), without activating it or taking the focus. window: an id from
+    screen_view (w3, a2) or a title substring matching one window. On the person's screen a dialog asks them first
+    (reason: one sentence shown to them; up to 2 minutes; a yes holds for that window 5 minutes); person_approved
+    =true only when they already said yes in the chat. Returns what changed."""
+    screen = _owner(window) if window[:1] in "wa" and window[1:].isdigit() else _screen(display)
+    return live.window_action(screen, window, action, box=box, person_approved=person_approved, reason=reason)
 
 
 def main() -> None:
