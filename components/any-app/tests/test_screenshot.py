@@ -1,6 +1,5 @@
 """Window screenshots: picking the window, cropping the frame, and (live) capturing a covered window."""
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -44,39 +43,69 @@ def test_resolve_display_names(monkeypatch):
         screenshot.resolve_display("agent-desktop")
 
 
+def live_display():
+    """The X display for live fixtures: the agent desktop when it runs, so tests never put windows on the person's
+    screen; else $DISPLAY; None without either."""
+    agent = screenshot.resolve_display("agent")
+    if os.path.exists(f"/tmp/.X11-unix/X{agent.lstrip(':').split('.')[0]}"):
+        return agent
+    return os.environ.get("DISPLAY") or None
+
+
 def live_ready():
     try:
         import PIL, Xlib, tkinter  # noqa: F401
     except ImportError:
         return False
-    return bool(os.environ.get("DISPLAY")) and shutil.which("xdotool") is not None
+    return live_display() is not None
 
 
+# A Tk window on DISPLAY; with a 4th argument it is override-redirect (no window manager, so it maps on top of
+# everything without being activated). Prints "ready" once it is mapped.
 TK_WINDOW = """
 import sys, tkinter
 root = tkinter.Tk(); root.title(sys.argv[1]); root.geometry(sys.argv[3])
+root.overrideredirect(len(sys.argv) > 4)
 tkinter.Frame(root, bg=sys.argv[2], width=300, height=200).pack(fill="both", expand=True)
+root.wait_visibility(); root.update(); print("ready", flush=True)
 root.mainloop()
 """
 
 
-@pytest.mark.skipif(not live_ready(), reason="needs DISPLAY, python-xlib, Pillow, tkinter and xdotool")
+def tk_window(display, *args):
+    window = subprocess.Popen([sys.executable, "-c", TK_WINDOW, *args], stdout=subprocess.PIPE, text=True,
+                              env={**os.environ, "DISPLAY": display})
+    assert window.stdout.readline().strip() == "ready", "the Tk fixture window did not map"
+    return window
+
+
+def capture_when_listed(query, out, display, timeout=10):
+    """screenshot.capture, retried until the window manager lists the new window."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            return screenshot.capture(query, out, display_name=display)
+        except LookupError:
+            if time.monotonic() > deadline:
+                raise
+            time.sleep(0.2)
+
+
+@pytest.mark.skipif(not live_ready(), reason="needs an X display, python-xlib, Pillow and tkinter")
 def test_live_capture_of_a_covered_window(tmp_path):
     from PIL import Image
+    display = live_display()
     tag = f"odd1-shot-{os.getpid()}"
-    below = subprocess.Popen([sys.executable, "-c", TK_WINDOW, f"{tag}-below", "#ff0000", "300x200+300+300"])
-    time.sleep(1.5)
-    above = subprocess.Popen([sys.executable, "-c", TK_WINDOW, f"{tag}-above", "#0000ff", "500x400+200+200"])
+    windows = [tk_window(display, f"{tag}-below", "#ff0000", "300x200+300+300")]
     try:
-        time.sleep(1.5)
-        subprocess.run(["xdotool", "search", "--name", f"{tag}-above", "windowactivate", "--sync"], timeout=10)
-        shot = screenshot.capture(f"{tag}-below", tmp_path / "below.png")
+        windows.append(tk_window(display, f"{tag}-above", "#0000ff", "500x400+200+200", "override-redirect"))
+        shot = capture_when_listed(f"{tag}-below", tmp_path / "below.png", display)
         picture = Image.open(shot["path"]).convert("RGB")
         assert (shot["width"], shot["height"]) == (300, 200)
         assert picture.getpixel((150, 100)) == (255, 0, 0), "the covered window's own pixels, not the cover's"
     finally:
-        below.kill()
-        above.kill()
+        for window in windows:
+            window.kill()
 
 
 def test_main_takes_a_window_or_the_screen(capsys):
@@ -86,18 +115,18 @@ def test_main_takes_a_window_or_the_screen(capsys):
         assert "give a WINDOW" in capsys.readouterr().err
 
 
-@pytest.mark.skipif(not live_ready(), reason="needs DISPLAY, python-xlib, Pillow, tkinter and xdotool")
+@pytest.mark.skipif(not live_ready(), reason="needs an X display, python-xlib, Pillow and tkinter")
 def test_live_capture_of_the_whole_screen(tmp_path):
     from PIL import Image
     from Xlib import display as xdisplay
-    connection = xdisplay.Display()
+    display = live_display()
+    connection = xdisplay.Display(display)
     geometry = connection.screen().root.get_geometry()
     connection.close()
-    window = subprocess.Popen([sys.executable, "-c", TK_WINDOW, f"odd1-screen-{os.getpid()}", "#00ff00",
-                               "300x200+100+100"])
+    window = tk_window(display, f"odd1-screen-{os.getpid()}", "#00ff00", "300x200+100+100")
     try:
-        time.sleep(1.5)
-        shot = screenshot.capture_screen(tmp_path / "screen.png")
+        time.sleep(screenshot.SETTLE_SECONDS)
+        shot = screenshot.capture_screen(tmp_path / "screen.png", display_name=display)
     finally:
         window.kill()
     picture = Image.open(shot["path"]).convert("RGB")

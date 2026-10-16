@@ -27,7 +27,9 @@ Milestone: ★ (any app, through interfaces agents write themselves). The observ
 ## Tests
 `python -m pytest components/any-app/tests -q` runs offline anywhere (fake AT-SPI trees, synthetic PNGs, mocked
 Tesseract). `test_live_desktop.py` runs an OCR matrix on disposable Tk windows and skips without DISPLAY, tesseract
-and ImageMagick; the MCP tests skip without the `mcp` package (1.x, `FastMCP`). On Odd1: `odd1-any-app-test`.
+and ImageMagick. `test_screenshot.py`'s live captures put their Tk windows on the agent desktop (`:1`, else
+`$DISPLAY`), cover a window with an override-redirect one instead of activating anything, and wait for each window
+to map rather than sleeping. The MCP tests skip without the `mcp` package (1.x, `FastMCP`). On Odd1: `odd1-any-app-test`.
 
 ## What was learned
 - AT-SPI covers GTK (GNOME Calculator), Qt (FeatherPad) and LibreOffice's VCL; Firefox exposed no children and
