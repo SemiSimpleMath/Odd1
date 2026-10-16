@@ -31,6 +31,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 | caretaker | M1 | Machine health and foreground pressure (PSI, cgroups); restarts listed failed units | caretaker_status/pressure/repair |
 | stats | M4 | Agent and system stats sampled every 15 min; summary and trend (is performance degrading, where is the friction) | stats_summary/trend |
 | snip | M4 | A snipping tool like Windows' (Print, Super+Shift+S): rectangle, freeform, window, full screen; mark up, copy, save | (none: agents have app_screenshot) |
+| publish | ★ | Pushes main to the GitHub remote with the vault's token: fast-forward only, credential check first | (none: the person's, CLI only) |
 
 ## Connections
 - Claude Code (the person's front agent, and any other agent harness plugged in) reaches every component through MCP.
