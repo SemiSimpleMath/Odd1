@@ -70,7 +70,7 @@ def command(cfg: dict, task_id: int, turns: int, workdir=None, settings=None) ->
         "PYTHONPATH": os.environ.get("PYTHONPATH", ""), "ODD1_TASKS_STATE": os.environ.get("ODD1_TASKS_STATE", ""),
         "ODD1_TASKS_AGENT": cfg["name"], "ODD1_TASKS_TASK": str(task_id)}}}}
     cmd = CLAUDE + ["-p", "--output-format", "stream-json", "--verbose", "--max-turns", str(turns), "--permission-mode", "dontAsk",
-                    "--settings", str(settings or cfg["folder"] / "settings.json"), "--setting-sources", "project",
+                    "--settings", str(settings or roles.settings(cfg)), "--setting-sources", "project",
                     "--mcp-config", json.dumps(mcp), "--strict-mcp-config", "--no-session-persistence"]
     if workdir:  # the repository's own CLAUDE.md applies there; the role's instructions come along
         cmd += ["--add-dir", str(cfg["folder"]), "--append-system-prompt-file", str(cfg["folder"] / "CLAUDE.md")]
@@ -84,13 +84,7 @@ def routine_run(cfg: dict, routine: dict) -> Path:
     skill = folder / ".claude" / "skills" / name / "SKILL.md"
     skill.parent.mkdir(parents=True, exist_ok=True)
     skill.write_text((folder / "SKILL.md").read_text())
-    settings = json.loads((cfg["folder"] / "settings.json").read_text())
-    allow = settings.setdefault("permissions", {}).setdefault("allow", [])
-    allow += [rule for rule in routine["allow"] if rule not in allow]
-    path = cfg["folder"] / "routine-settings" / f"{name}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(settings, indent=1))
-    return path
+    return roles.settings(cfg, routine["allow"], f"routine-{name}")
 
 
 def task_folder(store: Store, cfg: dict, task: dict) -> Path:

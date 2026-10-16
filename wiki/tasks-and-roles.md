@@ -4,6 +4,10 @@
   count. `odd1-tasks status`, `odd1-tasks attention`, Agent Settings in the menu.
 - Who decides: the manager role approves within the tags the person delegated (`decides` in its role.toml) and
   escalates the rest to the person. Never approve your own proposal.
+- Roles are free by default (#61): any command, any file, skills and subagents
+  (`components/tasks/roles/freedom.json`). Denied is only what the rules protect: the person's screen, secrets,
+  backups and Windows drives, pushing and the web, sudo, rule records, deciding tickets outside the store's rules. A
+  role's own settings.json adds its job's tools and limits (the reviewer stays read-only).
 - Friction is a ticket: `odd1-tasks create "<what should work> (<what happened>)" --done-when '<check>' --tag friction
   --tag <component>`. The fixer works approved ones.
 - Work done in a chat closes by its check: `odd1-tasks close-by-check ID` (rule

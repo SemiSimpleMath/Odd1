@@ -95,7 +95,13 @@ def test_a_worker_runs_a_routine_handed_its_skill_and_permissions(store, tmp_pat
     settings = json.loads(Path(call["argv"][call["argv"].index("--settings") + 1]).read_text())
     allow = settings["permissions"]["allow"]
     assert "Write(./out/**)" in allow and "Skill" in allow and "mcp__tasks__tasks_approve" not in allow
+    assert "Bash" in allow  # routines_may_read (#84): ls, cat, cd && … need no rule each; the rules' denials stay
+    assert {"Bash(git push*)", "Edit(**/wiki/decisions/**)"} <= set(settings["permissions"]["deny"])
     assert str(roles.folder(store, "worker") / "CLAUDE.md") in call["argv"]
+
+
+def test_routines_may_read(store, tmp_path, monkeypatch):
+    test_a_worker_runs_a_routine_handed_its_skill_and_permissions(store, tmp_path, monkeypatch)
 
 
 def test_the_journal_routine_loads(store):

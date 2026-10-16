@@ -17,7 +17,7 @@ from .store import Store
 
 SEED = Path(os.environ.get("ODD1_TASKS_ROLES_SEED", Path(__file__).resolve().parent.parent / "roles"))
 DEFAULTS = {"enabled": True, "tags": [], "decides": [], "backlog_tags": [], "escalate_after_minutes": 120, "all_components": False, "all_routines": False,
-            "workspace": "", "env": {}, "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
+            "workspace": "", "env": {}, "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "free": True, "starter": []}
 
 
 def folder(store: Store, role: str) -> Path:
@@ -38,6 +38,23 @@ def load(store: Store, role: str) -> dict:
         from . import cron
         cfg["tags"] = sorted(set(cfg["tags"]) | {"routine"} | {cron.tag(n) for n in cron.names(store)})
     return cfg
+
+
+def settings(cfg: dict, extra_allow: list[str] = (), name: str = "settings") -> Path:
+    """The permissions a run of the role gets: roles/freedom.json (free by default, #61: everything but what the
+    person's rules protect) plus the role's own settings.json, plus any `extra_allow`; written to
+    <folder>/effective/<name>.json. role.toml `free = false` leaves freedom.json out."""
+    own = json.loads((cfg["folder"] / "settings.json").read_text())
+    base = json.loads((SEED / "freedom.json").read_text()) if cfg.get("free", True) else {"permissions": {}}
+    perms = own.setdefault("permissions", {})
+    for key in ("allow", "deny"):
+        rules = list(base["permissions"].get(key, []))
+        rules += [r for r in perms.get(key, []) + (list(extra_allow) if key == "allow" else []) if r not in rules]
+        perms[key] = rules
+    path = cfg["folder"] / "effective" / f"{name}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(own, indent=1))
+    return path
 
 
 def copy_missing(src: Path, dst: Path) -> None:

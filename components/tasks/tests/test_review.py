@@ -35,7 +35,7 @@ def test_reviewer_reads_the_diff_and_its_approval_lands(store, branch, monkeypat
     assert review.review(store, t["id"], str(wt), "check passed")["verdict"] == "approve"
     call = [json.loads(line) for line in open(tmp_path / "stub.jsonl")][-1]
     assert "print('fixed')" in call["prompt"] and "check passed" in call["prompt"] and call["agent"] == "reviewer"
-    assert call["cwd"] == str(wt) and str(roles.folder(store, "reviewer") / "settings.json") in call["argv"]
+    assert call["cwd"] == str(wt) and str(roles.folder(store, "reviewer") / "effective" / "settings.json") in call["argv"]
     entry = store.show(t["id"])["log"][-1]
     assert entry["kind"] == "review" and entry["actor"] == "reviewer" and entry["text"] == "approve: small, tested"
 

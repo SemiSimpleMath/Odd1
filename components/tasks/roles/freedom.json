@@ -1,0 +1,20 @@
+{
+  "_": "Every role starts free (wiki/decisions: the OS molds to the agents, #61): any shell command, reading and editing any file, skills and subagents. Denied is only what the person's rules protect: their screen and focus, data without a backup (the Windows drives, the backups themselves), secrets, what leaves the machine (pushing, the web: not granted yet), the rule records, deciding tickets outside the store's rules, and ad-hoc system changes (sudo; the system changes through the repository and odd1-deploy). A role's own settings.json adds to this (its job's tools, its own denials); role.toml `free = false` opts a role out. Tested against Claude Code: each command of a chain (`a && b`) is checked on its own, `Bash(*text*)` matches text anywhere in a command, and Edit rules cover every file-writing tool.",
+  "permissions": {
+    "allow": ["Bash", "Read", "Glob", "Grep", "Edit", "Write", "NotebookEdit", "Skill", "Agent"],
+    "deny": [
+      "Bash(sudo:*)", "Bash(odd1-deploy --force*)", "Bash(*odd1-deploy*--force*)",
+      "Bash(git push*)", "Bash(*git -C * push*)", "WebFetch", "WebSearch",
+      "Bash(git reset --hard*)", "Bash(*git clean -*f*)",
+      "Read(//var/lib/odd1/secrets/**)", "Edit(//var/lib/odd1/secrets/**)", "Bash(*/var/lib/odd1/secrets*)",
+      "Bash(odd1-secrets set*)", "Bash(odd1-secrets import*)", "Bash(odd1-secrets allow*)", "Bash(*odd1-secrets show*)",
+      "Edit(//var/backups/**)", "Bash(*/var/backups*)",
+      "Edit(~/Windows/**)", "Bash(*Windows/*)",
+      "Edit(**/wiki/decisions/**)", "Edit(//srv/odd1/**)",
+      "Edit(//var/lib/odd1/tasks/*.db*)", "Bash(*tasks.db*)", "Bash(*sqlite3*/var/lib/odd1*)", "Bash(*ODD1_TASKS_AGENT=*)",
+      "Bash(*odd1-tasks approve*)", "Bash(*odd1-tasks decline*)", "Bash(*odd1-tasks close *)",
+      "Bash(*odd1-tasks reopen*)", "Bash(*odd1-tasks edit*)",
+      "Bash(xdotool*)", "Bash(wmctrl*)", "Bash(*DISPLAY=:0*)"
+    ]
+  }
+}

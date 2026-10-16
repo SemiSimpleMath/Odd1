@@ -3,7 +3,7 @@
 enabled = true            # false: the runner takes no new tasks for this role (paused)
 tags = ["routine"]        # plus routine-<name> for every routine (all_routines)
 all_routines = true
-runs_per_day = 6          # at most this many runs in any 24 hours, all routines together
+runs_per_day = 24         # at most this many runs in any 24 hours, all routines together
 max_turns = 60            # cap on any task's turn budget
 max_minutes = 30          # cap on any task's time budget
 model = ""                # empty: Claude Code's default model

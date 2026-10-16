@@ -14,7 +14,6 @@
       "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish", "mcp__tasks__tasks_escalate"
     ],
     "deny": ["mcp__tasks__tasks_approve", "mcp__tasks__tasks_decline", "mcp__tasks__tasks_cancel",
-             "mcp__tasks__tasks_claim", "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(sudo:*)",
-             "Bash(odd1-deploy:*)", "WebSearch", "WebFetch"]
+             "mcp__tasks__tasks_claim", "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(sudo:*)", "WebSearch", "WebFetch"]
   }
 }

@@ -44,7 +44,7 @@ def test_each_role_runs_only_its_own_tasks(store, monkeypatch, tmp_path):
     assert call["cwd"] == str(roles.folder(store, "housekeeper"))
     args = " ".join(call["argv"])
     assert "--permission-mode dontAsk" in args and "--strict-mcp-config" in args
-    assert f"--settings {roles.folder(store, 'housekeeper')}/settings.json" in args
+    assert f"--settings {roles.folder(store, 'housekeeper')}/effective/settings.json" in args
     assert "dangerously" not in args and "bypass" not in args
     assert "Goal: house" in call["prompt"] and "Done when" in call["prompt"]
 
@@ -198,6 +198,35 @@ def test_role_settings_never_bypass_permissions(store, role):
         assert "mcp__tasks__tasks_approve" in perms["deny"] and "mcp__tasks__tasks_approve" not in perms["allow"]
     assert not any(a.startswith(("Bash(rm", "Bash(sudo", "Bash(find")) or a == "Bash" for a in perms["allow"])
     assert "defaultMode" not in perms
+
+
+RULES_DENY = {"Bash(sudo:*)", "Bash(git push*)", "WebFetch", "WebSearch", "Read(//var/lib/odd1/secrets/**)",
+              "Edit(//var/backups/**)", "Edit(~/Windows/**)", "Edit(**/wiki/decisions/**)", "Bash(*tasks.db*)",
+              "Bash(*odd1-tasks approve*)", "Bash(*ODD1_TASKS_AGENT=*)", "Bash(xdotool*)", "Bash(*DISPLAY=:0*)",
+              "Bash(odd1-deploy --force*)"}
+
+
+@pytest.mark.parametrize("role", ["housekeeper", "update-watcher", "manager", "fixer", "updater", "worker", "reviewer"])
+def test_roles_are_free_by_default(store, role):
+    """#61: the OS molds to the agents: any command, any file; denied only what the person's rules protect."""
+    roles.seed(store, role)
+    cfg = roles.load(store, role)
+    perms = json.loads(roles.settings(cfg).read_text())["permissions"]
+    assert {"Bash", "Read", "Edit", "Write", "Skill"} <= set(perms["allow"])
+    assert RULES_DENY <= set(perms["deny"])
+    assert "defaultMode" not in perms and not any("bypass" in a for a in perms["allow"])
+    own = json.loads((cfg["folder"] / "settings.json").read_text())["permissions"]
+    assert set(own.get("deny", [])) <= set(perms["deny"])  # a role's own denials stay (the reviewer stays read-only)
+    if role != "manager":
+        assert "mcp__tasks__tasks_approve" in perms["deny"]
+
+
+def test_a_role_can_opt_out_of_freedom(store):
+    roles.seed(store, "housekeeper")
+    toml = roles.folder(store, "housekeeper") / "role.toml"
+    toml.write_text("free = false\n" + toml.read_text())
+    perms = json.loads(roles.settings(roles.load(store, "housekeeper")).read_text())["permissions"]
+    assert "Bash" not in perms["allow"] and "Bash(df:*)" in perms["allow"]
 
 
 def test_seed_follows_the_repository_except_where_the_person_edited(store, tmp_path):

@@ -65,7 +65,7 @@ def review(store: Store, task_id: int, worktree: str, check_output: str = "") ->
     cfg = roles.load(store, ROLE)
     diff = subprocess.run(["git", "diff", "main...HEAD"], cwd=worktree, capture_output=True, text=True).stdout
     cmd = runner.CLAUDE + ["-p", "--output-format", "json", "--max-turns", str(cfg["max_turns"]),
-                           "--permission-mode", "dontAsk", "--settings", str(cfg["folder"] / "settings.json"),
+                           "--permission-mode", "dontAsk", "--settings", str(roles.settings(cfg)),
                            "--setting-sources", "project", "--no-session-persistence", "--strict-mcp-config",
                            "--add-dir", str(cfg["folder"]), "--append-system-prompt-file",
                            str(cfg["folder"] / "CLAUDE.md")] + (["--model", cfg["model"]] if cfg["model"] else [])

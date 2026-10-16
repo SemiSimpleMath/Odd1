@@ -72,13 +72,14 @@ messages.
 ## Runners and roles
 `odd1-tasks-runner@<role>` (one systemd unit per role): every 30 s, with no model call, it rereads the role's config,
 expires leases, starts due recurring runs, and claims a ready task it holds every tag for, unless the role used its
-runs per day. Then it runs `claude -p --permission-mode dontAsk --settings <role>/settings.json
+runs per day. Then it runs `claude -p --permission-mode dontAsk --settings <role>/effective/settings.json
 --strict-mcp-config` (only the tasks MCP server) in the role's folder with the goal, check, budget and log on stdin,
 with `--max-turns` = min(task, role) and a kill at min(task, role) minutes. Then it runs done_when itself and
 records done, retry or parked. Cost and turns of each run are in the log (`run-end`).
 
 Role folders, `/var/lib/odd1/tasks/roles/<role>/`: `CLAUDE.md` (the role), `settings.json` (Claude Code permissions:
-an allow-list; anything else is refused), `role.toml` (enabled: false pauses the role, tags, runs_per_day, max_turns, max_minutes, model, starter
+the role's own tools and denials, added to `roles/freedom.json`: every role is free by default, #61, any command and
+file except what the person's rules protect; `effective/` holds what a run gets), `role.toml` (`free = false` opts out, (enabled: false pauses the role, tags, runs_per_day, max_turns, max_minutes, model, starter
 tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here: a file you edited stays yours; files you did not edit follow the repository
 (`.seeded` records what was copied). The console folder is seeded the same way.
 - **housekeeper** (`housekeeping`): reports disk use; deletes only through `clean.sh` (files owned by agent unchanged
@@ -145,11 +146,12 @@ whose check fails later (the person sees it in attention). `close ID REASON` and
 person's (refused for role agents). The store's triggers are refreshed from SCHEMA at startup when a rule changed.
 Permission rules in a role's settings.json (checked with dontAsk): `Bash(cmd:*)` matches `cmd` followed by a space
 and arguments, not `cmd@1.2`; `Bash(cmd*)` matches any suffix. Every command of a chain (`a && b`, `a | b`) must be
-allowed; read-only ones (echo, tail, ls) always are. Each role proposes one starter task when its runner first starts; approve it to begin.
+allowed, and a deny matches each command alone; `Bash(*text*)` matches text anywhere. Each role proposes one starter task when its runner first starts; approve it to begin.
 
-Limits: agents and runners run as the same Unix user `agent`, so the role's permissions (no Bash beyond the listed
-commands, no SQL) keep an agent from approving or writing the store directly; a separate user per role would make
-that a hard boundary.
+Limits: agents and runners run as the same Unix user `agent`, so deny rules (no SQL on the store, no
+`odd1-tasks approve` or `ODD1_TASKS_AGENT=` in a shell, MCP approve only for deciders) keep an agent from approving or
+writing the store directly; pattern rules can be talked around, and a separate user per role would make that a hard
+boundary. Backups (`odd1-backup`), review, the tests at landing and deploy rollback are what make free roles safe.
 
 ## Tests
 `python -m pytest components/tasks/tests -q` (on Odd1: `odd1-tasks-test`), offline, with a stub `claude`
