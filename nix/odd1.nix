@@ -54,6 +54,8 @@ in {
   # (Claude Code's sign-in, xdg-open) get Firefox on the Odd1 desktop.
   environment.systemPackages = [ pkgs.nodejs pkgs.xdg-utils pkgs.xfce.xfce4-terminal ];
   environment.variables.BROWSER = "firefox";
+  # Whose name goes on commits made here (agents and chats commit as the person; ticket 22).
+  programs.git = { enable = true; config.user = { name = "Jukka Virtanen"; email = "semisimplemath@gmail.com"; }; };
   xdg.mime.defaultApplications = {
     "text/html" = "firefox.desktop";
     "x-scheme-handler/http" = "firefox.desktop";
