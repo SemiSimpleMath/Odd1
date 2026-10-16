@@ -5,6 +5,7 @@
 
 Plain string checks only. A problem is a prompt to split, merge or delete, not to weaken this file.
 """
+import os
 import re
 import sys
 from pathlib import Path
@@ -37,6 +38,57 @@ def purpose(c: Path) -> str:
         if line and line.lower() != c.name:
             return line
     return ""
+
+
+PRIVATE_PATTERNS = (
+    ("a private key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("an API token", re.compile(r"\b(sk-[A-Za-z0-9_\-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|"
+                                r"AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})")),
+)
+# A host file (nix/hosts/) describes one kind of machine and may name its network; nothing else does.
+ADDRESS = re.compile(r"\b(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)\b")
+WHERE = "belongs in this install's local settings (/srv/odd1-local), About you or the secret store, not the shared repository"
+
+
+def private_values() -> list[tuple[str, str]]:
+    """(what, value) pairs that must never appear in the shared repository: the person's full name and email (About
+    you, as installed and as they changed it) and every stored secret. Values are never printed."""
+    import json
+    import sqlite3
+    out = []
+    people = [os.environ.get("ODD1_CHECK_PERSON") or "/etc/odd1/person.json",
+              os.path.expanduser("~/.config/odd1/person.json")]
+    for path in people:
+        try:
+            person = json.loads(Path(path).read_text())
+        except (OSError, ValueError):
+            continue
+        if " " in (person.get("name") or "").strip():
+            out.append(("the person's name", person["name"].strip()))
+        if "@" in (person.get("email") or ""):
+            out.append(("the person's email", person["email"].strip()))
+    vault = os.environ.get("ODD1_CHECK_SECRETS") or "/var/lib/odd1/secrets/pods.db"
+    try:
+        db = sqlite3.connect(f"file:{vault}?mode=ro", uri=True)
+        out += [(f"a stored secret ({uri})", value) for uri, value in db.execute("SELECT uri, value FROM values_")
+                if len(value) >= 8]
+    except sqlite3.Error:
+        pass
+    return out
+
+
+def private_data(f: Path, rel: Path, private) -> list[str]:
+    if not f.is_file() or f.stat().st_size > MAX_FILE_BYTES:
+        return []
+    try:
+        text = f.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return []
+    found = [what for what, value in private if value in text]
+    found += [what for what, pattern in PRIVATE_PATTERNS if pattern.search(text)]
+    if rel.parts[:2] != ("nix", "hosts") and ADDRESS.search(text):
+        found.append("a private network address")
+    return [f"{rel}: holds {what}: it {WHERE}" for what in dict.fromkeys(found)]
 
 
 def files() -> list[Path]:
@@ -88,6 +140,7 @@ def check() -> list[str]:
                 if unit in units:
                     problems.append(f"{name}: systemd unit {unit!r} is also declared by {units[unit]}")
                 units[unit] = name
+    private = private_values()
     for f in files():
         rel = f.relative_to(ROOT)
         if ".git" in rel.parts:
@@ -103,6 +156,7 @@ def check() -> list[str]:
             problems.append(f"{rel}: over {MAX_FILE_BYTES // 1_000_000} MB")
         elif f.suffix == ".md" and (f.stat().st_size > MAX_NOTE_BYTES or any(n in f.name.upper() for n in NOTE_NAMES)):
             problems.append(f"{rel}: notes stay short (under {MAX_NOTE_BYTES // 1000} KB, no transcripts or progress logs)")
+        problems += private_data(f, rel, private)
         if f.suffix in DIRECT_DEPLOY_SUFFIXES and rel.parts[:2] != ("components", "deploy") and \
                 DIRECT_DEPLOY.search(f.read_text(encoding="utf-8", errors="replace")):
             problems.append(f"{rel}: activates a system with nixos-rebuild directly; deploy with odd1-deploy "

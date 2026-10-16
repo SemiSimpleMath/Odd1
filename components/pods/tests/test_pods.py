@@ -11,13 +11,13 @@ import pytest
 from odd1_pods import cli, courier
 from odd1_pods.store import PodError, Pods
 
-TOKEN = "sk-test-0123456789abcdef"
+TOKEN = "tok-test-0123456789abcdef"
 
 
 @pytest.fixture
 def pods(tmp_path, monkeypatch):
     monkeypatch.delenv("ODD1_TASKS_AGENT", raising=False)
-    monkeypatch.setenv("USER", "jukka")
+    monkeypatch.setenv("USER", "ada")
     return Pods(tmp_path / "pods", tmp_path / "secrets")
 
 

@@ -37,11 +37,11 @@ def test_context_names_the_person_and_defaults_to_they(tmp_path):
 
 
 def test_context_uses_the_persons_pronouns_to_say_what_to_call_them():
-    base = {**dict.fromkeys(profile.KEYS, ""), "name": "Jukka Virtanen", "call_me": "Jukka"}
-    assert "Call him Jukka." in profile.context({**base, "pronouns": "he/him"})
-    assert "Call her Jukka." in profile.context({**base, "pronouns": "she"})
-    assert "Call xem Jukka." in profile.context({**base, "pronouns": "xe/xem"})
-    assert "Call them Jukka." in profile.context(base)
+    base = {**dict.fromkeys(profile.KEYS, ""), "name": "Ada Lovelace", "call_me": "Ada"}
+    assert "Call him Ada." in profile.context({**base, "pronouns": "he/him"})
+    assert "Call her Ada." in profile.context({**base, "pronouns": "she"})
+    assert "Call xem Ada." in profile.context({**base, "pronouns": "xe/xem"})
+    assert "Call them Ada." in profile.context(base)
 
 
 def test_git_identity_follows_the_name():
