@@ -42,6 +42,7 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
   fixed to the bar's, since xfwm4 otherwise takes them from the light GTK theme; its `unity/` holds the same
   buttons for the top bar), Inter for the interface, JetBrains Mono in the chat, xfwm4's
   compositor for soft shadows. Grayscale antialiasing, so text stays crisp over Remote Desktop.
+- The top bar's health icon (left of the clock) is the caretaker's (`odd1-caretaker panel`, its README).
 - The screen follows the viewer: Remote Desktop (xrdp, port 3389) and noVNC (6080) ask Xvnc for their window's
   size; the shell lays everything out again.
 

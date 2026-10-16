@@ -89,6 +89,7 @@ in {
     {
       environment.systemPackages = [ cli test icon frames ] ++ (with pkgs; [
         xfce.xfwm4 xfce.xfce4-panel xfce.xfce4-settings xfce.xfce4-whiskermenu-plugin xfce.xfce4-windowck-plugin
+        xfce.xfce4-genmon-plugin  # the health icon (caretaker)
         xfce.xfce4-terminal
         xfce.exo xfce.garcon xfce.libxfce4ui xfce.xfce4-appfinder xfce.xfdesktop xfce.thunar
         colloid-gtk-theme colloid-icon-theme adwaita-icon-theme hicolor-icon-theme

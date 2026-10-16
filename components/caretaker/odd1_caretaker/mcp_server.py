@@ -18,6 +18,15 @@ def caretaker_status(max_age_seconds: int = 180) -> dict:
 
 
 @mcp.tool()
+def caretaker_health() -> dict:
+    """The whole system at a glance, as the person's top-bar health icon shows it: level (ok/warn/bad) and reasons,
+    machine (memory, disk, load, pressure, failed units), agents (who works on which ticket, runs today, what waits
+    for the person and the manager), backups (newest daily and hourly) and deploy (running commit, rollbacks)."""
+    from . import health
+    return health.summary()
+
+
+@mcp.tool()
 def caretaker_pressure() -> dict:
     """Resource pressure right now: system PSI for cpu, memory and io (percent of time tasks stalled, avg10/60/300)
     and the focused window's program with its memory use and its cgroup's pressure. level: ok/elevated/high."""

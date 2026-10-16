@@ -21,7 +21,7 @@ async def _run(state):
         async with ClientSession(read, write) as session:
             await session.initialize()
             names = {t.name for t in (await session.list_tools()).tools}
-            assert {"caretaker_status", "caretaker_pressure", "caretaker_repair"} <= names
+            assert {"caretaker_status", "caretaker_pressure", "caretaker_repair", "caretaker_health"} <= names
             result = await session.call_tool("caretaker_status", {})
             data = json.loads(result.content[0].text)
             assert data["caretaker"]["state"] == "unknown"  # nothing recorded in a fresh state directory

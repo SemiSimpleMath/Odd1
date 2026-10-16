@@ -13,8 +13,9 @@ It only reads; it makes no model calls.
 ## Interface
 - Agents: MCP server `caretaker` (registered for every agent): `caretaker_status` (freshness, service state,
   last level, problems, foreground program, recent repairs; no probing), `caretaker_pressure` (PSI now, system and
-  foreground cgroup), `caretaker_repair` (restart a unit and verify it is active again).
-- Command line: `odd1-caretaker status | pressure | look | once | repair UNIT | watch`, and
+  foreground cgroup), `caretaker_repair` (restart a unit and verify it is active again), `caretaker_health` (what
+  the person's health icon shows).
+- Command line: `odd1-caretaker status | pressure | look | once | repair UNIT | watch | health | panel | popup`, and
   `odd1-caretaker run [--memory-mib N --cpu-percent N --tasks N --runtime-seconds N] -- CMD ...`, which runs a
   command in its own transient systemd unit under those limits and reports peak memory, most tasks, systemd's result
   and an outcome (`success`, `command-failed`, `resource-oom`, `runtime-limit`, `telemetry-incomplete`); the
@@ -25,6 +26,18 @@ It only reads; it makes no model calls.
   every repair with its result.
 - Automatic repair only for units listed in `odd1.caretaker.restartUnits` (module.nix), at most 3 restarts an hour
   each; after that the unit is reported as "keeps failing" and left for diagnosis. Restarts use `sudo -n systemctl`.
+
+## The person's health icon
+The top bar (desktop's `xfce4-panel.xml`, xfce4-genmon-plugin every 10 s) shows `odd1-caretaker panel`: a pulse
+icon, green (all good), amber (needs a look) or red (something is wrong), with the reasons as its tooltip. A click
+runs `odd1-caretaker popup`: a small window under the bar (GTK 3, the night palette, refreshed every 5 s) with
+memory, disk, load and pressure, failed services, which role works on which ticket, runs today, what waits for the
+person and the manager, open chats, the last backups and the running commit with rollbacks in 24 h. A second click,
+Esc or a click elsewhere closes it. `odd1-caretaker health [--json]` prints the same (`health.py`: each source read
+alone with a short timeout, so one broken source shows as a reason and never hides the rest). Red: a failed
+service, memory or disk >= 92%, a minute's pressure >= 60%, the daily backup over 3 days or the hourly over a day
+old. Amber: 85%, 25%, 36 h, 3 h; a stale caretaker; a failed (rolled back) last deploy. Tickets waiting for the
+person are listed, not coloured: they are not a fault.
 
 ## Tests
 `python -m pytest components/caretaker/tests -q` anywhere (fake /proc, cgroup and systemctl); the MCP client test

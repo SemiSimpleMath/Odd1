@@ -2,10 +2,14 @@
 { config, pkgs, lib, ... }:
 
 let
-  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp ]);
+  # pillow draws the top bar's health icon, pygobject3 + GTK 3 its drop-down (health.py, popup.py).
+  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp p.pillow p.pygobject3 ]);
   tools = [ pkgs.systemd pkgs.xdotool pkgs.coreutils ];
+  typelibs = lib.makeSearchPath "lib/girepository-1.0" (map lib.getLib (with pkgs; [
+    gtk3 glib pango gdk-pixbuf harfbuzz atk gobject-introspection ]));
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
+    export GI_TYPELIB_PATH=${typelibs}''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}
     export PATH=${lib.makeBinPath tools}:/run/wrappers/bin:$PATH
     export DISPLAY=''${DISPLAY:-:0}
   '';

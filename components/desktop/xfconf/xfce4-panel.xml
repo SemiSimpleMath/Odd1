@@ -24,6 +24,8 @@
         <value type="int" value="4"/>
         <value type="int" value="13"/>
         <value type="int" value="6"/>
+        <value type="int" value="14"/>
+        <value type="int" value="15"/>
         <value type="int" value="5"/>
         <value type="int" value="11"/>
       </property>
@@ -97,6 +99,18 @@
       <property name="button-layout" type="string" value="HMC"/>
     </property>
     <property name="plugin-6" type="string" value="separator">
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- The system's health: an icon (green, amber, red) whose click drops down the details (caretaker's
+         `odd1-caretaker panel` and `popup`). -->
+    <property name="plugin-14" type="string" value="genmon">
+      <property name="command" type="string" value="odd1-caretaker panel"/>
+      <property name="update-period" type="int" value="10000"/>
+      <property name="use-label" type="bool" value="false"/>
+      <property name="text" type="string" value=""/>
+      <property name="enable-single-row" type="bool" value="true"/>
+    </property>
+    <property name="plugin-15" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
     </property>
     <property name="plugin-5" type="string" value="clock">
