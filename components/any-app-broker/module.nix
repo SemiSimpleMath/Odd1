@@ -3,7 +3,7 @@
 { pkgs, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.pytest p.tkinter ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.tkinter ]);
   tools = with pkgs; [ xorg.xorgserver xorg.xauth xorg.xdpyinfo xdotool imagemagick util-linux systemd ];
   env = ''
     export PATH=${pkgs.lib.makeBinPath tools}:$PATH

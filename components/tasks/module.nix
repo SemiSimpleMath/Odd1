@@ -3,9 +3,9 @@
 { config, pkgs, lib, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp ]);
   state = "/var/lib/odd1/tasks";
-  roles = [ "housekeeper" "update-watcher" "manager" "fixer" ];
+  roles = [ "housekeeper" "update-watcher" "manager" "fixer" "updater" ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_TASKS_STATE=''${ODD1_TASKS_STATE:-${state}}
@@ -16,6 +16,13 @@ let
     exec ${python}/bin/python3 -m ${module} "$@"
   '';
   cli = wrap "odd1-tasks" "odd1_tasks.cli";
+  # The branch steps of roles that change the repository (fixer, updater): check it, land it.
+  script = name: file: pkgs.writeShellScriptBin name ''
+    export PATH=${lib.makeBinPath [ pkgs.git pkgs.util-linux pkgs.coreutils pkgs.gnugrep ]}:/run/wrappers/bin:/run/current-system/sw/bin:$PATH
+    exec ${pkgs.bash}/bin/bash ${file} "$@"
+  '';
+  check = script "odd1-tasks-check" ./scripts/check.sh;
+  land = script "odd1-tasks-land" ./scripts/land.sh;
   server = wrap "odd1-tasks-mcp" "odd1_tasks.mcp_server";
   test = pkgs.writeShellScriptBin "odd1-tasks-test" ''
     export PYTHONPATH=${./.} PYTHONDONTWRITEBYTECODE=1
@@ -33,12 +40,12 @@ let
   attrs = lib.unique (lib.concatMap (l: map (lib.removePrefix "p.")
     (builtins.filter (s: s != "") (lib.splitString " " (builtins.head l)))) lists);
   # path: the helper reads the PyPI name and version from its .dist-info (Nix's pname is not always PyPI's).
-  pyPackages = map (a: { attr = a; name = pkgs.python3Packages.${a}.pname or a;
-                         version = pkgs.python3Packages.${a}.version or "unknown";
-                         path = "${pkgs.python3Packages.${a}}"; })
-    (builtins.filter (a: pkgs.python3Packages ? ${a}) attrs);
+  pyPackages = map (a: { attr = a; name = pkgs.odd1Python.pkgs.${a}.pname or a;
+                         version = pkgs.odd1Python.pkgs.${a}.version or "unknown";
+                         path = "${pkgs.odd1Python.pkgs.${a}}"; })
+    (builtins.filter (a: pkgs.odd1Python.pkgs ? ${a}) attrs);
 in {
-  environment.systemPackages = [ cli server test ];
+  environment.systemPackages = [ cli server test check land ];
   environment.etc."odd1/tasks/python-packages.json".text = builtins.toJSON pyPackages;
   # The agent entry point (Odd1 convention): tasks_create/list/show/approve/claim/renew/release/log/finish.
   odd1.mcpServers.tasks = { command = "${server}/bin/odd1-tasks-mcp"; args = [ ]; };
@@ -54,7 +61,7 @@ in {
     wants = [ "network-online.target" ];
     # Claude Code (~/.local/bin), the helpers the roles' settings allow, odd1-tasks for done_when checks, and for the
     # fixer's check.sh and land.sh: git, Nix, flock, sudo (/run/wrappers) and the system's own programs.
-    path = [ python cli pkgs.bash pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.gawk pkgs.nodejs pkgs.git
+    path = [ python cli check land pkgs.bash pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.gawk pkgs.nodejs pkgs.git
              pkgs.util-linux config.nix.package "/home/agent/.local" "/run/wrappers" "/run/current-system/sw" ];
     # A switch does not restart a runner (the fixer may be the one switching, mid-task); each runner restarts
     # itself with the new code once it is idle (runner.outdated).

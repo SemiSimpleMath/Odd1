@@ -3,7 +3,7 @@
 { pkgs, lib, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.pytest p.pygobject3 ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.pygobject3 ]);
   typelibs = lib.makeSearchPath "lib/girepository-1.0" (map lib.getLib (with pkgs; [
     gtk4 libadwaita glib pango gdk-pixbuf graphene harfbuzz gobject-introspection ]));
   env = ''

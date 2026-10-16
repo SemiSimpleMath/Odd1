@@ -2,7 +2,7 @@
 { config, pkgs, lib, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp ]);
   tools = [ pkgs.systemd pkgs.xdotool pkgs.coreutils ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}

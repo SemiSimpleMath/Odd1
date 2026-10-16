@@ -3,7 +3,7 @@
 
 let
   uno = "${pkgs.libreoffice.unwrapped}/lib/libreoffice/program";
-  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp ]);
   pythonpath = "${./.}:${uno}";
   bootstrap = "vnd.sun.star.pathname:${uno}/fundamentalrc";  # loads UNO's type library in the client
   env = ''

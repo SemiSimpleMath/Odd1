@@ -5,7 +5,7 @@
 
 let
   cfg = config.odd1.desktop;
-  python = pkgs.python3.withPackages (p: [ p.xlib p.pillow p.pytest ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.xlib p.pillow p.pytest ]);
   tools = with pkgs; [ hsetroot xfce.xfce4-terminal fontconfig xfce.xfconf librsvg ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}

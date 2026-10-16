@@ -2,7 +2,7 @@
 { pkgs, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.tkinter p.pytest p.mcp ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.tkinter p.pytest p.mcp ]);
   state = "/var/lib/odd1/intent";
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}

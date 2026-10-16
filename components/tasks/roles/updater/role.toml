@@ -1,0 +1,10 @@
+# The updater role: applies approved updates ("Update X from a to b", tag apply-update), one per run.
+# Edit freely (or in the Agents app); the runner rereads this file before each task (no rebuild needed).
+enabled = true            # false: the runner takes no new tasks for this role (paused)
+tags = ["apply-update"]   # it claims only tasks whose every tag is in this list
+workspace = "git-worktree"   # Python pins are made on branch task/<id> in its own worktree, made from main
+review = false            # true: branches go to review by other agents before they land (odd1-tasks-land refuses)
+runs_per_day = 1          # starts careful (it changes the system): raise it once you trust its updates
+max_turns = 60            # cap on any task's turn budget
+max_minutes = 60          # a pinned package and what depends on it build from source
+model = ""                # empty: Claude Code's default model

@@ -40,9 +40,25 @@ in {
   };
 
   config = {
+  # Odd1's components run on pkgs.odd1Python: Python 3 with the packages in python-updates.json (name -> version, sdist
+  # url, hash), which the tasks updater role writes, at newer versions than nixpkgs has. Only the components' Python
+  # sees them, so a pin never rebuilds the rest of the system. Pinned packages skip their own tests (the components'
+  # tests are the check).
+  nixpkgs.overlays = [ (final: prev: {
+    odd1Python = prev.python3.override {
+      self = final.odd1Python;
+      packageOverrides = pyfinal: pyprev: lib.mapAttrs (name: pin: pyprev.${name}.overridePythonAttrs (old: {
+        inherit (pin) version;
+        src = prev.fetchurl { inherit (pin) url hash; };
+        doCheck = false;
+        doInstallCheck = false;
+      })) (builtins.fromJSON (builtins.readFile ./python-updates.json));
+    };
+  }) ];
   environment.etc."odd1/mcp-servers.json".source = registry;
   environment.etc."odd1/agents.json".source = agents;
-  odd1.agents.claude = { title = "Claude"; description = "A new conversation with Claude Code"; command = "claude"; };
+  # Chats start in auto mode (Claude acts without asking for each step; shift+tab switches modes).
+  odd1.agents.claude = { title = "Claude"; description = "A new conversation with Claude Code"; command = "claude --permission-mode auto"; };
 
   networking.hostName = "odd1";
 

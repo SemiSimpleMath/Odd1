@@ -86,10 +86,10 @@ def test_attention_routes_routine_to_the_manager_and_the_rest_to_the_person(mana
     store = managed
     routine = store.create("Clean old logs", "true", ["housekeeping"], actor="housekeeper")
     risky = store.create("Delete ~/Videos", "true", ["needs-person"], actor="housekeeper")
-    orphan = approved(store, "Apply update", tags=["apply-update"])
+    orphan = approved(store, "Print a poster", tags=["printing"])
     assert who(store, routine["id"]) == "manager"
     assert who(store, risky["id"]) == "person"
-    assert who(store, orphan["id"]) == "person"  # approved, but no role takes apply-update
+    assert who(store, orphan["id"]) == "person"  # approved, but no role takes printing, and it is not delegated
     backlog = approved(store, "A ticket", tags=["friction", "desktop"])
     assert who(store, backlog["id"]) is None  # approved friction is backlog for people's chats: nobody's decision
     store.escalate(routine["id"], "manager", "it deletes logs the person may want")

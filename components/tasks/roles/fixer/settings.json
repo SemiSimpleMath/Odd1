@@ -9,7 +9,7 @@
       "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)", "Bash(grep:*)", "Bash(diff:*)",
       "Bash(journalctl:*)", "Bash(systemctl status:*)", "Bash(systemctl --user status:*)",
       "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)", "Bash(odd1-tasks changes:*)",
-      "Bash(/var/lib/odd1/tasks/roles/fixer/check.sh)", "Bash(/var/lib/odd1/tasks/roles/fixer/land.sh)",
+      "Bash(odd1-tasks-check:*)", "Bash(odd1-tasks-land:*)",
       "mcp__tasks__tasks_show", "mcp__tasks__tasks_list", "mcp__tasks__tasks_log", "mcp__tasks__tasks_create",
       "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish", "mcp__tasks__tasks_escalate"
     ],

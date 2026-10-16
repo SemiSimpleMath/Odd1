@@ -3,7 +3,7 @@
 { pkgs, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.pytest p.mcp p.pyatspi p.pygobject3 p.tkinter p.xlib p.pillow ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp p.pyatspi p.pygobject3 p.tkinter p.xlib p.pillow ]);
   tools = with pkgs; [ tesseract imagemagick xdotool wmctrl xorg.xprop xorg.xwininfo ];
   pythonpath = "${./.}:${../any-app}";
   env = ''

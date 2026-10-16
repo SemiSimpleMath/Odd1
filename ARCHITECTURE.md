@@ -46,6 +46,8 @@ Every component's agent entry point is an MCP server of the same name, registere
   `caretaker`, the registries and Claude Code; no state of its own.
 - Decisions: routine ones go to the `tasks` manager role (within tags the person delegates), the rest to the person
   (desktop notification from `odd1-tasks-watch`); every reader catches up from the task log (`changes --since`).
+- Components' Python is `pkgs.odd1Python` (nix/odd1.nix): Python 3 with the pins in `nix/python-updates.json`,
+  written by `tasks`' updater role.
 - Changes by agents reach main through `tasks`' fixer: a worktree per ticket, a full build and tests, then a
   fast-forward and a switch from a clean checkout (never the shared working tree).
 - `tasks` is the agent process manager: `odd1-tasks-runner@<role>` starts Claude Code headless per approved task, under

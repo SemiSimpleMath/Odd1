@@ -44,9 +44,10 @@ def main():
     for p in json.load(open(path)) if os.path.exists(path) else []:
         found = dist(p)
         if found is None:  # e.g. tkinter (part of Python), pyatspi (not published on PyPI)
-            rows.append({"name": p["name"], "source": "nix only", "installed": p["version"], "available": "unknown"})
+            rows.append({"name": p["name"], "attr": p["attr"], "source": "nix only", "installed": p["version"],
+                         "available": "unknown"})
         else:
-            rows.append({"name": found[0], "source": "pypi (installed by Nix)", "installed": found[1],
+            rows.append({"name": found[0], "attr": p["attr"], "source": "pypi (installed by Nix)", "installed": found[1],
                          "available": pypi(found[0])})
     for r in rows:
         r["update"] = r["installed"] != r["available"] and not r["available"].startswith("unknown")

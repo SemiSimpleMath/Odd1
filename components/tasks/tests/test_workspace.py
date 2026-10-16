@@ -1,6 +1,7 @@
 """Roles that change the repository: a git worktree per task, the role's tags for every component, its environment."""
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 from conftest import PERSON, approved
@@ -72,7 +73,8 @@ def test_land_refuses_while_the_role_asks_for_review(store, repo, tmp_path):
     toml = folder / "role.toml"
     toml.write_text(toml.read_text().replace("review = false", "review = true"))
     where = workspace.prepare(store.state, 9, repo)
-    done = subprocess.run([str(folder / "land.sh")], cwd=where, capture_output=True, text=True,
+    land = Path(__file__).resolve().parents[1] / "scripts" / "land.sh"
+    done = subprocess.run(["bash", str(land)], cwd=where, capture_output=True, text=True,
                           env={"PATH": "/run/current-system/sw/bin:/usr/bin:/bin", "ODD1_TASKS_WORKTREE": str(where),
                                "ODD1_TASKS_ROLE_FOLDER": str(folder), "ODD1_REPO": str(repo)})
     assert done.returncode == 3 and "review" in done.stderr

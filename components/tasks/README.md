@@ -70,10 +70,18 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
   cancels, escalates anything irreversible, costly or unclear. Only a person approves its own starter.
 - **fixer** (`friction` + every component, `all_components`): works approved friction tickets, one per run, each
   in its own git worktree on branch `task/<id>` made from main (`workspace = "git-worktree"`; the repository's
-  CLAUDE.md applies there, the role's is appended). `check.sh`: fitness check, a full system build from the branch,
-  the changed components' installed tests. `land.sh`: rebase on main, check again, fast-forward main, switch from a
-  clean checkout of main. `review = true` makes land.sh refuse: the next step is review by other agents before
+  CLAUDE.md applies there, the role's is appended). `odd1-tasks-check [COMPONENT...]`: fitness check, a full system
+  build from the branch, the installed tests of the changed (and named) components. `odd1-tasks-land`: rebase on
+  main, check again, fast-forward main, switch from a clean checkout of main (`scripts/`). `review = true` in the
+  role makes odd1-tasks-land refuse: the next step is review by other agents before
   landing (see Next). Starts at 1 run a day: raise it in the Agents app once its fixes are trusted.
+- **updater** (`apply-update`): applies approved updates, one per run. Claude Code: `npm install -g` the version.
+  A Python package of the components: `pin-python.py` pins it in `nix/python-updates.json` (PyPI's sdist URL and
+  hash; a major version jump is refused, a person decides), which `nix/odd1.nix` applies to `pkgs.odd1Python`, the
+  components' own Python (nothing else rebuilds); then `odd1-tasks-check` with the components that use it, and
+  `odd1-tasks-land`. A pin keeps nixpkgs' recipe: it builds when the recipe still fits (PyGObject 3.50 -> 3.58 did);
+  when it does not (selenium's patches, jsonschema's rpds-py), the updater escalates: that needs a newer nixpkgs.
+  Starts at 1 run a day.
 - **update-watcher** (`updates`): a daily recurring task; `check-versions.py` compares Claude Code (npm) and the
   Python packages components install (from the Nix build, `/etc/odd1/tasks/python-packages.json`; PyPI) and it
   proposes "Update X from a to b" tagged `apply-update`. It never applies updates (no role holds that tag yet).
@@ -93,6 +101,6 @@ rules against raw SQL. The MCP client test needs the `mcp` package (it skips oth
 - Tickets as pull requests (`review = true`): the fixer's checked branch becomes a review task for reviewer roles
   (agents deciding within delegated tags, like the manager), and lands after their approvals; a person only for
   what they escalate.
-- The updater: approved updates applied with the fixer's worktree, check and land steps.
+- Updating nixpkgs itself (the way forward when a pin does not fit), as a task the person approves.
 - A role that applies approved updates (through the repository and nixos-rebuild), and the Odd1 app showing tasks and
   roles. Token budgets in dollars per role (`--max-budget-usd`) once runs' costs are known.

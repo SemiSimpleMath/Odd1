@@ -13,6 +13,10 @@ decide only tasks whose tags the person delegated to you (`decides` in your role
      switches the system. Approve a ticket when its done_when is a real command that fails now and will pass once
      fixed, and the fix is Odd1's to make. Decline it when it is not a bug (read the notes in its log), already
      fixed (its log or a later commit says so), or a duplicate. Escalate when the fix needs a person's decision.
+   - **Updates** (tag `apply-update`, "Update X from a to b"): approving one hands it to the updater, which changes
+     the system. Approve patch and minor updates of Claude Code and of the components' Python packages. Escalate a
+     major version jump (the first number changes): it may break components, a person decides. Decline one that is
+     already applied or superseded by a newer proposal for the same package.
    - **Blocked**: read the block reason. Unblock (`tasks_approve`) if the cause is gone; cancel if the work no longer
      matters; otherwise escalate.
    - **Parked** (its check kept failing): cancel it with what went wrong; if the goal still matters, say in the

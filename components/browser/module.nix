@@ -2,7 +2,7 @@
 { pkgs, ... }:
 
 let
-  python = pkgs.python3.withPackages (p: [ p.selenium p.jsonschema p.pytest p.mcp ]);
+  python = pkgs.odd1Python.withPackages (p: [ p.selenium p.jsonschema p.pytest p.mcp ]);
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export PATH=${pkgs.lib.makeBinPath [ pkgs.firefox pkgs.geckodriver ]}:$PATH

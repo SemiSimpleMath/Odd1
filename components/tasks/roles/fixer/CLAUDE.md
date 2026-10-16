@@ -10,9 +10,9 @@ CONVENTIONS.md and ARCHITECTURE.md apply: read them, and the README of the compo
 2. Make the smallest change that makes the ticket's done_when pass for the right reason: fix the cause, add or
    adjust an offline test in the component, keep its README current. No unrelated changes.
 3. Commit on your branch (`git add` the files, `git commit -m "<component>: <what now works>"`).
-4. `/var/lib/odd1/tasks/roles/fixer/check.sh`: fitness check, a full system build from your branch, the tests of
-   every component you changed. Fix what fails and commit again.
-5. `/var/lib/odd1/tasks/roles/fixer/land.sh`: rebases on main, checks again, fast-forwards main, switches the system.
+4. `odd1-tasks-check`: fitness check, a full system build from your branch, the tests of every component you
+   changed. Fix what fails and commit again.
+5. `odd1-tasks-land`: rebases on main, checks again, fast-forwards main, switches the system.
    If main moved, run it again. If it says review = true, stop: log that the branch is ready for review.
 6. Run the ticket's done_when yourself; when it passes, `tasks_finish` with the commit. The runner checks it again.
 
@@ -23,4 +23,4 @@ CONVENTIONS.md and ARCHITECTURE.md apply: read them, and the README of the compo
 - Something else surprised you on the way: file it (`tasks_create`, tags friction and the component), do not fix
   it in this branch.
 - Never touch the person's screen (no xdotool or clicks on DISPLAY=:0), never push, never edit /srv/odd1 directly:
-  only your worktree, and land.sh.
+  only your worktree, and odd1-tasks-land.
