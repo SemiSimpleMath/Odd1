@@ -252,7 +252,8 @@ class Shell:
         window.map()
         self.display.sync()
         time.sleep(0.2)  # focus needs the window viewable
-        window.change_attributes(event_mask=self.X.PropertyChangeMask)  # its urgency hint
+        # its urgency hint, and its size: a terminal grows itself when its font does (it keeps its rows and columns)
+        window.change_attributes(event_mask=self.X.PropertyChangeMask | self.X.StructureNotifyMask)
         self.chats.append(window)
         if layout.person_asked(self.requested, time.monotonic()):
             self.requested = 0.0
@@ -700,6 +701,11 @@ class Shell:
             elif event.type == X.PropertyNotify and event.atom not in watched:
                 continue
             elif event.type == X.ConfigureNotify and event.window != self.root:
+                chat = next((c for c in self.chats if c.id == event.window.id), None)
+                box = layout.chat_box(self.size) if chat is not None and self.size else None
+                if box and (event.width, event.height) != box[2:]:
+                    log(f"refit {chat.id:#x} {event.width}x{event.height}")
+                    self.dock(chat, box)  # back into the column
                 continue
             else:
                 time.sleep(0.05)  # let a burst (a new window, a resize) settle, then lay out once
