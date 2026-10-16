@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # odd1-tasks-check: the check of a task's branch before it lands: the repository's fitness check, the whole system
-# built from the branch, and the tests of every component the branch changes (and of each COMPONENT named), run from
-# that build (the branch's code, installed as Odd1 installs it).
+# built from the branch, and every component's tests run from that build (the branch's code, installed as Odd1
+# installs it): the changed (and named) components' must pass, and no other component may newly fail.
 #   odd1-tasks-check [COMPONENT...]      (in the task's worktree, $ODD1_TASKS_WORKTREE)
 set -euo pipefail
 wt=${ODD1_TASKS_WORKTREE:-$PWD}
@@ -26,8 +26,7 @@ fi
 echo "system builds from $(git rev-parse --short HEAD)"
 changed=$( { git diff --name-only main...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } \
   | grep -o '^components/[^/]*' | cut -d/ -f2 || true)
-for c in $(printf '%s\n' $changed "$@" | sort -u); do
-  t="$out/sw/bin/odd1-$c-test"
-  if [ -x "$t" ]; then echo "== odd1-$c-test"; "$t" -q; else echo "== $c has no odd1-$c-test"; fi
-done
+# Every component's tests (rule 4: no landing makes Odd1 worse): the changed and named components' must pass; any
+# other failure blocks unless the running system's test fails the same way (odd1_tasks/regressions.py).
+odd1-tasks regressions "$out/sw/bin" /run/current-system/sw/bin $(printf '%s\n' $changed "$@" | sort -u)
 echo "check passed"

@@ -458,7 +458,8 @@ class Store:
                 raise TaskError(f"task {task_id} is {candidates[0]['status']}, not ready")
         else:
             candidates = [_row(r) for r in self.db.execute(
-                "SELECT * FROM tasks WHERE status = 'ready' ORDER BY priority DESC, id")]
+                "SELECT * FROM tasks WHERE status = 'ready'"
+                " ORDER BY priority DESC, created_by LIKE 'person:%' DESC, id")]  # the person's first (rule 1)
             # run_if: a cheap shell check that says there is something to do (no model call otherwise). Checked
             # before taking the write lock: the check may read this store itself.
             candidates = [t for t in candidates if set(t["tags"]) <= held and self._run_if(t)]

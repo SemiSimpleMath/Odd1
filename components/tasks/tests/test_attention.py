@@ -50,7 +50,7 @@ def test_cancel_stops_a_running_agent_at_its_next_renewal(store, monkeypatch):
     result = runner.run_once(store, "housekeeper")
     assert result["status"] == "cancelled" and time.monotonic() - start < 20
     kinds = [(e["kind"], e["text"][:16]) for e in store.show(t["id"])["log"]]
-    assert ("budget", "lost the claim (") in kinds and "check" not in [k for k, _ in kinds]  # stopped, not checked
+    assert ("budget", "the task is canc") in kinds and "check" not in [k for k, _ in kinds]  # stopped, not checked
 
 
 def test_cancelling_a_recurring_task_ends_its_series(store):
@@ -155,3 +155,19 @@ def test_an_older_store_is_migrated_with_every_task_and_log_entry(tmp_path):
     assert [e["kind"] for e in store.show(1)["log"]] == ["create", "decline"]
     with pytest.raises(sqlite3.DatabaseError):
         store.db.execute("DELETE FROM tasks WHERE id = 1")  # the triggers came back
+
+
+def test_person_first_their_tasks_are_claimed_before_agents_and_their_cancel_stops_at_once(store, monkeypatch):
+    agents_own = store.create("an agent's own idea", "true", ["housekeeping"], actor="update-watcher")
+    store.approve(agents_own["id"], PERSON)
+    persons = approved(store, "the person's request", done_when="true")
+    assert store.claim("housekeeper")["id"] == persons["id"]  # older agent work waits (rule 1)
+    store.release(persons["id"], "housekeeper")
+    monkeypatch.setenv("STUB_PLAN", json.dumps({"sleep": 60, "finish": True}))
+    monkeypatch.setattr(runner, "RENEW_SECONDS", 120)  # no renewal comes: the status watch must stop it
+    monkeypatch.setattr(runner, "WATCH_SECONDS", 0.2)
+    import threading
+    threading.Timer(1.0, lambda: Store(store.state).cancel(persons["id"], PERSON, "changed my mind")).start()
+    start = time.monotonic()
+    assert runner.run_once(store, "housekeeper")["status"] == "cancelled"
+    assert time.monotonic() - start < 10

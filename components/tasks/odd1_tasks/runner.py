@@ -28,6 +28,7 @@ from .store import CLOSED, Store, TaskError
 
 RENEW_SECONDS = float(os.environ.get("ODD1_TASKS_RENEW_SECONDS", 120))
 POLL_SECONDS = float(os.environ.get("ODD1_TASKS_POLL_SECONDS", 30))
+WATCH_SECONDS = float(os.environ.get("ODD1_TASKS_WATCH_SECONDS", 3))  # how often a running task's status is read
 CLAUDE = shlex.split(os.environ.get("ODD1_TASKS_CLAUDE", "claude"))
 
 
@@ -139,19 +140,29 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
     proc.stdin.close()
     out: list[str] = []
     reader = _drain(proc, out)
-    deadline, stopped = time.monotonic() + minutes * 60, ""
+    deadline, stopped, renewed = time.monotonic() + minutes * 60, "", time.monotonic()
     while proc.poll() is None:
-        try:
-            proc.wait(timeout=max(0.1, min(RENEW_SECONDS, store_mod.LEASE_SECONDS / 4, deadline - time.monotonic())))
+        try:  # look every few seconds: a person's cancel or stop reaches the agent at once (rule 1)
+            every = min(RENEW_SECONDS, store_mod.LEASE_SECONDS / 4)  # renewals well within the lease
+            proc.wait(timeout=max(0.1, min(WATCH_SECONDS, every - (time.monotonic() - renewed),
+                                           deadline - time.monotonic())))
         except subprocess.TimeoutExpired:
             pass
         if proc.poll() is not None:
             break
-        if time.monotonic() >= deadline:
+        now_task = store.db.execute("SELECT status, claim_agent FROM tasks WHERE id = ?", (tid,)).fetchone()
+        if now_task["status"] == "verifying":
+            continue  # the agent finished (tasks_finish) and is exiting
+        if now_task["status"] != "claimed" or now_task["claim_agent"] != role:
+            stopped = f"the task is {now_task['status']} now: stopped"
+        elif time.monotonic() >= deadline:
             stopped = f"time budget reached ({minutes:g} min): stopped"
+        elif time.monotonic() - renewed < min(RENEW_SECONDS, store_mod.LEASE_SECONDS / 4):
+            continue
         else:
             try:
                 store.renew(tid, f"runner:{role}")
+                renewed = time.monotonic()
                 continue
             except TaskError as e:
                 if store.show(tid)["status"] == "verifying":

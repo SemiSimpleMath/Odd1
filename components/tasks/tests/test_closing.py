@@ -100,3 +100,22 @@ def test_decision_records_need_the_persons_approval_to_land(store):
     refused = landing.decision_records_need_the_person(store.show(by_agent["id"]), rules)
     assert "decision records are the person's" in refused and "approved by manager" in refused
     assert landing.decision_records_need_the_person(store.show(by_agent["id"]), ["wiki/index.md"]) is None
+
+
+def test_no_regressions_land_a_new_failure_blocks_an_old_one_is_reported(tmp_path):
+    from odd1_tasks import regressions
+    branch, main = tmp_path / "branch", tmp_path / "main"
+    for d, codes in ((branch, {"desktop": 0, "screen": 1, "any-app": 1, "tasks": 1, "new": 1}),
+                     (main, {"desktop": 0, "screen": 0, "any-app": 1, "tasks": 0})):
+        d.mkdir()
+        for c, code in codes.items():
+            t = d / f"odd1-{c}-test"
+            t.write_text(f"#!/bin/sh\nexit {code}\n")
+            t.chmod(0o755)
+    assert regressions.main([str(branch), str(main), "tasks"]) == 1
+    verdict = regressions.judge({"desktop": 0, "screen": 1, "any-app": 1, "tasks": 1, "new": 1},
+                                {"screen": 0, "any-app": 1, "new": None}, {"tasks"})
+    # screen passes on main: a regression; any-app fails on main too: reported; tasks changed: must pass;
+    # new has no test on main: this branch's doing
+    assert verdict == {"regressions": ["new", "screen", "tasks"], "already_failing": ["any-app"], "passed": ["desktop"]}
+    assert regressions.main([str(main), str(main)]) == 0  # any-app already failing on main: not a regression

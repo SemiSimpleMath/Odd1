@@ -125,6 +125,10 @@ worker's instructions; done_when runs in that folder. `odd1-tasks routines` list
   keeps in `runs/`, 30 days) with the `dojo` skill: the OS's faults become friction tickets with evidence, the skills'
   faults become proposed skill changes (never edited directly, never workarounds for OS faults). From Emi's dojo,
   without its weak spot (it wrote environment problems into the skill).
+The person first (rule 1): their tasks are claimed before agents' own of the same priority, and the runner reads a
+running task's status every few seconds, so a person's cancel or stop reaches the agent at once. No landing makes
+Odd1 worse (rule 4): odd1-tasks-check runs every component's installed tests (`regressions.py`): the changed ones
+must pass, and any other failure blocks unless the running system's test fails the same way (then it is reported).
 Closing work done outside the runners (`closing.py`): chats don't claim tickets, so `odd1-tasks close-by-check ID`
 (MCP `tasks_close_by_check`) has the task system rerun an approved, ready ticket's done_when where a runner would
 (the folder and systemd environment of the role holding its tags) and closes it only if it passes (no claimant, no
