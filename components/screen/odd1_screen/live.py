@@ -38,6 +38,30 @@ def read_ocr(xid: str, display: str | None = None) -> list[dict] | None:
             return None
 
 
+def desktop_launchers(folder: str | None = None) -> list[dict]:
+    """What xfdesktop shows as icons: the entries of ~/Desktop, [{name, path}]. A launcher (.desktop) is named by
+    its Name=, anything else by its file name; hidden files and Hidden=true launchers are not shown."""
+    folder = Path(folder or Path.home() / "Desktop")
+    icons = []
+    for path in sorted(folder.iterdir()) if folder.is_dir() else []:
+        if path.name.startswith("."):
+            continue
+        name = path.name
+        if path.suffix == ".desktop" and path.is_file():
+            entry, section = {}, None
+            for line in path.read_text(errors="replace").splitlines():
+                if line.startswith("["):
+                    section = line.strip()
+                elif section == "[Desktop Entry]" and "=" in line:
+                    key, value = line.split("=", 1)
+                    entry.setdefault(key.strip(), value.strip())
+            if entry.get("Hidden", "").lower() == "true":
+                continue
+            name = entry.get("Name") or path.stem
+        icons.append({"name": name, "path": str(path)})
+    return icons
+
+
 def observe(screen: model.Screen, *, window: str = "", ocr: str = "auto", include_hidden: bool = False,
             max_elements: int = 400) -> dict:
     """One fused view. window: a title substring or wN id to restrict to; ocr: auto (windows without a tree or
@@ -55,7 +79,10 @@ def observe(screen: model.Screen, *, window: str = "", ocr: str = "auto", includ
             found = read_ocr(w["xid"], screen.display)
             if found is not None:
                 words[w["xid"]] = found
-    view = screen.fuse(desktop, atspi, words, include_hidden=include_hidden, max_elements=max_elements)
+    icons = desktop_launchers() if any(w.get("type") == "desktop" and w["xid"] in words
+                                       for w in desktop["windows"]) else None
+    view = screen.fuse(desktop, atspi, words, include_hidden=include_hidden, max_elements=max_elements,
+                       icons=icons)
     if window:
         view = {**view, "windows": [w for w in view["windows"] if _selected(screen, w, window)]}
         if not view["windows"]:

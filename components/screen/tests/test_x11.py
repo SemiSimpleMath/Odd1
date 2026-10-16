@@ -12,8 +12,13 @@ def test_properties_prefer_net_wm_name_and_unescape():
     text = ('_NET_WM_PID = 7326\n_NET_WM_NAME = "Say \\"hi\\" — Firefox"\nWM_NAME = "fallback"\n'
             "_NET_WM_STATE = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_HIDDEN\n")
     assert x11.parse_properties(text) == {"pid": 7326, "title": 'Say "hi" — Firefox',
-                                          "states": ["maximized_vert", "hidden"]}
+                                          "states": ["maximized_vert", "hidden"], "type": "normal"}
     assert x11.parse_properties("_NET_WM_PID:  not found.\nWM_NAME = \"xterm\"")["pid"] is None
+
+
+def test_desktop_icons_window_is_known_by_its_type():
+    text = '_NET_WM_PID = 812\nWM_NAME = "Desktop"\n_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_DESKTOP\n'
+    assert x11.parse_properties(text)["type"] == "desktop"
 
 
 def test_geometry_is_absolute_client_area():

@@ -12,6 +12,7 @@ found its name only elsewhere; a toolkit can get one subtree wrong (GTK4's heade
 element's box stays put. Unverified boxes are observations, not click targets.
 """
 import re
+from difflib import SequenceMatcher
 
 MAPPINGS = ("desktop", "window", "frame-relative")
 # Elements worth showing an agent; nameless containers are dropped.
@@ -21,6 +22,8 @@ INTERACTIVE = {"push button", "toggle button", "check box", "radio button", "ent
                "document text", "document frame", "editbar", "scroll bar", "icon"}
 STATE_KEYS = ("focused", "checked", "selected", "expanded", "enabled")
 MIN_OCR_CONFIDENCE = 40
+ICON_SIZE = 48  # xfdesktop's icon size (desktop/xfconf/xfce4-desktop.xml); the icon sits above its label
+ICON_MATCH = 0.75  # how alike an OCR label must be to a launcher's name (difflib ratio of the normalized texts)
 
 
 def norm(text: str) -> str:
@@ -118,6 +121,41 @@ def ocr_lines(words: list[dict]) -> list[dict]:
     return lines
 
 
+def desktop_icons(icons: list[dict], words: list[dict], window: dict) -> tuple[list[dict], set]:
+    """Desktop icons (xfdesktop publishes none over AT-SPI) placed by their OCR labels. icons: [{name, path}], the
+    launchers and files in ~/Desktop. A label is read clipped ("ext Editor") or wrapped onto two lines ("Agent" /
+    "Settings"), so each name takes the line, or line and the one below it, that spells it most nearly (at least
+    ICON_MATCH alike), best matches first. Returns ([{name, path, box (screen; the icon above its label), label}],
+    the (text, box) of the OCR lines used)."""
+    g = window["geometry"]
+    lines = ocr_lines(words)
+    candidates = [([i], line["text"], line["box"]) for i, line in enumerate(lines)]
+    for i, top in enumerate(lines):
+        for j, below in enumerate(lines):
+            t, b = top["box"], below["box"]
+            gap = b[1] - (t[1] + t[3])
+            if j != i and -2 <= gap <= max(t[3], b[3]) and abs(centre(t)[0] - centre(b)[0]) <= max(t[2], b[2]) / 2:
+                x, y = min(t[0], b[0]), t[1]
+                box = [x, y, max(t[0] + t[2], b[0] + b[2]) - x, b[1] + b[3] - y]
+                candidates.append(([i, j], f"{top['text']} {below['text']}", box))
+    scored = sorted(((SequenceMatcher(None, norm(icon["name"]), norm(text)).ratio(), -len(used), k, c)
+                     for k, icon in enumerate(icons) if norm(icon["name"])
+                     for c, (used, text, _) in enumerate(candidates) if norm(text)), reverse=True)
+    placed, taken, out = set(), set(), []
+    for score, _, k, c in scored:
+        used, text, box = candidates[c]
+        if score < ICON_MATCH or k in placed or taken & set(used):
+            continue
+        placed.add(k)
+        taken |= set(used)
+        cx = g["x"] + box[0] + box[2] // 2
+        width = max(box[2], ICON_SIZE + 8)
+        top = max(g["y"], g["y"] + box[1] - ICON_SIZE - 8)
+        out.append({**icons[k], "label": text,
+                    "box": [cx - width // 2, top, width, g["y"] + box[1] + box[3] - top]})
+    return out, {(lines[i]["text"], tuple(lines[i]["box"])) for i in taken}
+
+
 def minimized(window: dict) -> bool:
     """Minimized (iconic): unmapped, so it has no pixels and no place on screen; only its tree can be used."""
     return "hidden" in window["states"] or not window["geometry"]["viewable"]
@@ -187,7 +225,9 @@ class Screen:
         return frame is None or not frame["elements"] or self.calibration_key(window, frame) not in self.calibrations
 
     def fuse(self, x11: dict, atspi: dict, ocr: dict[str, list[dict]], *, include_hidden: bool = False,
-             max_elements: int = 400) -> dict:
+             max_elements: int = 400, icons: list[dict] | None = None) -> dict:
+        """icons: the desktop's launchers and files ([{name, path}]); a desktop-type window shows them as `icon`
+        elements where OCR finds their labels."""
         windows = x11["windows"]
         frames = match_frames(windows, atspi.get("apps", []))
         live = {w["xid"] for w in windows}
@@ -211,8 +251,12 @@ class Screen:
                 calibration = self.calibrations[key]
                 elements = self._tree_elements(wid, window, frame, calibration["mapping"], words,
                                                include_hidden or minimized(window))
+            labels = set()
+            if words and icons and window.get("type") == "desktop":
+                found, labels = desktop_icons(icons, words, window)
+                elements += self._icon_elements(wid, window, windows, found)
             if words:
-                elements += self._text_elements(wid, window, windows, words, elements)
+                elements += self._text_elements(wid, window, windows, words, elements, labels)
             truncated = len(elements) > max_elements or bool(frame and frame["truncated"])
             result.append({"id": wid, "xid": window["xid"], "title": window["title"], "pid": window["pid"],
                            "box": [g["x"], g["y"], g["width"], g["height"]],
@@ -261,9 +305,23 @@ class Screen:
             out.append(item)
         return out
 
-    def _text_elements(self, wid, window, windows, words, elements):
-        """OCR lines that no tree element already names; `covered` when another window is on top of them (the
-        capture is offscreen, so their text is real, but a click there would land on the other window)."""
+    def _icon_elements(self, wid, window, windows, icons):
+        """Desktop icons as elements: verified (OCR read the label), named as their launchers, clicked by pointer."""
+        out = []
+        for icon in icons:
+            item = {"id": self._element_id(wid, ("icon", icon["name"], ("desktop",), 1)), "role": "icon",
+                    "name": icon["name"], "box": icon["box"], "states": [], "source": "desktop",
+                    "path": icon.get("path", ""), "label": icon["label"], "verified": True}
+            owner = topmost(windows, *centre(item["box"]))
+            if owner is None or owner["xid"] != window["xid"]:
+                item["covered"] = True
+            out.append(item)
+        return out
+
+    def _text_elements(self, wid, window, windows, words, elements, skip=frozenset()):
+        """OCR lines that no tree element already names (nor are in `skip`: (text, box) of lines used as icon
+        labels); `covered` when another window is on top of them (the capture is offscreen, so their text is real,
+        but a click there would land on the other window)."""
         g = window["geometry"]
         named = [(norm(e["name"]), e["box"]) for e in elements if e["name"]]
         seen: dict[str, int] = {}
@@ -272,7 +330,8 @@ class Screen:
             box = [line["box"][0] + g["x"], line["box"][1] + g["y"], line["box"][2], line["box"][3]]
             owner = topmost(windows, *centre(box))
             text = norm(line["text"])
-            if any(text and text in n and contains(b, *centre(box), pad=4) for n, b in named):
+            if (line["text"], tuple(line["box"])) in skip or \
+                    any(text and text in n and contains(b, *centre(box), pad=4) for n, b in named):
                 continue
             seen[line["text"]] = seen.get(line["text"], 0) + 1
             out.append({"id": self._element_id(wid, ("text", line["text"], (), seen[line["text"]])),

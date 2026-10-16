@@ -38,6 +38,12 @@ contradicted elements, unverified ones in unverified windows, and points another
 window from an offscreen capture (any-app's `screenshot`, XComposite), so covered text is real; it is marked
 `covered`. Windows without a tree (xterm, Tk) are OCR only.
 
+Desktop icons: xfdesktop's window (`_NET_WM_WINDOW_TYPE_DESKTOP`) publishes no AT-SPI tree, and OCR reads its
+labels clipped ("ext Editor") or wrapped onto two lines. Each entry of `~/Desktop` (a launcher by its `Name=`,
+else its file name) becomes an `icon` element named as the launcher, placed on the OCR line (or line and the one
+below) that spells it most nearly (difflib ratio ≥ 0.75); `box` covers the icon above its label, `path` is the
+file, `label` what OCR read. An icon whose label OCR does not find is left out. Opening one is a double click.
+
 ## What was learned
 - GTK4 (GNOME Calculator) reports desktop coordinates of 0,0 for everything; its window coordinates are right for
   the content but its header bar is off. Qt (FeatherPad) desktop coordinates match X11.

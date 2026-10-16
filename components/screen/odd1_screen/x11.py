@@ -35,7 +35,8 @@ def _unquote(value: str) -> str:
 
 
 def parse_properties(text: str) -> dict:
-    """`xprop -id W -notype _NET_WM_PID _NET_WM_NAME WM_NAME _NET_WM_STATE` -> {pid, title, states}."""
+    """`xprop -id W -notype _NET_WM_PID _NET_WM_NAME WM_NAME _NET_WM_STATE _NET_WM_WINDOW_TYPE` -> {pid, title,
+    states, type} (type: "normal", "desktop" (xfdesktop's wallpaper and icons), "dialog", ...)."""
     props = {}
     for line in text.splitlines():
         if " = " in line:
@@ -45,7 +46,10 @@ def parse_properties(text: str) -> dict:
     title = props.get("_NET_WM_NAME") or props.get("WM_NAME") or '""'
     states = [s.strip().removeprefix("_NET_WM_STATE_").lower()
               for s in props.get("_NET_WM_STATE", "").split(",") if s.strip()]
-    return {"pid": int(pid) if pid.isdigit() else None, "title": _unquote(title), "states": states}
+    types = [t.strip().removeprefix("_NET_WM_WINDOW_TYPE_").lower()
+             for t in props.get("_NET_WM_WINDOW_TYPE", "").split(",") if t.strip()]
+    return {"pid": int(pid) if pid.isdigit() else None, "title": _unquote(title), "states": states,
+            "type": types[0] if types else "normal"}
 
 
 def parse_geometry(text: str) -> dict | None:
@@ -79,7 +83,7 @@ def windows(display: str | None = None) -> dict:
         try:
             geometry = parse_geometry(_run(["xwininfo", "-id", xid], display))
             props = parse_properties(_run(["xprop", "-id", xid, "-notype", "_NET_WM_PID", "_NET_WM_NAME",
-                                           "WM_NAME", "_NET_WM_STATE"], display))
+                                           "WM_NAME", "_NET_WM_STATE", "_NET_WM_WINDOW_TYPE"], display))
         except (subprocess.SubprocessError, OSError):
             continue
         if geometry is None:

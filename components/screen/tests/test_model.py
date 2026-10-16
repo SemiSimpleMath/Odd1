@@ -144,3 +144,56 @@ def test_ocr_lines_group_words_on_a_row():
 def test_find_and_at_need_a_view():
     with pytest.raises(LookupError):
         model.Screen().find("w1.e1")
+
+
+def desktop():
+    """xfdesktop's window (type desktop, no tree) under a Calculator; OCR clips one label and wraps another."""
+    x = {"screen": {"width": 1280, "height": 800}, "active": None,
+         "windows": [{**window("0x9", "Desktop", 0, 0, 1280, 800, pid=5), "type": "desktop"},
+                     window("0x2", "Calculator", 500, 0, 400, 600)]}
+    words = [word("ext", 22, 80, 22), word("Editor", 48, 80, 40),
+             word("Agent", 30, 180, 36), word("Settings", 24, 196, 50),
+             word("Firefox", 520, 80, 44), word("notes.txt", 20, 280, 60)]
+    icons = [{"name": "Text Editor", "path": "/home/agent/Desktop/mousepad.desktop"},
+             {"name": "Agent Settings", "path": "/home/agent/Desktop/odd1-agent-settings.desktop"},
+             {"name": "Firefox", "path": "/home/agent/Desktop/firefox.desktop"},
+             {"name": "Calculator", "path": "/home/agent/Desktop/calc.desktop"}]
+    return x, words, icons
+
+
+def test_desktop_icons_are_elements_found_by_their_names():
+    x, words, icons = desktop()
+    view = model.Screen().fuse(x, {"apps": []}, {"0x9": words}, icons=icons)
+    desk = next(w for w in view["windows"] if w["title"] == "Desktop")
+    found = {e["name"]: e for e in desk["elements"] if e["role"] == "icon"}
+    assert set(found) == {"Text Editor", "Agent Settings", "Firefox"}  # Calculator: OCR did not see its label
+    editor = found["Text Editor"]
+    assert editor["label"] == "ext Editor" and editor["verified"] and editor["path"].endswith("mousepad.desktop")
+    x0, y0, w, h = editor["box"]
+    assert y0 < 80 and y0 + h == 92 and x0 <= 22 and x0 + w >= 88  # the icon above its label and the label
+    assert found["Agent Settings"]["label"] == "Agent Settings"
+    assert found["Firefox"].get("covered")  # the Calculator is on top of it
+    texts = [e["name"] for e in desk["elements"] if e["role"] == "text"]
+    assert texts == ["notes.txt"]  # label lines belong to their icons; notes.txt is not on the desktop list
+
+
+def test_desktop_icons_keep_ids_and_only_on_the_desktop_window():
+    x, words, icons = desktop()
+    screen = model.Screen()
+    first = screen.fuse(x, {"apps": []}, {"0x9": words}, icons=icons)
+    again = screen.fuse(x, {"apps": []}, {"0x9": words[::-1]}, icons=icons[::-1])
+    ids = lambda v: {e["name"]: e["id"] for w in v["windows"] for e in w["elements"] if e["role"] == "icon"}
+    assert ids(first) == ids(again) and len(ids(first)) == 3
+    x["windows"][0]["type"] = "normal"
+    assert not ids(model.Screen().fuse(x, {"apps": []}, {"0x9": words}, icons=icons))
+
+
+def test_desktop_icons_read_from_the_desktop_folder(tmp_path):
+    from odd1_screen import live
+    (tmp_path / "mousepad.desktop").write_text("[Desktop Entry]\nName=Text Editor\nName[fi]=Tekstieditori\n"
+                                               "[Desktop Action new]\nName=New Window\n")
+    (tmp_path / "gone.desktop").write_text("[Desktop Entry]\nName=Gone\nHidden=true\n")
+    (tmp_path / "notes.txt").write_text("hi")
+    (tmp_path / ".hidden").write_text("")
+    assert [i["name"] for i in live.desktop_launchers(str(tmp_path))] == ["Text Editor", "notes.txt"]
+    assert live.desktop_launchers(str(tmp_path / "missing")) == []
