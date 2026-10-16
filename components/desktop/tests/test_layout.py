@@ -12,16 +12,21 @@ def test_chat_column_is_about_a_third_within_bounds():
 
 def test_column_header_chat_and_work_area_tile_the_screen():
     screen, top = (1920, 1080), 34
-    x, y, width, height = layout.column(screen, top)
-    assert (x + width, y, y + height) == (1920, 34, 1080)
-    assert layout.header_box(screen, top) == (x, y, width, layout.HEADER_HEIGHT)
-    assert layout.chat_box(screen, top) == (x, y + layout.HEADER_HEIGHT, width, height - layout.HEADER_HEIGHT)
+    x, y, width, height = layout.column(screen)
+    assert (x + width, y, y + height) == (1920, 0, 1080)  # full height: the chat tabs are at the top of the screen
+    assert layout.header_box(screen) == (x, 0, width, layout.HEADER_HEIGHT)
+    assert layout.chat_box(screen) == (x, layout.HEADER_HEIGHT, width, height - layout.HEADER_HEIGHT)
     assert layout.work_area(screen, top) == (0, 34, x, 1046)
 
 
-def test_strut_reserves_the_column_on_the_right_below_the_bar():
-    strut = layout.strut((1280, 800), 34)
-    assert strut[1] == 461 and strut[6:8] == [34, 799] and sum(strut[:1] + strut[2:6]) == 0
+def test_top_bar_spans_exactly_the_work_area():
+    for width in (1024, 1280, 1920, 2560):
+        assert round(layout.panel_length(width) * width / 100) == width - layout.dock_width(width)
+
+
+def test_strut_reserves_the_column_on_the_right_top_to_bottom():
+    strut = layout.strut((1280, 800))
+    assert strut[1] == 461 and strut[6:8] == [0, 799] and sum(strut[:1] + strut[2:6]) == 0
 
 
 def test_fit_leaves_fitting_windows_alone_and_moves_others_inside():

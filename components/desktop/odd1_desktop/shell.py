@@ -183,8 +183,8 @@ class Shell:
             self.header.set_wm_name("Odd1 chat")
             self.header.set_wm_class("odd1-desktop", "Odd1-desktop")
             self.gc = self.header.create_gc()
-        box = layout.header_box(self.size, self.top)
-        self.dock(self.header, box, layout.strut(self.size, self.top))
+        box = layout.header_box(self.size)
+        self.dock(self.header, box, layout.strut(self.size))
         self.header.map()
 
     def adopt(self, window):
@@ -192,7 +192,7 @@ class Shell:
         window.unmap()
         self.display.sync()
         time.sleep(0.2)
-        self.dock(window, layout.chat_box(self.size, self.top))
+        self.dock(window, layout.chat_box(self.size))
         window.map()
         self.display.sync()
         time.sleep(0.2)  # focus needs the window viewable
@@ -218,7 +218,7 @@ class Shell:
         from PIL import Image, ImageDraw
         if self.header is None:
             return
-        _, _, width, height = layout.header_box(self.size, self.top)
+        _, _, width, height = layout.header_box(self.size)
         image = Image.new("RGB", (width, height), layout.CHAT_BACKGROUND)
         draw = ImageDraw.Draw(image)
         measure = lambda text: round(draw.textlength(text, font=self.font))
@@ -271,6 +271,14 @@ class Shell:
             for prop, kind, value in (("image-style", "int", "1"), ("last-image", "string", path)):
                 subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", f"{base}/{prop}", "-n", "-t", kind,
                                 "-s", value], check=False, env=env, stderr=subprocess.DEVNULL)
+
+    def size_panel(self):
+        """Make the top bar span the work area only (the chat column has its tabs at the top), so the clock sits at
+        the work area's corner."""
+        length = f"{layout.panel_length(self.size[0]):.4f}"
+        subprocess.run(["xfconf-query", "-c", "xfce4-panel", "-p", "/panels/panel-1/length", "-n", "-t", "double",
+                        "-s", length], check=False, env={**os.environ, "DISPLAY": self.name},
+                       stderr=subprocess.DEVNULL)
 
     def mark(self, height):
         """The owl ($ODD1_MARK, an SVG) rendered `height` pixels tall, or None if it cannot be."""
@@ -352,8 +360,9 @@ class Shell:
         if (size, top) != (self.size, self.top):
             self.size, self.top = size, top
             self.ensure_header()
+            self.size_panel()
             for chat in self.chats:
-                self.dock(chat, layout.chat_box(size, top))
+                self.dock(chat, layout.chat_box(size))
             self.paint_wallpaper()
             self.draw_header()
         alive, apps, agents = set(), [], None
@@ -419,7 +428,7 @@ class Shell:
 
     def pointer_in_chat(self):
         pointer = self.root.query_pointer()
-        x, y, width, height = layout.chat_box(self.size, self.top)
+        x, y, width, height = layout.chat_box(self.size)
         return x <= pointer.root_x < x + width and y <= pointer.root_y < y + height
 
     def serve(self):

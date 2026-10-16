@@ -55,7 +55,8 @@ in {
   config = lib.mkMerge [
     {
       environment.systemPackages = [ cli test icon ] ++ (with pkgs; [
-        xfce.xfwm4 xfce.xfce4-panel xfce.xfce4-settings xfce.xfce4-whiskermenu-plugin xfce.xfce4-terminal
+        xfce.xfwm4 xfce.xfce4-panel xfce.xfce4-settings xfce.xfce4-whiskermenu-plugin xfce.xfce4-windowck-plugin
+        xfce.xfce4-terminal
         xfce.exo xfce.garcon xfce.libxfce4ui xfce.xfce4-appfinder xfce.xfdesktop xfce.thunar
         colloid-gtk-theme colloid-icon-theme adwaita-icon-theme hicolor-icon-theme
         hsetroot glib gtk3.out desktop-file-utils shared-mime-info

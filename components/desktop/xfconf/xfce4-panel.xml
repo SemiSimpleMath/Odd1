@@ -20,7 +20,10 @@
       <property name="plugin-ids" type="array">
         <value type="int" value="10"/>
         <value type="int" value="1"/>
+        <value type="int" value="12"/>
         <value type="int" value="4"/>
+        <value type="int" value="13"/>
+        <value type="int" value="6"/>
         <value type="int" value="5"/>
         <value type="int" value="11"/>
       </property>
@@ -74,6 +77,23 @@
     </property>
     <property name="plugin-4" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- The maximized window's title and buttons (it has no title bar of its own: xfwm4 titleless_maximize). -->
+    <property name="plugin-12" type="string" value="wcktitle">
+      <property name="only-maximized" type="bool" value="true"/>
+      <property name="show-on-desktop" type="bool" value="false"/>
+      <property name="sync-wm-font" type="bool" value="false"/>
+      <property name="title-font" type="string" value="Inter Semi-Bold 10"/>
+      <property name="title-padding" type="int" value="12"/>
+    </property>
+    <property name="plugin-13" type="string" value="wckbuttons">
+      <property name="only-maximized" type="bool" value="true"/>
+      <property name="show-on-desktop" type="bool" value="false"/>
+      <property name="sync-wm-theme" type="bool" value="true"/>
+      <property name="button-layout" type="string" value="HMC"/>
+    </property>
+    <property name="plugin-6" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
     </property>
     <property name="plugin-5" type="string" value="clock">

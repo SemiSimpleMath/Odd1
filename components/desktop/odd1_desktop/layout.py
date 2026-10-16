@@ -1,7 +1,7 @@
 """The desktop's geometry and look, as pure functions (no display needed, so every rule is tested offline).
 
-The screen: a top bar (the panel), the chat column on the right (full height below the bar), the taskbar floating
-at the bottom of the work area, and the work area for apps on the left. Sizes follow the screen, which follows the
+The screen: the chat column on the right (full height, its tabs at the top), the top bar (the panel) over the work
+area only, the taskbar floating at the bottom of the work area, and the work area for apps on the left. Sizes follow the screen, which follows the
 viewer's window.
 """
 CHAT_TITLES = ("Claude Code",)
@@ -29,20 +29,21 @@ def dock_width(screen_width):
     return max(DOCK_MIN, min(DOCK_MAX, round(screen_width * DOCK_SHARE)))
 
 
-def column(screen, top):
-    """(x, y, width, height) of the whole chat column on a (width, height) screen below a `top`-high bar."""
+def column(screen):
+    """(x, y, width, height) of the whole chat column on a (width, height) screen: the full height, its tabs at the
+    very top (the top bar spans only the work area)."""
     width = dock_width(screen[0])
-    return (screen[0] - width, top, width, screen[1] - top)
+    return (screen[0] - width, 0, width, screen[1])
 
 
-def header_box(screen, top):
-    x, y, width, _ = column(screen, top)
+def header_box(screen):
+    x, y, width, _ = column(screen)
     return (x, y, width, HEADER_HEIGHT)
 
 
-def chat_box(screen, top):
+def chat_box(screen):
     """Where a chat window goes: the column below its header."""
-    x, y, width, height = column(screen, top)
+    x, y, width, height = column(screen)
     return (x, y + HEADER_HEIGHT, width, height - HEADER_HEIGHT)
 
 
@@ -50,10 +51,16 @@ def work_area(screen, top, bottom=0):
     return (0, top, screen[0] - dock_width(screen[0]), screen[1] - top - bottom)
 
 
-def strut(screen, top):
-    """_NET_WM_STRUT_PARTIAL reserving the column on the right edge."""
+def panel_length(screen_width):
+    """The top bar's length (xfce4-panel's percent of the screen width): exactly the work area, so its right end, the
+    clock, sits at the work area's corner beside the chat column."""
+    return 100 * (screen_width - dock_width(screen_width)) / screen_width
+
+
+def strut(screen):
+    """_NET_WM_STRUT_PARTIAL reserving the column on the right edge, top to bottom."""
     width = dock_width(screen[0])
-    return [0, width, 0, 0, 0, 0, top, screen[1] - 1, 0, 0, 0, 0]
+    return [0, width, 0, 0, 0, 0, 0, screen[1] - 1, 0, 0, 0, 0]
 
 
 def fit(box, area, gap=12):

@@ -6,7 +6,8 @@ MODULE = (ROOT / "module.nix").read_text()
 
 
 def test_module_installs_window_manager_panel_theme_and_fonts():
-    for package in ("xfce.xfwm4", "xfce.xfce4-panel", "xfce.xfce4-whiskermenu-plugin", "colloid-gtk-theme",
+    for package in ("xfce.xfwm4", "xfce.xfce4-panel", "xfce.xfce4-whiskermenu-plugin", "xfce.xfce4-windowck-plugin",
+                    "colloid-gtk-theme",
                     "inter", "jetbrains-mono"):
         assert package in MODULE
 
