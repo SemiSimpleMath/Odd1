@@ -30,6 +30,7 @@ Every component's agent entry point is an MCP server of the same name, registere
 | agents | M4 | The Agents app: health and settings of every agent system (roles, tasks, Claude Code, tools) | (none: its changes are tasks' and role files) |
 | caretaker | M1 | Machine health and foreground pressure (PSI, cgroups); restarts listed failed units | caretaker_status/pressure/repair |
 | stats | M4 | Agent and system stats sampled every 15 min; summary and trend (is performance degrading, where is the friction) | stats_summary/trend |
+| snip | M4 | A snipping tool like Windows' (Print, Super+Shift+S): rectangle, freeform, window, full screen; mark up, copy, save | (none: agents have app_screenshot) |
 
 ## Connections
 - Claude Code (the person's front agent, and any other agent harness plugged in) reaches every component through MCP.
