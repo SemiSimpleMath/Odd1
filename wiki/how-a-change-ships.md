@@ -13,4 +13,7 @@
    `odd1-deploy rollback` goes back one.
 - Never activate a system built straight from `/srv/odd1` with nixos-rebuild: it is refused (the working tree holds other sessions' unfinished
   edits). The person's override is `odd1-deploy --force`, at a terminal, logged.
+- Publishing to GitHub (https://github.com/SemiSimpleMath/Odd1, public) is the person's call: when they ask, run
+  `odd1-publish` (main only, fast-forward, credential scan first, token from the vault). Never `git push` by hand:
+  the token is not in git's config, and the person's chats are allowed `odd1-publish` alone. Task roles never push.
 - Details: `components/deploy/README.md`, rule [0007](decisions/0007-only-committed-work-ships.md).
