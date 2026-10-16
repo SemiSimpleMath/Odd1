@@ -72,9 +72,9 @@ in {
   # (Claude Code's sign-in, xdg-open) get Firefox on the Odd1 desktop.
   environment.systemPackages = [ pkgs.nodejs pkgs.xdg-utils pkgs.xfce.xfce4-terminal ];
   environment.variables.BROWSER = "firefox";
-  # The person (components/person): their name on the menu and on commits made here (agents and chats commit as the
-  # person; ticket 22); their own changes in About you win.
-  odd1.person = { name = "Jukka Virtanen"; email = "semisimplemath@gmail.com"; };
+  # The person (components/person): empty here, the same for every install. Each install sets its person's name and
+  # email in its own local settings (/srv/odd1-local/host.nix, never published; odd1-deploy builds it with the
+  # release), or the person fills in About you.
   programs.git.enable = true;
   xdg.mime.defaultApplications = {
     "text/html" = "firefox.desktop";

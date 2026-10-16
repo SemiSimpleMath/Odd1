@@ -8,7 +8,7 @@ wt=${ODD1_TASKS_WORKTREE:-$PWD}
 cd "$wt"
 python3 tools/check.py
 out="$wt.build"   # beside the worktree, not in it
-nix-build '<nixpkgs/nixos>' -I nixos-config="$wt/$(odd1-deploy host)" -A system -o "$out" >/dev/null
+nix-build '<nixpkgs/nixos>' -I nixos-config="$(odd1-deploy config-for "$wt")" -A system -o "$out" >/dev/null
 echo "system builds from $(git rev-parse --short HEAD)"
 changed=$( { git diff --name-only main...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } \
   | grep -o '^components/[^/]*' | cut -d/ -f2 || true)

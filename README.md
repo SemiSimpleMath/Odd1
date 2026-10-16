@@ -9,6 +9,9 @@ install as the native OS of any machine. Claude Code is the default agent; any a
 
 ## This repository is the source of truth
 
+Everything Odd1 runs comes from here, at a commit, and this repository is the same for every install: one
+person's or one machine's values (names, emails, keys) live in the install's own local settings
+(`/srv/odd1-local`, never published), which `odd1-deploy` builds together with the release.
 Everything Odd1 runs comes from here, at a commit. Code that exists only on a VM, in /tmp, or in a session
 workspace does not count and will be lost. If it matters, it lives here.
 

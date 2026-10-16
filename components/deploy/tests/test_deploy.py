@@ -9,8 +9,9 @@ from odd1_deploy import cli
 from odd1_deploy.deploy import Deployer, DeployError
 
 FAKE_REBUILD = r"""
-log=$1; action=$2; cfg=${4#nixos-config=}; root=${cfg%/nix/hosts/test.nix}
-echo "start $action $(cat "$root/app.txt") $(ls -A "$root" | tr '\n' ' ')" >> "$log"
+log=$1; action=$2; cfg=${4#nixos-config=}
+case $cfg in */odd1-config.nix) root=${cfg%/odd1-config.nix} ;; *) root=${cfg%/nix/hosts/test.nix} ;; esac
+echo "start $action $(cat "$root/app.txt") $(ls -A "$root" | tr '\n' ' ') local:$(cat "$root/local/host.nix" 2>/dev/null)" >> "$log"
 sleep "${FAKE_SLEEP:-0}"
 echo "end" >> "$log"
 [ ! -e "$root/broken" ]
@@ -49,7 +50,8 @@ def world(tmp_path, monkeypatch):
     for key, value in (("ODD1_DEPLOY_STATE", tmp_path / "state"), ("ODD1_REPO", repo),
                        ("ODD1_DEPLOY_NIXOS_CONFIG", config), ("ODD1_DEPLOY_REBUILD", f"sh {script} {log}"),
                        ("ODD1_DEPLOY_SUDO", ""), ("ODD1_DEPLOY_FAILED_UNITS", f"cat {units}"),
-                       ("ODD1_DEPLOY_TESTS_BIN", tests), ("ODD1_DEPLOY_SETTLE", "0")):
+                       ("ODD1_DEPLOY_TESTS_BIN", tests), ("ODD1_DEPLOY_SETTLE", "0"),
+                       ("ODD1_LOCAL", tmp_path / "odd1-local")):
         monkeypatch.setenv(key, str(value))
     monkeypatch.delenv("ODD1_DEPLOY_HOST", raising=False)
     d = Deployer(state=tmp_path / "state", repo=repo, nixos_config=config, rebuild=f"sh {script} {log}", sudo="")
@@ -288,3 +290,50 @@ def test_force_needs_a_person_at_a_terminal_and_the_code_and_is_logged(world):
     commit(repo, "v2")
     d.deploy()  # the next normal deploy returns to a release
     assert d.status()["forced"] is None
+
+
+# -- the install's local settings ---------------------------------------------------------------------------------------
+def make_local(world, text="{ odd1.person.name = \"Ada\"; }"):
+    local = world["tmp"] / "odd1-local"
+    local.mkdir(exist_ok=True)
+    if not (local / ".git").exists():
+        git(world["tmp"], "init", "-q", "-b", "main", str(local))
+        git(local, "config", "user.email", "t@t")
+        git(local, "config", "user.name", "t")
+    (local / "host.nix").write_text(text + "\n")
+    git(local, "add", "host.nix")
+    git(local, "commit", "-qm", "settings")
+    return local, git(local, "rev-parse", "HEAD")
+
+
+def test_local_config_is_built_with_the_release_and_the_system_imports_both(world):
+    d = world["d"]
+    d.deploy()  # first without local settings: the host file alone
+    local, lsha = make_local(world)
+    (local / "host.nix").write_text("{ uncommitted = true; }\n")  # only committed local settings ship
+    record = d.deploy()
+    assert record["local"] == lsha and record["release"] == f"{world['first']}-{lsha[:12]}"
+    release = d.state / "releases" / record["release"]
+    assert (release / "local" / "host.nix").read_text() == '{ odd1.person.name = "Ada"; }\n'
+    assert "nix/hosts/test.nix ./local/host.nix" in (release / "odd1-config.nix").read_text()
+    assert builds(world)[-1].endswith('local:{ odd1.person.name = "Ada"; }')
+    assert f"{d.state}/current/odd1-config.nix" in world["config"].read_text()
+    assert d.status()["local"] == lsha and d.current() == world["first"]
+
+
+def test_local_config_change_deploys_and_rolls_back_with_its_release(world):
+    d = world["d"]
+    local, first_local = make_local(world)
+    d.deploy()
+    _, second_local = make_local(world, "{ odd1.person.name = \"Grace\"; }")
+    assert d.deploy()["local"] == second_local  # same public commit, new local settings: a new release
+    back = d.rollback()
+    assert back["local"] == first_local and d.current_local() == first_local
+    assert builds(world)[-1].endswith('local:{ odd1.person.name = "Ada"; }')
+
+
+def test_local_config_for_a_checkout_joins_it_with_the_local_settings(world):
+    d = world["d"]
+    local, _ = make_local(world)
+    cfg = d.config_for(world["repo"])
+    assert f"{world['repo']}/nix/hosts/test.nix {local}/host.nix" in cfg.read_text()

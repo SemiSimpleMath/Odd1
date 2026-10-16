@@ -9,6 +9,11 @@ Milestone: M1 (the machine changes only through committed, checked work; deploys
   `odd1-deploy host` prints the host file (e.g. `nix/hosts/dev-vm.nix`) for scripts that build a checkout.
 - Agents: MCP server `deploy` (`deploy_status`, `deploy_commit`, `deploy_rollback`).
 - `sudo nixos-rebuild switch` alone rebuilds the deployed release (the same commit), not `/srv/odd1`.
+- This install's own settings (the person's name and email, machine overrides) live in `/srv/odd1-local`, a small
+  private git repository never published: its committed `host.nix` is exported into the release under `local/`
+  and `odd1-config.nix` joins it with the host file; the release is named `<sha>-<local sha>`, and a rollback
+  restores both. Without it, the host file alone is built. `odd1-deploy config-for DIR` gives a configuration that
+  builds a checkout with the local settings (odd1-tasks-check uses it).
 - After a switch the deploy proves itself: no unit failed that was fine before, and the installed tests of the
   components it changed pass (a failure is retried once). Otherwise it rolls back to the previous release on its own;
   the log keeps the failed deploy, its health and the rollback.

@@ -7,6 +7,7 @@
                                    a person ships /srv/odd1's working tree as it is (asks at the terminal; logged)
     odd1-deploy status [--json]    the deployed commit, how far main is ahead, recent deploys
     odd1-deploy host               the host's configuration file inside the repository (e.g. nix/hosts/dev-vm.nix)
+    odd1-deploy config-for DIR     a configuration that builds checkout DIR with this install's local settings
 """
 from __future__ import annotations
 
@@ -36,6 +37,9 @@ def main(argv=None) -> int:
             now = s["current"]
             subject = d._git("log", "-1", "--format=%s", now) if now else ""
             print(f"current {now[:12] if now else 'none'} {subject}".rstrip())
+            if s["local"] or s["local_head"]:
+                print(f"local   {(s['local'] or 'none')[:12]} ({d.local}" + (", newer commits not deployed)"
+                      if s["local_head"] and s["local_head"] != s["local"] else ")"))
             print(f"main    {s['main'][:12]}" + ("" if s["main_ahead_by"] is None else
                                                  f" ({s['main_ahead_by']} commits not deployed)"))
             if s["forced"]:
@@ -46,6 +50,9 @@ def main(argv=None) -> int:
                   f" ({d.nixos_config})")
             for h in s["history"]:
                 print("  " + _line(h))
+            return 0
+        if argv[:1] == ["config-for"] and len(argv) == 2:
+            print(d.config_for(argv[1]))
             return 0
         if argv[:1] == ["host"]:
             print(d.host())
