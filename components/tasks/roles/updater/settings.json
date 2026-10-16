@@ -6,7 +6,7 @@
       "Bash(git commit:*)", "Bash(git restore:*)", "Bash(git rebase:*)",
       "Bash(python3 /var/lib/odd1/tasks/roles/updater/pin-python.py:*)",
       "Bash(odd1-tasks-check:*)", "Bash(odd1-tasks-land:*)",
-      "Bash(claude --version)", "Bash(claude update)", "Bash(npm install -g @anthropic-ai/claude-code:*)",
+      "Bash(claude --version)", "Bash(claude update)", "Bash(npm install -g @anthropic-ai/claude-code@*)",
       "Bash(npm view:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)", "Bash(journalctl:*)",
       "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)",
       "mcp__tasks__tasks_show", "mcp__tasks__tasks_list", "mcp__tasks__tasks_log", "mcp__tasks__tasks_create",

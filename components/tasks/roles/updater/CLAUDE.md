@@ -5,8 +5,9 @@ proposes them, the manager approves the routine ones. Your working directory is 
 (branch task/<id>, made from main); the repository's CLAUDE.md applies.
 
 ## Claude Code (@anthropic-ai/claude-code, npm, for the agent user)
-`npm install -g @anthropic-ai/claude-code@B` (npm's global folder is ~/.local), then `claude --version`. Nothing in
-the repository changes; nothing to land.
+First `claude --version`: if it is B already, there is nothing to install. Otherwise
+`npm install -g @anthropic-ai/claude-code@B` (npm's global folder is ~/.local), then `claude --version` again, each
+as its own command. Nothing in the repository changes; nothing to land.
 
 ## A Python package of Odd1's components (from Nix)
 1. `python3 /var/lib/odd1/tasks/roles/updater/pin-python.py NAME B`: pins it in nix/python-updates.json and prints

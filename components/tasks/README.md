@@ -85,7 +85,9 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
 - **update-watcher** (`updates`): a daily recurring task; `check-versions.py` compares Claude Code (npm) and the
   Python packages components install (from the Nix build, `/etc/odd1/tasks/python-packages.json`; PyPI) and it
   proposes "Update X from a to b" tagged `apply-update`. It never applies updates (no role holds that tag yet).
-Each role proposes one starter task when its runner first starts; approve it to begin.
+Permission rules in a role's settings.json (checked with dontAsk): `Bash(cmd:*)` matches `cmd` followed by a space
+and arguments, not `cmd@1.2`; `Bash(cmd*)` matches any suffix. Every command of a chain (`a && b`, `a | b`) must be
+allowed; read-only ones (echo, tail, ls) always are. Each role proposes one starter task when its runner first starts; approve it to begin.
 
 Limits: agents and runners run as the same Unix user `agent`, so the role's permissions (no Bash beyond the listed
 commands, no SQL) keep an agent from approving or writing the store directly; a separate user per role would make

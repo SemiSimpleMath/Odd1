@@ -153,11 +153,15 @@ def test_seed_keeps_the_persons_edits_and_proposes_starters_once(store):
     assert os.access(roles.folder(store, "housekeeper") / "clean.sh", os.X_OK)
 
 
-@pytest.mark.parametrize("role", ["housekeeper", "update-watcher"])
+@pytest.mark.parametrize("role", ["housekeeper", "update-watcher", "manager", "fixer", "updater"])
 def test_role_settings_never_bypass_permissions(store, role):
+    roles.seed(store, role)
     settings = json.loads((roles.folder(store, role) / "settings.json").read_text())
     perms = settings["permissions"]
-    assert "mcp__tasks__tasks_approve" in perms["deny"] and "mcp__tasks__tasks_approve" not in perms["allow"]
+    if role == "manager":  # deciding is its job; the store holds it to the tags a person delegated
+        assert "mcp__tasks__tasks_approve" in perms["allow"]
+    else:
+        assert "mcp__tasks__tasks_approve" in perms["deny"] and "mcp__tasks__tasks_approve" not in perms["allow"]
     assert not any(a.startswith(("Bash(rm", "Bash(sudo", "Bash(find")) or a == "Bash" for a in perms["allow"])
     assert "defaultMode" not in perms
 
@@ -184,3 +188,10 @@ def test_a_paused_role_takes_no_new_task(store, monkeypatch):
     assert runner.run_once(store, "housekeeper") is None and calls() == []
     edit_role(store, "housekeeper", enabled="true")
     assert runner.run_once(store, "housekeeper")["status"] == "done"
+
+
+def test_the_updater_may_install_an_exact_claude_code_version(store):
+    roles.seed(store, "updater")
+    allow = json.loads((roles.folder(store, "updater") / "settings.json").read_text())["permissions"]["allow"]
+    # `cmd:*` needs a space after cmd (tested against Claude Code): a version is `cmd@1.2`, so the rule is `cmd@*`
+    assert "Bash(npm install -g @anthropic-ai/claude-code@*)" in allow
