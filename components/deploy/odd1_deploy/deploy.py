@@ -55,6 +55,8 @@ class Deployer:
         # --force bypasses the nixos-rebuild guard (guard.py), so it calls the real one.
         self.force_rebuild = shlex.split(env.get("ODD1_DEPLOY_FORCE_REBUILD") or
                                          f"sudo -n {env.get('ODD1_DEPLOY_REAL_REBUILD', 'nixos-rebuild')}")
+        # Evaluates the tree's nixpkgs pin (nix/nixpkgs.json) to its store path.
+        self.instantiate = shlex.split(env.get("ODD1_DEPLOY_INSTANTIATE", "nix-instantiate"))
 
     # -- git, read-only -----------------------------------------------------------------------------------------------
     def _git(self, *args) -> str:
@@ -125,6 +127,24 @@ class Deployer:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(self.composed(str(tree), str(self.local)))
         return out
+
+    def nixpkgs(self, tree: Path) -> str | None:
+        """The nixpkgs a tree is built with: its nix/nixpkgs.json (url and tarball hash; nix/odd1.nix fetches the same
+        and asserts the build used it), fetched or found in the store. None when the tree pins none."""
+        pin = Path(tree) / "nix/nixpkgs.json"
+        if not pin.exists():
+            return None
+        p = json.loads(pin.read_text())
+        expr = f"builtins.fetchTarball {{ url = {json.dumps(p['url'])}; sha256 = {json.dumps(p['sha256'])}; }}"
+        r = subprocess.run([*self.instantiate, "--eval", "--json", "--expr", expr], capture_output=True, text=True)
+        if r.returncode:
+            raise DeployError(f"cannot fetch the nixpkgs {pin} pins ({p.get('version', p['url'])}): "
+                              f"{r.stderr.strip()[-400:]}")
+        return json.loads(r.stdout)
+
+    def nixpkgs_args(self, tree: Path) -> list[str]:
+        path = self.nixpkgs(tree)
+        return ["-I", f"nixpkgs={path}"] if path else []
 
     @staticmethod
     def _export(repo: Path, sha: str, into: Path) -> None:
@@ -238,7 +258,7 @@ class Deployer:
         before_name = (self.state / "current").resolve().name if before else None
         failed_before = self.failed_units() if action == "switch" and health else set()
         started = time.time()
-        p = subprocess.run([*self.rebuild, action, "-I", f"nixos-config={config}"])
+        p = subprocess.run([*self.rebuild, action, "-I", f"nixos-config={config}", *self.nixpkgs_args(where)])
         record = {"at": started, "seconds": round(time.time() - started, 1), "commit": sha, "local": local,
                   "release": where.name, "action": action, "ok": p.returncode == 0, "previous": before,
                   "actor": actor, "reason": reason,
@@ -289,7 +309,8 @@ class Deployer:
         with self._lock(True):
             config = self.config_for(self.repo)
             started = time.time()
-            p = subprocess.run([*self.force_rebuild, "switch", "-I", f"nixos-config={config}"])
+            p = subprocess.run([*self.force_rebuild, "switch", "-I", f"nixos-config={config}",
+                                *self.nixpkgs_args(self.repo)])
             record = {"at": started, "seconds": round(time.time() - started, 1), "commit": self._git("rev-parse",
                       "HEAD"), "action": "switch", "ok": p.returncode == 0, "previous": self.current(),
                       "actor": _actor(), "reason": reason, "forced": True, "dirty": dirty,

@@ -9,9 +9,10 @@ cd "$wt"
 python3 tools/check.py
 out="$wt.build"   # beside the worktree, not in it
 config=$(odd1-deploy config-for "$wt")
+nixpkgs=$(odd1-deploy nixpkgs "$wt")   # the branch's pinned nixpkgs (nix/nixpkgs.json)
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
-if ! nix-build '<nixpkgs/nixos>' -I nixos-config="$config" -A system -o "$out" >/dev/null 2>"$log"; then
+if ! nix-build '<nixpkgs/nixos>' -I nixos-config="$config" ${nixpkgs:+-I "nixpkgs=$nixpkgs"} -A system -o "$out" >/dev/null 2>"$log"; then
   # Why it failed, not what it would have built: Nix's messages without its lists of paths to build or fetch, then
   # each failed derivation and the end of its build log.
   echo "system does not build from $(git rev-parse --short HEAD):" >&2

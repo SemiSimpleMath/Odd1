@@ -13,6 +13,10 @@ let
   servers = config.odd1.mcpServers;
   registry = pkgs.writeText "odd1-mcp-servers.json" (builtins.toJSON servers);
   agents = pkgs.writeText "odd1-agents.json" (builtins.toJSON config.odd1.agents);
+  # The nixpkgs Odd1 runs on, pinned in the repository (version, url, tarball hash): odd1-deploy and odd1-tasks-check
+  # build with it (-I nixpkgs=), so moving to a newer one is a change of nixpkgs.json, checked like any other.
+  nixpkgsPin = builtins.fromJSON (builtins.readFile ./nixpkgs.json);
+  pinnedNixpkgs = builtins.fetchTarball { inherit (nixpkgsPin) url sha256; };
 in {
   imports = modules;
 
@@ -142,10 +146,16 @@ in {
     '';
   };
 
-  # A plain nixos-rebuild finds this system's configuration (the base Desktop sets only nixpkgs); deploy with odd1-deploy.
-  # toString refers to the pinned nixpkgs without copying it again (a copy per rebuild nests the store name).
-  nix.nixPath = lib.mkForce [ "nixpkgs=${toString pkgs.path}" "nixos-config=/etc/nixos/configuration.nix" ];
-  nix.registry.nixpkgs.to = lib.mkForce { type = "path"; path = toString pkgs.path; };
+  # A build on another nixpkgs than nix/nixpkgs.json pins would not be the system the repository describes.
+  assertions = [ {
+    assertion = toString pkgs.path == pinnedNixpkgs;
+    message = "Odd1 builds with the nixpkgs nix/nixpkgs.json pins (${nixpkgsPin.version}): pass -I nixpkgs=${pinnedNixpkgs} (odd1-deploy and odd1-tasks-check do); this build used ${toString pkgs.path}.";
+  } ];
+
+  # A plain nixos-rebuild finds this system's configuration (the base Desktop sets only nixpkgs) and the pinned
+  # nixpkgs; deploy with odd1-deploy. A store path string, so nothing is copied again (a copy nests the store name).
+  nix.nixPath = lib.mkForce [ "nixpkgs=${pinnedNixpkgs}" "nixos-config=/etc/nixos/configuration.nix" ];
+  nix.registry.nixpkgs.to = lib.mkForce { type = "path"; path = pinnedNixpkgs; };
 
   # The disk never fills with old builds (it reached 95% on 2026-10-16: 81 generations, ~500 build results): Nix
   # collects garbage daily keeping a week, and during builds whenever free space falls under 2 GB (up to 6 GB freed).

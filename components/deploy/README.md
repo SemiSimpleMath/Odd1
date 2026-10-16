@@ -7,6 +7,13 @@ Milestone: M1 (the machine changes only through committed, checked work; deploys
   activates on next boot, `--build` only builds. `odd1-deploy rollback` deploys the commit current before.
   `odd1-deploy status [--json]` shows the deployed commit, how far main is ahead, the last deploys.
   `odd1-deploy host` prints the host file (e.g. `nix/hosts/dev-vm.nix`) for scripts that build a checkout.
+- nixpkgs is pinned in the repository: `nix/nixpkgs.json` (version, GitHub tarball url, its `fetchTarball` sha256).
+  Every build passes `-I nixpkgs=<that tarball>` (`odd1-deploy nixpkgs DIR` prints it for a checkout), and
+  `nix/odd1.nix` asserts it, so a build never depends on the base Desktop's channel. A newer nixpkgs is a change of
+  that file (url and sha256 together), checked by odd1-tasks-check and landed like any commit. The pin is
+  `fetchTarball` with a hash, so it builds offline once the tree is in the store (`/nix/store/<hash>-source`).
+  Today's pin is the channel the machine was installed with (`nixos-25.05.20260102.ac62194`; only the short rev is
+  recorded on the machine, and github.com was unreachable when it was pinned).
 - Agents: MCP server `deploy` (`deploy_status`, `deploy_commit`, `deploy_rollback`).
 - `sudo nixos-rebuild switch` alone rebuilds the deployed release (the same commit), not `/srv/odd1`.
 - This install's own settings (the person's name and email, machine overrides) live in `/srv/odd1-local`, a small

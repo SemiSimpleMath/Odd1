@@ -337,3 +337,21 @@ def test_local_config_for_a_checkout_joins_it_with_the_local_settings(world):
     local, _ = make_local(world)
     cfg = d.config_for(world["repo"])
     assert f"{world['repo']}/nix/hosts/test.nix {local}/host.nix" in cfg.read_text()
+
+
+def test_a_pinned_nixpkgs_is_built_with_and_a_tree_without_a_pin_uses_the_default(world):
+    repo, d = world["repo"], world["d"]
+    assert d.nixpkgs(repo) is None and d.nixpkgs_args(repo) == []  # no nix/nixpkgs.json: the default nixpkgs
+    fake = world["tmp"] / "instantiate.sh"
+    fake.write_text('echo "$@" > "$(dirname "$0")/instantiate.args"; echo \'"/nix/store/pinned-source"\'\n')
+    d.instantiate = ["sh", str(fake)]
+    d.rebuild = ["sh", "-c", 'echo "$@" > "$0.args"', str(world["tmp"] / "rebuild")]
+    (repo / "nix/nixpkgs.json").write_text(json.dumps({"version": "25.05.x", "url": "https://example/n.tar.gz",
+                                                       "sha256": "0abc"}))
+    git(repo, "add", ".")
+    commit(repo, "pinned")
+    d.deploy()
+    assert (world["tmp"] / "rebuild.args").read_text().split()[-2:] == ["-I", "nixpkgs=/nix/store/pinned-source"]
+    expr = (world["tmp"] / "instantiate.args").read_text()
+    assert 'url = "https://example/n.tar.gz"' in expr and 'sha256 = "0abc"' in expr
+    assert d.nixpkgs(repo) == "/nix/store/pinned-source"

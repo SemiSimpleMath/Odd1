@@ -8,6 +8,7 @@
     odd1-deploy status [--json]    the deployed commit, how far main is ahead, recent deploys
     odd1-deploy host               the host's configuration file inside the repository (e.g. nix/hosts/dev-vm.nix)
     odd1-deploy config-for DIR     a configuration that builds checkout DIR with this install's local settings
+    odd1-deploy nixpkgs DIR        the store path of the nixpkgs checkout DIR pins (nix/nixpkgs.json)
 """
 from __future__ import annotations
 
@@ -53,6 +54,9 @@ def main(argv=None) -> int:
             return 0
         if argv[:1] == ["config-for"] and len(argv) == 2:
             print(d.config_for(argv[1]))
+            return 0
+        if argv[:1] == ["nixpkgs"] and len(argv) == 2:
+            print(d.nixpkgs(argv[1]) or "")
             return 0
         if argv[:1] == ["host"]:
             print(d.host())

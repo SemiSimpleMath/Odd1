@@ -90,7 +90,7 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
 - **fixer** (`friction` + every component, `all_components`): works approved friction tickets, one per run, each
   in its own git worktree on branch `task/<id>` made from main (`workspace = "git-worktree"`; the repository's
   CLAUDE.md applies there, the role's is appended). `odd1-tasks-check [COMPONENT...]`: fitness check, a full system
-  build from the branch, the installed tests of the changed (and named) components; a failed build prints Nix's
+  build from the branch (on the nixpkgs its `nix/nixpkgs.json` pins), the installed tests of the changed (and named) components; a failed build prints Nix's
   errors without its lists of paths to build, then each failed derivation and the tail of its `nix log`. `odd1-tasks-land`: rebase on
   main, check again, fast-forward main, deploy that commit with `odd1-deploy` (components/deploy; `scripts/`). `review = true` in the
   role makes odd1-tasks-land refuse: the next step is review by other agents before
