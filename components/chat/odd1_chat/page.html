@@ -55,6 +55,10 @@
     const node = document.createElement("div"); node.className = cls; node.innerHTML = html;
     log.appendChild(node); bottom(); return node;
   }
+  function greet(name) {
+    const empty = document.getElementById("empty");
+    if (empty && name) empty.textContent = `Hi ${name}. Ask Claude anything. Paste a picture with Ctrl+V.`;
+  }
   function mine(html) { el("msg mine", html); }
   function delta(text) {
     if (!live) { live = el("msg claude live", ""); liveText = ""; }

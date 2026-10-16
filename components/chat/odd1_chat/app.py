@@ -8,6 +8,7 @@ tab; when Claude needs the person and the window is not in front, it marks itsel
 import base64
 import json
 import os
+import subprocess
 
 import gi
 
@@ -32,6 +33,15 @@ window, .odd1-chat { background: #141827; }
 .odd1-status { color: #8b92aa; font-family: Inter; font-size: 12px; padding: 0 4px; }
 .odd1-attach { color: #e8805f; font-family: Inter; font-size: 12px; padding: 0 4px; }
 """
+
+
+def person_name():
+    """What the person likes to be called (their About you, components/person); empty when unknown."""
+    try:
+        return subprocess.run(["odd1-person", "get", "call_me"], capture_output=True, text=True,
+                              timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
 
 
 class ChatWindow(Gtk.Window):
@@ -82,6 +92,7 @@ class ChatWindow(Gtk.Window):
         self.connect("notify::is-active", lambda *_: self.is_active() and self.set_urgency_hint(False))
         self.connect("destroy", self.on_destroy)
 
+        self.js("greet", person_name())
         self.session = Session(lambda event: GLib.idle_add(self.on_event, event), cwd=cwd, resume=resume)
         self.input.grab_focus()
 

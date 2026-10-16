@@ -72,8 +72,10 @@ in {
   # (Claude Code's sign-in, xdg-open) get Firefox on the Odd1 desktop.
   environment.systemPackages = [ pkgs.nodejs pkgs.xdg-utils pkgs.xfce.xfce4-terminal ];
   environment.variables.BROWSER = "firefox";
-  # Whose name goes on commits made here (agents and chats commit as the person; ticket 22).
-  programs.git = { enable = true; config.user = { name = "Jukka Virtanen"; email = "semisimplemath@gmail.com"; }; };
+  # The person (components/person): their name on the menu and on commits made here (agents and chats commit as the
+  # person; ticket 22); their own changes in About you win.
+  odd1.person = { name = "Jukka Virtanen"; email = "semisimplemath@gmail.com"; };
+  programs.git.enable = true;
   xdg.mime.defaultApplications = {
     "text/html" = "firefox.desktop";
     "x-scheme-handler/http" = "firefox.desktop";
@@ -100,8 +102,10 @@ in {
   # Claude Code in the person's chats, for every session: it rings the terminal bell when it needs the person (the
   # chat's tab gets a blinking ball instead of taking the focus); it opens in the focus view (the conversation, not
   # the commands and code behind it; /focus toggles); it draws with the terminal's palette (the desktop's night
-  # palette) and shows no tips. Managed settings override every session's own, so only what suits every chat.
+  # palette) and shows no tips; it starts knowing who the person is (their About you, components/person). Managed
+  # settings override every session's own, so only what suits every chat.
   environment.etc."claude-code/managed-settings.json".text = builtins.toJSON {
+    hooks.SessionStart = [ { hooks = [ { type = "command"; command = "odd1-person context"; } ]; } ];
     preferredNotifChannel = "terminal_bell";
     viewMode = "focus";
     theme = "dark-ansi";

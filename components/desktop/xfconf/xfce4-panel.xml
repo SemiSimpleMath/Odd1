@@ -41,7 +41,8 @@
       <property name="position-search-alternate" type="bool" value="false"/>
       <property name="position-categories-alternate" type="bool" value="true"/>
       <property name="view-mode" type="int" value="1"/>
-      <property name="profile-shape" type="int" value="2"/>
+      <property name="profile-shape" type="int" value="0"/>
+      <property name="command-profile" type="string" value="odd1-person settings"/>
       <property name="category-icon-size" type="int" value="-1"/>
       <property name="item-icon-size" type="int" value="2"/>
       <property name="show-generic-names" type="bool" value="false"/>
@@ -57,7 +58,7 @@
       <property name="show-command-hibernate" type="bool" value="false"/>
       <property name="show-command-logout" type="bool" value="false"/>
       <property name="show-command-menueditor" type="bool" value="false"/>
-      <property name="show-command-profile" type="bool" value="false"/>
+      <property name="show-command-profile" type="bool" value="true"/>
       <property name="favorites" type="array">
         <value type="string" value="thunar.desktop"/>
         <value type="string" value="firefox.desktop"/>
