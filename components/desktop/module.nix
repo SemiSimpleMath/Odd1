@@ -36,6 +36,8 @@ let
     serviceConfig = { ExecStart = command; Restart = "always"; RestartSec = 2; };
   };
   afterSettings = unit: unit // { after = unit.after ++ [ "odd1-desktop-settings.service" ]; };
+  # The Odd1 mark (four dots, one odd) as the icon `odd1`: the menu button shows it.
+  icon = pkgs.runCommand "odd1-icon" { } "install -Dm644 ${./odd1.svg} $out/share/icons/hicolor/scalable/apps/odd1.svg";
   xfconf = name: { "xdg/xfce4/xfconf/xfce-perchannel-xml/${name}".source = ./xfconf + "/${name}"; };
   # Odd1 owns these settings channels: the repository's defaults (xfconf/) apply at every session start, so a value
   # Xfce once wrote into ~/.config (first-run defaults, an old layout) never shadows them. xfconfd restarts on demand.
@@ -51,7 +53,7 @@ in {
 
   config = lib.mkMerge [
     {
-      environment.systemPackages = [ cli test ] ++ (with pkgs; [
+      environment.systemPackages = [ cli test icon ] ++ (with pkgs; [
         xfce.xfwm4 xfce.xfce4-panel xfce.xfce4-settings xfce.xfce4-whiskermenu-plugin xfce.xfce4-terminal
         xfce.exo xfce.garcon xfce.libxfce4ui xfce.xfce4-appfinder xfce.xfdesktop xfce.thunar
         colloid-gtk-theme colloid-icon-theme adwaita-icon-theme hicolor-icon-theme
