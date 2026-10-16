@@ -43,7 +43,7 @@
       <property name="item-icon-size" type="int" value="2"/>
       <property name="show-generic-names" type="bool" value="false"/>
       <property name="show-descriptions" type="bool" value="false"/>
-      <property name="default-category" type="int" value="2"/>
+      <property name="default-category" type="int" value="0"/>
       <property name="show-command-settings" type="bool" value="true"/>
       <property name="show-command-lockscreen" type="bool" value="false"/>
       <property name="show-command-switchuser" type="bool" value="false"/>
@@ -56,6 +56,7 @@
       <property name="show-command-menueditor" type="bool" value="false"/>
       <property name="show-command-profile" type="bool" value="false"/>
       <property name="favorites" type="array">
+        <value type="string" value="thunar.desktop"/>
         <value type="string" value="firefox.desktop"/>
         <value type="string" value="xfce4-terminal.desktop"/>
         <value type="string" value="codium.desktop"/>
