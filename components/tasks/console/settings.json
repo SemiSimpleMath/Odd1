@@ -16,7 +16,11 @@
       "mcp__tasks__tasks_list",
       "mcp__tasks__tasks_show",
       "mcp__tasks__tasks_log",
-      "mcp__tasks__tasks_create"
+      "mcp__tasks__tasks_create",
+      "mcp__tasks__tasks_attention",
+      "mcp__tasks__tasks_changes",
+      "Bash(odd1-tasks attention:*)",
+      "Bash(odd1-tasks changes:*)"
     ],
     "ask": [
       "mcp__tasks__tasks_approve",
@@ -24,7 +28,11 @@
       "mcp__tasks__tasks_claim",
       "Bash(odd1-tasks approve:*)",
       "Bash(odd1-tasks release:*)",
-      "Bash(odd1-tasks claim:*)"
+      "Bash(odd1-tasks claim:*)",
+      "mcp__tasks__tasks_decline",
+      "mcp__tasks__tasks_cancel",
+      "Bash(odd1-tasks decline:*)",
+      "Bash(odd1-tasks cancel:*)"
     ]
   }
 }

@@ -15,7 +15,7 @@ def test_cli_create_approve_show(store, monkeypatch, capsys):
     tid = int(capsys.readouterr().out.split()[1])
     monkeypatch.setenv("ODD1_TASKS_AGENT", "housekeeper")
     assert cli.main(["approve", str(tid)]) == 1
-    assert "only a person" in capsys.readouterr().err
+    assert "may not decide" in capsys.readouterr().err
     monkeypatch.delenv("ODD1_TASKS_AGENT")
     assert cli.main(["approve", str(tid)]) == 0
     assert cli.main(["claim", "--as", "housekeeper"]) == 0
@@ -37,13 +37,14 @@ async def _mcp(state):
             await session.initialize()
             names = {t.name for t in (await session.list_tools()).tools}
             assert names == {f"tasks_{op}" for op in
-                             ("create", "list", "show", "approve", "claim", "renew", "release", "log", "finish")}
+                             ("create", "list", "show", "approve", "claim", "renew", "release", "log", "finish",
+                              "decline", "cancel", "escalate", "attention", "changes")}
 
             async def call(name, **args):
                 return json.loads((await session.call_tool(name, args)).content[0].text)
             t = await call("tasks_create", goal="Delete old ISO", done_when="test ! -e /x.iso", tags=["needs-person"])
             assert t["status"] == "proposed" and t["created_by"] == "housekeeper"
-            assert "only a person" in (await call("tasks_approve", task_id=t["id"]))["error"]
+            assert "may not decide" in (await call("tasks_approve", task_id=t["id"]))["error"]
 
 
 def test_mcp_agent_proposes_but_cannot_approve(store):

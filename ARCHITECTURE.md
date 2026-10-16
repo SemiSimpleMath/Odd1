@@ -44,6 +44,8 @@ Every component's agent entry point is an MCP server of the same name, registere
   opens a tab per conversation, labelled by system. Claude Code is one; `tasks` registers its console.
 - `agents` is the person's window onto all of it: it reads and changes `tasks` (store, role files) and reads
   `caretaker`, the registries and Claude Code; no state of its own.
+- Decisions: routine ones go to the `tasks` manager role (within tags the person delegates), the rest to the person
+  (desktop notification from `odd1-tasks-watch`); every reader catches up from the task log (`changes --since`).
 - `tasks` is the agent process manager: `odd1-tasks-runner@<role>` starts Claude Code headless per approved task, under
   the role's permissions and budgets; tasks are proposed by anyone, approved by the person. Its runs' cost and
   failures are the structured source `caretaker` should watch; budgets beyond turns and minutes grow there.

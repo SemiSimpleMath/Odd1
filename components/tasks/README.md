@@ -28,15 +28,27 @@ A task: goal (one sentence, the outcome), done_when (shell; exit 0 = done), tags
 max_minutes), depends_on, resources (paths/services it changes), schedule (`1d`, `12h`, ...), created_by, status,
 claim (claim_agent, lease_until), attempts/max_attempts (3), and the append-only `log` table. Read and change it with
 SQL if you like (`agents` holds each role's tags); triggers hold the rules for every writer:
-- New tasks start **proposed**; only a person approves (`odd1-tasks approve`). Each later run of an approved recurring
+- New tasks start **proposed** and need a decision: a person's, or an agent's within the tags a person delegated to
+  it (`decides` in its role.toml; never a task it proposed). Declining and cancelling (with a reason) work the same. Each later run of an approved recurring
   task is created **ready** without asking again, one open run at a time.
-- proposed>ready>claimed>verifying>done; claimed>ready (release, or lease expired) | blocked; blocked>ready (a
+- proposed>ready>claimed>verifying>done; proposed>declined; open work (and a recurring task's series)>cancelled; claimed>ready (release, or lease expired) | blocked; blocked>ready (a
   person approves again); verifying>ready (attempts left) | parked (used up). Nothing is deleted; approved tasks
   are fixed.
 - A claim is atomic and a lease (10 min, renewed by the runner every 2 min). The claimer must hold every tag of the
   task, its dependencies must be done, and no claimed or verifying task may share a resource (`/tmp` and `/tmp/x`
   overlap). An expired lease returns the task to ready; the next run's prompt holds the whole log to resume from.
 - done only when a done_when check, run by the runner and logged, passed after the last finish.
+
+## Who acts on what: the manager, the person, the change feed
+`odd1-tasks attention [--for person|manager]` lists who has to act on what, derived from the store each time (never
+stale): proposals, blocked and parked tasks, and approved tasks no role runs go to the **manager** role when their
+tags are in its `decides`, otherwise to the **person**; so do escalations (`odd1-tasks escalate ID REASON`, until a
+person acts on the task), decisions the manager left longer than `escalate_after_minutes` (it is paused, down, or
+stuck), and stopped runners. The manager runs only while it has items (its recurring task's `run_if`), so there are
+no idle model calls. `odd1-tasks-watch` (user service) notifies the person of their new items, once each (again after
+a day if still open), batched. A cancel reaches a running agent through its lease: the runner's next renewal fails
+and it stops the agent. `odd1-tasks changes --since N` (MCP `tasks_changes`) gives everything after log entry N and
+a new cursor, so any reader catches up from the one log instead of keeping its own copy.
 
 ## Runners and roles
 `odd1-tasks-runner@<role>` (one systemd unit per role): every 30 s, with no model call, it rereads the role's config,
@@ -52,6 +64,8 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
 (`.seeded` records what was copied). The console folder is seeded the same way.
 - **housekeeper** (`housekeeping`): reports disk use; deletes only through `clean.sh` (files owned by agent unchanged
   for over 7 days, in ~/.cache or /tmp). Anything else it would delete becomes a proposal tagged `needs-person`.
+- **manager** (`manage`; decides `housekeeping`, `updates`): approves or declines routine proposals, unblocks or
+  cancels, escalates anything irreversible, costly or unclear. Only a person approves its own starter.
 - **update-watcher** (`updates`): a daily recurring task; `check-versions.py` compares Claude Code (npm) and the
   Python packages components install (from the Nix build, `/etc/odd1/tasks/python-packages.json`; PyPI) and it
   proposes "Update X from a to b" tagged `apply-update`. It never applies updates (no role holds that tag yet).

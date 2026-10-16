@@ -53,8 +53,12 @@ def summary(store: Store, now: float | None = None) -> str:
             parts[-1] += f" (runner {down})"
         elif not roles.load(store, role)["enabled"]:
             parts[-1] += " (paused)"
-    waiting = {s: sum(t["status"] == s for t in tasks) for s in ("proposed", "blocked", "parked")}
-    parts += [f"{n} {s}" for s, n in waiting.items() if n]
+    from . import attention
+    found = attention.items(store, now)
+    mine = len(attention.for_whom(found, attention.PERSON))
+    deciding = len(found) - mine
+    parts += [f"{mine} need you"] if mine else []
+    parts += [f"{deciding} with the manager"] if deciding else []
     due = []
     for root in tasks:
         if root["schedule"] and root["approved_at"]:

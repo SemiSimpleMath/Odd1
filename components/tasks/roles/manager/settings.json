@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep",
+      "Bash(odd1-tasks attention:*)", "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)",
+      "Bash(odd1-tasks changes:*)", "Bash(odd1-tasks status)", "Bash(journalctl -u odd1-tasks-runner*)",
+      "Write(./reports/**)", "Edit(./reports/**)",
+      "mcp__tasks__tasks_attention", "mcp__tasks__tasks_changes", "mcp__tasks__tasks_list", "mcp__tasks__tasks_show",
+      "mcp__tasks__tasks_log", "mcp__tasks__tasks_approve", "mcp__tasks__tasks_decline", "mcp__tasks__tasks_cancel",
+      "mcp__tasks__tasks_escalate", "mcp__tasks__tasks_finish", "mcp__tasks__tasks_release"
+    ],
+    "deny": ["mcp__tasks__tasks_claim", "mcp__tasks__tasks_create", "WebFetch", "WebSearch"]
+  }
+}

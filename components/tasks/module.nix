@@ -5,7 +5,7 @@
 let
   python = pkgs.python3.withPackages (p: [ p.pytest p.mcp ]);
   state = "/var/lib/odd1/tasks";
-  roles = [ "housekeeper" "update-watcher" ];
+  roles = [ "housekeeper" "update-watcher" "manager" ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_TASKS_STATE=''${ODD1_TASKS_STATE:-${state}}
@@ -73,4 +73,18 @@ in {
     };
   };
   systemd.targets.multi-user.wants = map (r: "odd1-tasks-runner@${r}.service") roles;
+
+  # Tells the person (desktop notification) what needs them: escalations, decisions outside the manager's authority
+  # or left too long, stopped runners. Once each; no model calls. In the person's session, so notifications reach it.
+  systemd.user.services.odd1-tasks-watch = {
+    description = "Odd1 tasks: tell the person what needs them";
+    wantedBy = [ "default.target" ];
+    path = [ cli pkgs.libnotify pkgs.systemd ];
+    environment = { ODD1_TASKS_STATE = state; PYTHONPATH = "${./.}"; };
+    serviceConfig = {
+      ExecStart = "${python}/bin/python3 -m odd1_tasks.cli watch";
+      Restart = "always";
+      RestartSec = "30s";
+    };
+  };
 }

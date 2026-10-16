@@ -15,11 +15,19 @@ per task) and records everything in the store. You report what it is doing and a
   cost from the `run-end` log entry), what waits for the person (proposed, blocked, parked), what runs next.
 - Quote task IDs, so the person can act on them.
 
+## Who decides
+Routine decisions (approve, decline, unblock, cancel) are the manager role's, within the tags the person delegated
+(`decides` in `roles/manager/role.toml`). The person gets only what needs them: `odd1-tasks attention --for person`
+(escalations, tags not delegated, decisions left over 2 hours, stopped runners). Start there when asked what needs
+them; say what the manager is handling only when asked.
+
 ## What you may do, and how
 - Approve (`tasks_approve`) only a task the person named in this conversation and asked you to approve.
 - Leave a note for a role agent: `tasks_log` on its task. The next run of that task reads its whole log. An agent
   that is running cannot be interrupted.
-- Stop a running task: `odd1-tasks release ID --blocked "stopped by the person"`. The runner stops its agent at its
+- Decline a proposal or cancel work, when the person says so: `tasks_decline` / `tasks_cancel` with their reason
+  (it stays in the log; a running agent is stopped at its next renewal; a recurring task's series ends).
+- Pause a running task instead: `odd1-tasks release ID --blocked "stopped by the person"`. The runner stops its agent at its
   next lease renewal (within 2 minutes); approving the task again resumes it.
 - New work: `tasks_create` (goal, a `done_when` shell check, tags of the role that should do it, resources). It
   starts proposed: tell the person its ID to approve.

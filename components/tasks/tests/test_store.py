@@ -16,7 +16,7 @@ def test_new_task_waits_for_a_person(store):
     t = store.create("Clean up", "true", ["housekeeping"], actor="housekeeper")
     assert t["status"] == "proposed" and t["created_by"] == "housekeeper"
     assert store.claim("housekeeper") is None
-    with pytest.raises(TaskError, match="only a person"):
+    with pytest.raises(TaskError, match="may not decide"):
         store.approve(t["id"], "housekeeper")
     assert store.approve(t["id"], PERSON)["status"] == "ready"
     assert store.claim("housekeeper")["id"] == t["id"]

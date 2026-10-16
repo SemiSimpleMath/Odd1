@@ -145,7 +145,8 @@ class Window(Adw.ApplicationWindow):
         self.ov_line_label = Gtk.Label(xalign=0, wrap=True, css_classes=["dim-label"])
         self.ov_line.add(self.ov_line_label)
         self.ov_roles = Section(page, "Roles", "Agents the task manager runs, one task at a time each")
-        self.ov_waiting = Section(page, "Waiting for you")
+        self.ov_needs = Section(page, "Needs you", "Only what an agent may not or could not decide")
+        self.ov_agents = Section(page, "Handled by agents", "Routine decisions the manager makes for you")
         self.ov_today = Section(page, "Today")
         self.ov_machine = Section(page, "Machine", "From the caretaker")
         self.stack.add_named(page, "overview")
@@ -167,14 +168,18 @@ class Window(Adw.ApplicationWindow):
             subtitle += f" · {r['runs_today']} of {r['runs_per_day']} runs today · ${r['cost_today']:.2f}"
             rows.append(row(r["name"], subtitle, state))
         self.ov_roles.set(rows)
-        waiting = []
-        for status, count in view["waiting"].items():
-            label = {"proposed": "Proposed, to approve", "blocked": "Blocked", "parked": "Parked (retries used up)"}
-            waiting.append(row(label[status], "", button("Show", lambda: self.go_tasks("Waiting for you"))
-                               if count else badge("0", "dim-label")))
-            if count:
-                waiting[-1].add_suffix(badge(str(count)))
-        self.ov_waiting.set(waiting)
+        kinds = {"decide": "To approve or decline", "blocked": "Blocked", "parked": "Check kept failing",
+                 "orphan": "No role runs it", "escalated": "Escalated to you", "runner": "Runner"}
+        needs = [row(i["text"], kinds.get(i["kind"], i["kind"]),
+                     button("Open", lambda: self.go_tasks("Waiting for a decision")) if i["task"] else None)
+                 for i in view["needs_you"]]
+        self.ov_needs.set(needs or [row("Nothing needs you", "", badge("✓", "success"))])
+        by_agent = {}
+        for i in view["with_agents"]:
+            by_agent.setdefault(i["who"], []).append(i)
+        self.ov_agents.set([row(name, f"{len(items)} decision{'s' if len(items) != 1 else ''} to make: " +
+                                "; ".join(f"#{i['task']}" for i in items[:8]), badge(str(len(items))))
+                            for name, items in by_agent.items()] or [row("Nothing waiting", "")])
         t = view["today"]
         self.ov_today.set([row("Runs", "", badge(str(t["runs"]))), row("Cost", "", badge(f"${t['cost']:.2f}")),
                            row("Results", "", badge(f"{t['done']} done · {t['failed']} failed checks"))])
@@ -208,8 +213,9 @@ class Window(Adw.ApplicationWindow):
         self.task_list.set([self.task_row(t) for t in tasks] or [row("Nothing here")])
 
     def task_row(self, t):
-        who = ", ".join(t["roles"]) or "no role yet (a person)"
-        r = row(f"#{t['id']}  {t['goal']}", f"{t['status']} · {', '.join(t['tags'])} · run by {who}",
+        who = ", ".join(t["roles"]) or "no role yet"
+        waits = {None: "", "person": " · waiting on you"}.get(t["waiting_on"], f" · waiting on {t['waiting_on']}")
+        r = row(f"#{t['id']}  {t['goal']}", f"{t['status']} · {', '.join(t['tags'])} · run by {who}{waits}",
                 cls=Adw.ExpanderRow)
         r.task_id = t["id"]
         r.add_suffix(badge(t["status"], {"proposed": "accent", "blocked": "warning", "parked": "error",
@@ -224,9 +230,14 @@ class Window(Adw.ApplicationWindow):
                                   "suggested-action"))
         if t["status"] == "blocked":
             actions.append(button("Unblock", lambda: self.act(model.approve, t["id"], done=f"#{t['id']} ready")))
+        if t["status"] == "proposed":
+            actions.append(button("Decline", lambda: self.ask_reason(t, "Decline", model.decline)))
         if t["status"] == "claimed":
             actions.append(button("Stop", lambda: self.act(model.stop, t["id"], done=f"#{t['id']} stopped"),
                                   "destructive-action"))
+        if t["status"] in ("ready", "claimed", "blocked", "verifying", "parked") or (
+                t["status"] == "done" and t["schedule"]):
+            actions.append(button("Cancel", lambda: self.ask_reason(t, "Cancel", model.cancel), "destructive-action"))
         if actions.get_first_child():
             r.add_row(actions)
         note = Adw.EntryRow(title="Leave a note for the next run", show_apply_button=True)
@@ -238,6 +249,19 @@ class Window(Adw.ApplicationWindow):
             r.add_row(row(entry["text"], f"{when} · {entry['actor']} · {entry['kind']}"))
         r.set_expanded(t["id"] in self.task_open)
         return r
+
+    def ask_reason(self, t, verb, what):
+        """Decline or cancel only with a reason: it stays in the task's log for everyone who reads it later."""
+        dialog = Adw.AlertDialog(heading=f"{verb} #{t['id']}?", body=t["goal"])
+        entry = Gtk.Entry(placeholder_text="Why? (kept in the task's log)", activates_default=True)
+        dialog.set_extra_child(entry)
+        dialog.add_response("keep", "Keep it")
+        dialog.add_response("go", verb)
+        dialog.set_response_appearance("go", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("go")
+        dialog.connect("response", lambda _, answer: answer == "go" and self.act(
+            what, t["id"], entry.get_text(), done=f"#{t['id']} {'declined' if verb == 'Decline' else 'cancelled'}"))
+        dialog.present(self)
 
     # -- Roles
     def build_roles(self):
@@ -257,9 +281,13 @@ class Window(Adw.ApplicationWindow):
                                active=r["enabled"])
             on.connect("notify::active", lambda w, _, n=name: self.set_role(n, enabled=w.get_active()))
             rows.append(on)
-            for key, title, subtitle in (("runs_per_day", "Runs per day", "At most this many in any 24 hours"),
-                                         ("max_turns", "Max turns per run", "Caps every task's own budget"),
-                                         ("max_minutes", "Max minutes per run", "The run is stopped after this")):
+            limits = [("runs_per_day", "Runs per day", "At most this many in any 24 hours"),
+                      ("max_turns", "Max turns per run", "Caps every task's own budget"),
+                      ("max_minutes", "Max minutes per run", "The run is stopped after this")]
+            if r["decides"]:
+                limits.append(("escalate_after_minutes", "Escalate after (minutes)",
+                               "A decision it leaves this long comes to you"))
+            for key, title, subtitle in limits:
                 low, high = model.LIMITS[key]
                 spin = Adw.SpinRow.new_with_range(low, high, 1)
                 spin.set_title(title)
@@ -269,10 +297,12 @@ class Window(Adw.ApplicationWindow):
                              lambda w, _, n=name, k=key: self.set_role(n, **{k: int(w.get_value())}))
                 rows.append(spin)
             for key, title, value in (("model", "Model (empty: Claude Code's default)", r["model"]),
-                                      ("tags", "Tags it claims (comma separated)", ", ".join(r["tags"]))):
+                                      ("tags", "Tags it claims (comma separated)", ", ".join(r["tags"])),
+                                      ("decides", "Decides for you on tags (approve, decline, unblock, cancel)",
+                                       ", ".join(r["decides"]))):
                 entry = Adw.EntryRow(title=title, text=value, show_apply_button=True)
                 entry.connect("apply", lambda w, n=name, k=key: self.set_role(
-                    n, **{k: [s.strip() for s in w.get_text().split(",") if s.strip()] if k == "tags"
+                    n, **{k: [s.strip() for s in w.get_text().split(",") if s.strip()] if k in ("tags", "decides")
                           else w.get_text().strip()}))
                 rows.append(entry)
             files = Gtk.Box(spacing=8, margin_top=8, margin_bottom=8, margin_start=12)

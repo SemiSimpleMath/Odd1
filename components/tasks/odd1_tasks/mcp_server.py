@@ -45,8 +45,8 @@ def tasks_show(task_id: int) -> dict:
 
 @mcp.tool()
 def tasks_approve(task_id: int) -> dict:
-    """A person approves a proposed task (or unblocks a blocked one). Call only when the person asked for this ID;
-    role agents are refused."""
+    """Approve a proposed task (or unblock a blocked one). A person may approve anything; an agent only tasks within
+    the tags a person delegated to it (its role's `decides`), and never one it proposed itself."""
     return _do(Store().approve, task_id, actor_from_env())
 
 
@@ -78,6 +78,41 @@ def tasks_log(task_id: int, text: str) -> dict:
 def tasks_finish(task_id: int, note: str = "") -> dict:
     """Say your claimed task is finished. It moves to verifying; the runner then runs done_when to decide."""
     return _do(Store().finish, task_id, actor_from_env(), note)
+
+
+@mcp.tool()
+def tasks_decline(task_id: int, reason: str) -> dict:
+    """Turn a proposal down (it is closed, the reason kept in its log). Only within the tags a person delegated to
+    you (your role's `decides`), never a task you proposed; otherwise escalate it."""
+    return _do(Store().decline, task_id, actor_from_env(), reason)
+
+
+@mcp.tool()
+def tasks_cancel(task_id: int, reason: str) -> dict:
+    """Cancel open work (ready, claimed, blocked, parked; a recurring task's series ends). A running agent is
+    stopped at its runner's next lease renewal. Same authority as tasks_decline."""
+    return _do(Store().cancel, task_id, actor_from_env(), reason)
+
+
+@mcp.tool()
+def tasks_escalate(task_id: int, reason: str) -> dict:
+    """Hand a decision to a person: say what they must decide. It reaches them until a person acts on the task."""
+    return _do(Store().escalate, task_id, actor_from_env(), reason)
+
+
+@mcp.tool()
+def tasks_attention(who: str = "") -> list[dict]:
+    """Who has to act on what now: [{who, kind, task, text}]. who: "person", a role name (e.g. "manager"), or all."""
+    from . import attention
+    found = attention.items(Store())
+    return attention.for_whom(found, who) if who else found
+
+
+@mcp.tool()
+def tasks_changes(since: int = 0) -> dict:
+    """Everything that happened after log entry `since` (each with its task's status now), and the cursor to pass
+    next time: catch up on what others did instead of rereading everything."""
+    return Store().changes(since)
 
 
 def main() -> None:

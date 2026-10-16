@@ -16,7 +16,7 @@ import tomllib
 from datetime import datetime
 from pathlib import Path
 
-from odd1_tasks import console, roles
+from odd1_tasks import attention, console, roles
 from odd1_tasks.store import Store, actor_from_env
 
 CARETAKER = Path(os.environ.get("ODD1_CARETAKER_STATE", "/var/lib/odd1/caretaker"))
@@ -24,7 +24,8 @@ AGENTS = Path(os.environ.get("ODD1_AGENTS", "/etc/odd1/agents.json"))
 MCP_SERVERS = Path(os.environ.get("ODD1_MCP_SERVERS", "/etc/odd1/mcp-servers.json"))
 WAITING = ("proposed", "blocked", "parked")
 # What a person may set on a role, and the bounds that keep a typo from becoming a runaway budget.
-LIMITS = {"runs_per_day": (0, 100), "max_turns": (1, 500), "max_minutes": (1, 240)}
+LIMITS = {"runs_per_day": (0, 100), "max_turns": (1, 500), "max_minutes": (1, 240),
+          "escalate_after_minutes": (10, 10080)}
 TAG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
@@ -59,8 +60,11 @@ def overview(store: Store, now: float | None = None) -> dict:
             "runs_today": len(mine), "cost_today": round(sum(d.get("total_cost_usd") or 0 for d in mine), 2),
             "runs_per_day": cfg["runs_per_day"],
         })
+    found = attention.items(store, now)
     return {
         "line": console.summary(store, now),
+        "needs_you": attention.for_whom(found, attention.PERSON),
+        "with_agents": [i for i in found if i["who"] != attention.PERSON],
         "roles": rows,
         "waiting": {s: sum(t["status"] == s for t in tasks) for s in WAITING},
         "today": {"runs": len(ends), "cost": round(sum(d.get("total_cost_usd") or 0 for _, d, _ in ends), 2),
@@ -86,24 +90,36 @@ def machine(now: float | None = None, max_age: float = 180) -> dict:
 
 
 # -- Tasks ------------------------------------------------------------------------------------------------------------
-FILTERS = {"Waiting for you": WAITING, "Running": ("claimed", "verifying"), "Ready": ("ready",),
-           "Done": ("done",), "All": None}
+FILTERS = {"Waiting for a decision": WAITING, "Running": ("claimed", "verifying"), "Ready": ("ready",),
+           "Done": ("done",), "Declined or cancelled": ("declined", "cancelled"), "All": None}
 
 
-def tasks(store: Store, view: str = "Waiting for you") -> list[dict]:
-    """Tasks for one of FILTERS, newest first, each with the roles that may claim it."""
+def tasks(store: Store, view: str = "Waiting for a decision") -> list[dict]:
+    """Tasks for one of FILTERS, newest first, each with the roles that may claim it and who it waits on now."""
     statuses = FILTERS[view]
+    waiting_on = {i["task"]: i for i in attention.items(store)}
     held = {name: set(roles.load(store, name)["tags"]) for name in role_names(store)}
     out = []
     for t in reversed(store.list()):
         if statuses is None or t["status"] in statuses:
             t["roles"] = [name for name, tags in held.items() if set(t["tags"]) <= tags]
+            item = waiting_on.get(t["id"])
+            t["waiting_on"] = item["who"] if item else None
             out.append(t)
     return out
 
 
 def approve(store: Store, task_id: int) -> dict:
     return store.approve(task_id, actor_from_env())
+
+
+def decline(store: Store, task_id: int, reason: str) -> dict:
+    return store.decline(task_id, actor_from_env(), reason)
+
+
+def cancel(store: Store, task_id: int, reason: str) -> dict:
+    """Close open work for good; a running agent is stopped at its next lease renewal."""
+    return store.cancel(task_id, actor_from_env(), reason)
 
 
 def stop(store: Store, task_id: int, reason: str = "stopped by the person") -> dict:
@@ -123,7 +139,8 @@ def role(store: Store, name: str) -> dict:
     folder = roles.folder(store, name)
     reports = sorted((folder / "reports").glob("*"), key=lambda p: p.stat().st_mtime) \
         if (folder / "reports").is_dir() else []
-    return {key: cfg[key] for key in ("enabled", "tags", "runs_per_day", "max_turns", "max_minutes", "model")} | {
+    keys = ("enabled", "tags", "decides", "escalate_after_minutes", "runs_per_day", "max_turns", "max_minutes", "model")
+    return {key: cfg[key] for key in keys} | {
         "name": name, "folder": str(folder), "instructions": str(folder / "CLAUDE.md"),
         "permissions": str(folder / "settings.json"), "report": str(reports[-1]) if reports else None}
 
@@ -148,9 +165,12 @@ def set_role(store: Store, name: str, **values) -> dict:
                 raise ValueError(f"{key} is a whole number from {low} to {high}")
         if key == "tags" and (not value or not all(isinstance(t, str) and TAG.match(t) for t in value)):
             raise ValueError("tags: at least one, each lowercase letters, digits and dashes")
+        if key == "decides" and not (isinstance(value, list) and all(isinstance(t, str) and TAG.match(t)
+                                                                         for t in value)):
+            raise ValueError("decides: tags (lowercase letters, digits and dashes), or none")
         if key == "model" and not isinstance(value, str):
             raise ValueError("model is a model name, or empty for Claude Code's default")
-        if key not in ("enabled", "tags", "model", *LIMITS):
+        if key not in ("enabled", "tags", "decides", "model", *LIMITS):
             raise ValueError(f"{key} is not a role setting")
     path = roles.folder(store, name) / "role.toml"
     original = path.read_text()
@@ -172,7 +192,8 @@ def set_role(store: Store, name: str, **values) -> dict:
     except tomllib.TOMLDecodeError as e:
         raise ValueError(f"role.toml would not parse: {e}") from None
     path.write_text(text)
-    store.register_agent(name, roles.load(store, name)["tags"])
+    cfg = roles.load(store, name)
+    store.register_agent(name, cfg["tags"], cfg["decides"])
     return role(store, name)
 
 

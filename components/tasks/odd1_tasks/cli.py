@@ -10,6 +10,12 @@
     odd1-tasks release ID [--blocked REASON]
     odd1-tasks log ID TEXT               append to the task's log
     odd1-tasks finish ID [NOTE]          the claimer is done; the runner then checks done_when
+    odd1-tasks decline ID REASON         turn a proposal down (closed; the reason stays in its log)
+    odd1-tasks cancel ID REASON          cancel open work (a running agent is stopped at its next renewal)
+    odd1-tasks escalate ID REASON        hand a decision to a person
+    odd1-tasks attention [--for WHO] [--quiet] [--json]   who has to act on what (exit 0: something waits)
+    odd1-tasks changes [--since N] [--json]               what happened after log entry N (the cursor)
+    odd1-tasks watch                     tell the person (desktop notification) what needs them, once each
     odd1-tasks status                    one line: what each role is doing, what waits for a person
     odd1-tasks console                   talk to the task manager (Claude Code with its console instructions)
 
@@ -60,6 +66,7 @@ def main(argv=None) -> int:
     p.add_argument("--resource", action="append", default=[])
     p.add_argument("--every")
     p.add_argument("--attempts", type=int, default=3)
+    p.add_argument("--run-if", help="shell check: run only while it exits 0 (no model call otherwise)")
     p = sub.add_parser("list")
     p.add_argument("--status")
     p.add_argument("--tag")
@@ -81,6 +88,18 @@ def main(argv=None) -> int:
     p = sub.add_parser("finish")
     p.add_argument("id", type=int)
     p.add_argument("note", nargs="?", default="")
+    for name in ("decline", "cancel", "escalate"):
+        p = sub.add_parser(name)
+        p.add_argument("id", type=int)
+        p.add_argument("reason")
+    p = sub.add_parser("attention")
+    p.add_argument("--for", dest="who")
+    p.add_argument("--quiet", action="store_true")
+    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("changes")
+    p.add_argument("--since", type=int, default=0)
+    p.add_argument("--json", action="store_true")
+    sub.add_parser("watch")
     sub.add_parser("status")
     sub.add_parser("console")
     a = ap.parse_args(argv)
@@ -95,7 +114,7 @@ def main(argv=None) -> int:
         if a.cmd == "create":
             t = store.create(a.goal, a.done_when, a.tag, actor, priority=a.priority, max_turns=a.turns,
                              max_minutes=a.minutes, depends_on=a.depends_on, resources=a.resource,
-                             schedule=a.every, max_attempts=a.attempts)
+                             schedule=a.every, max_attempts=a.attempts, run_if=a.run_if)
             print(f"task {t['id']} proposed; a person approves it with: odd1-tasks approve {t['id']}")
         elif a.cmd == "list":
             tasks = store.list(a.status, a.tag)
@@ -120,6 +139,30 @@ def main(argv=None) -> int:
             print(f"task {a.id} {store.release(a.id, actor, a.blocked)['status']}")
         elif a.cmd == "log":
             store.log(a.id, actor, a.text)
+        elif a.cmd in ("decline", "cancel", "escalate"):
+            print(f"task {a.id} {getattr(store, a.cmd)(a.id, actor, a.reason)['status']}")
+        elif a.cmd == "attention":
+            from . import attention
+            found = attention.items(store)
+            found = attention.for_whom(found, a.who) if a.who else found
+            if a.json:
+                print(json.dumps(found, indent=2))
+            elif not a.quiet:
+                for i in found:
+                    print(f"{i['who']:<14} {i['text']}")
+            return 0 if found else 1
+        elif a.cmd == "changes":
+            feed = store.changes(a.since)
+            if a.json:
+                print(json.dumps(feed, indent=2))
+            else:
+                for c in feed["changes"]:
+                    print(f"{c['id']:>6} {_when(c['at'])} #{c['task_id']} [{c['status']}] {c['actor']} {c['kind']}: "
+                          f"{c['text']}")
+                print(f"cursor {feed['cursor']}")
+        elif a.cmd == "watch":
+            from . import attention
+            attention.watch(store)
         elif a.cmd == "finish":
             print(f"task {a.id} {store.finish(a.id, actor, a.note)['status']}")
     except TaskError as e:

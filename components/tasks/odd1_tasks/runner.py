@@ -146,7 +146,7 @@ def _parse(text: str) -> dict:
 def run_once(store: Store, role: str) -> dict | None:
     """One loop: check leftovers, then claim and run at most one task. Returns the task run, if any."""
     cfg = roles.load(store, role)
-    store.register_agent(role, cfg["tags"])
+    store.register_agent(role, cfg["tags"], cfg["decides"])
     store.maintain()
     for t in store.list(status="verifying"):
         if t["claim_agent"] == role:

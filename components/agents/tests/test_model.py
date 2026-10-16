@@ -24,6 +24,7 @@ def test_overview_names_each_role_what_waits_and_the_machine(store, tmp_path):
     assert house["enabled"] and house["runner"] == "active"
     assert house["doing"]["id"] == t["id"] and house["cost_today"] == 0.25 and house["runs_today"] == 1
     assert view["waiting"] == {"proposed": 2, "blocked": 0, "parked": 0}  # the two starters
+    assert len(view["needs_you"]) == 2 and view["with_agents"] == []  # no manager here: both need the person
     assert view["machine"] == {"state": "current", "level": "elevated", "problems": ["disk 91%"],
                                "age": pytest.approx(30, abs=2)}
     assert view["line"].startswith("Tasks · housekeeper on #")
@@ -37,6 +38,7 @@ def test_task_views_and_the_persons_actions(store):
     t = store.create("Free space", "true", ["housekeeping"], actor="housekeeper")
     waiting = model.tasks(store)
     assert waiting[0]["id"] == t["id"] and waiting[0]["roles"] == ["housekeeper"]  # newest first, who would run it
+    assert waiting[0]["waiting_on"] == "person"
     model.approve(store, t["id"])
     assert [x["id"] for x in model.tasks(store, "Ready")] == [t["id"]]
     store.claim("housekeeper")
@@ -97,3 +99,19 @@ def test_tools_lists_agent_systems_and_mcp_servers(store, tmp_path):
         {"screen": {"command": "/nix/store/x/bin/odd1-screen-mcp", "args": []}}))
     assert model.tools() == {"agents": {"tasks": {"title": "Task manager"}},
                              "mcp_servers": {"screen": "odd1-screen-mcp"}}
+
+
+def test_decline_cancel_and_delegation_from_the_app(store):
+    t = store.create("Free space", "true", ["housekeeping"], actor="housekeeper")
+    assert model.decline(store, t["id"], "not now")["status"] == "declined"
+    u = store.create("Other", "true", ["housekeeping"], actor="housekeeper")
+    model.approve(store, u["id"])
+    assert model.cancel(store, u["id"], "changed my mind")["status"] == "cancelled"
+    assert {x["id"] for x in model.tasks(store, "Declined or cancelled")} == {t["id"], u["id"]}
+    r = model.set_role(store, "housekeeper", decides=["housekeeping"], escalate_after_minutes=60)
+    assert r["decides"] == ["housekeeping"] and r["escalate_after_minutes"] == 60
+    decides = store.db.execute("SELECT decides FROM agents WHERE name = 'housekeeper'").fetchone()[0]
+    assert json.loads(decides) == ["housekeeping"]  # the store's authority rule sees it at once
+    assert model.set_role(store, "housekeeper", decides=[])["decides"] == []
+    with pytest.raises(ValueError):
+        model.set_role(store, "housekeeper", decides=["Bad Tag"])

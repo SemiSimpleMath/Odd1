@@ -1,0 +1,16 @@
+# The manager role: it makes the task manager's routine decisions so the person sees only what needs them.
+# Edit freely (or in the Agents app); the runner rereads this file before each task (no rebuild needed).
+enabled = true            # false: the runner takes no new tasks for this role (paused); its decisions go to the person
+tags = ["manage"]         # it claims only tasks whose every tag is in this list
+decides = ["housekeeping", "updates"]   # tags it may approve, decline, unblock and cancel; all else goes to the person
+escalate_after_minutes = 120   # a decision it leaves this long goes to the person
+runs_per_day = 12         # at most this many runs in any 24 hours
+max_turns = 30            # cap on any task's turn budget
+max_minutes = 10          # cap on any task's time budget
+model = ""                # empty: Claude Code's default model
+
+[[starter]]               # created once as proposed; after `odd1-tasks approve ID` it runs whenever there is something to decide
+goal = "Every decision within the manager's authority is made: proposals approved or declined, blocked and parked tasks unblocked or cancelled, anything unclear escalated."
+done_when = "! odd1-tasks attention --for manager --quiet"
+run_if = "odd1-tasks attention --for manager --quiet"
+schedule = "15m"

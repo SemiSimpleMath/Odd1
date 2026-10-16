@@ -102,6 +102,11 @@ in {
           };
         }];
       };
+      # Desktop notifications (agents' escalations reach the person this way): xfce4-notifyd, started on demand by
+      # D-Bus when a program first sends one (org.freedesktop.Notifications).
+      environment.systemPackages = [ pkgs.xfce.xfce4-notifyd pkgs.libnotify ];
+      services.dbus.packages = [ pkgs.xfce.xfce4-notifyd ];
+      systemd.packages = [ pkgs.xfce.xfce4-notifyd ];
       # Breathing room around terminal text (GTK reads it from the user's config only).
       systemd.user.tmpfiles.users.agent.rules = [ "L+ %h/.config/gtk-3.0/gtk.css - - - - ${./gtk.css}" ];
       fonts.fontconfig = {

@@ -16,7 +16,7 @@ from pathlib import Path
 from .store import Store
 
 SEED = Path(os.environ.get("ODD1_TASKS_ROLES_SEED", Path(__file__).resolve().parent.parent / "roles"))
-DEFAULTS = {"enabled": True, "tags": [], "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
+DEFAULTS = {"enabled": True, "tags": [], "decides": [], "escalate_after_minutes": 120, "runs_per_day": 4, "max_turns": 20, "max_minutes": 15, "model": "", "starter": []}
 
 
 def folder(store: Store, role: str) -> Path:
@@ -65,11 +65,12 @@ def seed(store: Store, role: str, source: Path = SEED) -> dict:
     copy_missing(source / role, dst)
     (dst / "reports").mkdir(parents=True, exist_ok=True)
     cfg = load(store, role)
-    store.register_agent(role, cfg["tags"])
+    store.register_agent(role, cfg["tags"], cfg["decides"])
     made = {t["goal"] for t in store.list() if t["created_by"] == f"seed:{role}"}
     for s in cfg["starter"]:
         if s["goal"] not in made:
             store.create(s["goal"], s["done_when"], s.get("tags", cfg["tags"]), actor=f"seed:{role}",
                          priority=s.get("priority", 0), resources=s.get("resources", []),
-                         schedule=s.get("schedule"), max_turns=s.get("max_turns"), max_minutes=s.get("max_minutes"))
+                         schedule=s.get("schedule"), max_turns=s.get("max_turns"), max_minutes=s.get("max_minutes"),
+                         run_if=s.get("run_if"))
     return cfg

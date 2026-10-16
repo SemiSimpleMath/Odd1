@@ -10,12 +10,12 @@ from odd1_tasks import console
 def test_status_says_who_works_on_what_and_what_waits(store, monkeypatch):
     monkeypatch.setattr(console, "_runner", lambda role: "")
     line = console.summary(store)
-    assert line == "Tasks · housekeeper idle · update-watcher idle · 2 proposed"  # the two starters
+    assert line == "Tasks · housekeeper idle · update-watcher idle · 2 need you"  # the two starters (no manager here)
     t = approved(store, "busy")
     store.claim("housekeeper")
     assert f"housekeeper on #{t['id']} (0 min)" in console.summary(store)
     store.release(t["id"], PERSON, blocked="stopped by the person")
-    assert "1 blocked" in console.summary(store)
+    assert "3 need you" in console.summary(store)  # the two starters and the blocked task
 
 
 def test_status_names_a_stopped_runner(store, monkeypatch):
