@@ -1,5 +1,6 @@
 """Read the live desktop (X11, AT-SPI, OCR) into a Screen, and act on it with xdotool."""
 import json
+import string
 import subprocess
 import sys
 import tempfile
@@ -103,9 +104,13 @@ def _person_guard(screen: model.Screen, approved: bool, what: str, window: dict 
 
 
 def _active_window(screen: model.Screen) -> str:
-    done = subprocess.run(["xdotool", "getactivewindow"], capture_output=True, text=True, timeout=5,
-                          env=x11.env(screen.display))
-    return done.stdout.strip()
+    """The window that gets keystrokes: the window manager's active window, else the X input focus (an Xvnc
+    without a window manager has no _NET_ACTIVE_WINDOW; an empty answer would make every check pass)."""
+    for command in (["xdotool", "getactivewindow"], ["xdotool", "getwindowfocus"]):
+        done = subprocess.run(command, capture_output=True, text=True, timeout=5, env=x11.env(screen.display))
+        if done.stdout.strip():
+            return done.stdout.strip()
+    return ""
 
 
 def _app_act(address: dict, op: str, value: str | None = None) -> dict:
@@ -163,6 +168,27 @@ def set_text(screen: model.Screen, element_id: str, text: str, *, wait_ms: int =
 
 
 TYPE_CHUNK = 16  # characters typed between checks that the focus is still where typing began
+KEY_DELAY_MS = 40  # between keys: apps read a temporarily remapped keycode after the next key is already down
+KEY_NAMES = {"\n": "Return", "\t": "Tab", " ": "space"}
+
+
+def keystrokes(text: str) -> list[str]:
+    """Text -> one xdotool key name per character. `xdotool type` loses text on Xvnc (newlines, case, characters
+    missing from the server's keymap), so each character is named: letters and digits as themselves with an
+    explicit shift for capitals, newline and tab as Return and Tab, everything else as its Unicode keysym (U00E4)."""
+    names = []
+    for char in text.replace("\r\n", "\n").replace("\r", "\n"):
+        if char in KEY_NAMES:
+            names.append(KEY_NAMES[char])
+        elif char in string.ascii_lowercase + string.digits:
+            names.append(char)
+        elif char in string.ascii_uppercase:
+            names.append("shift+" + char.lower())
+        elif ord(char) < 0x20 or 0x7f <= ord(char) < 0xa0:
+            raise ValueError(f"cannot type control character {char!r}")
+        else:
+            names.append(f"U{ord(char):04X}")
+    return names
 
 
 def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms: int = 300,
@@ -179,16 +205,23 @@ def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms:
     if element_id:  # one yes covers the click that puts the cursor in the field and the typing
         click(screen, element_id, via="pointer", person_approved=person_approved or allowed != "agent desktop",
               **click_args)
+    keys = keystrokes(text)
     target = _active_window(screen)
-    for start in range(0, len(text), TYPE_CHUNK):
+    if not target:
+        raise RuntimeError("no window has the keyboard focus; nothing typed")
+    chunk = []
+    for start in range(0, len(keys), TYPE_CHUNK):
         if _active_window(screen) != target:
-            raise RuntimeError(f"stopped after {start} of {len(text)} characters: the focus moved to another window")
+            raise RuntimeError(f"stopped after {start} of {len(keys)} characters: the focus moved to another window")
         if window is not None and not consent.still_held(window["xid"]):
-            raise RuntimeError(f"stopped after {start} of {len(text)} characters: the person took back control")
-        chunk = text[start:start + TYPE_CHUNK]
-        subprocess.run(["xdotool", "type", "--delay", "20", "--", chunk], check=True, capture_output=True,
-                       timeout=5 + len(chunk) / 20, env=x11.env(screen.display))
-    return {"typed": len(text), "changes": _settle(screen, before, wait_ms)}
+            raise RuntimeError(f"stopped after {start} of {len(keys)} characters: the person took back control")
+        chunk = keys[start:start + TYPE_CHUNK]
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "--delay", str(KEY_DELAY_MS), *chunk], check=True,
+                       capture_output=True, timeout=5 + len(chunk) * KEY_DELAY_MS / 1000,
+                       env=x11.env(screen.display))
+    if _active_window(screen) != target:  # the last chunk may have gone elsewhere
+        raise RuntimeError(f"the focus moved to another window while typing the last {len(chunk)} characters")
+    return {"typed": len(keys), "changes": _settle(screen, before, wait_ms)}
 
 
 WINDOW_ACTIONS = {"maximize": "maximize", "restore": "restore (unmaximize)", "minimize": "minimize",

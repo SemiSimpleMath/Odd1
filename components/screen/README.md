@@ -64,7 +64,9 @@ agent acts on that window only while it is open (a few steps ask once). It close
 run out, or when the agent's MCP server exits; a take-back stops typing between chunks, and the agent may not ask
 about that window again for 5 minutes. Each `odd1-screen window` command is its own process, so it asks every time. `person_approved=true` skips the dialog when the person already said yes in the chat. Accessibility actions
 (`via="app"`, `screen_set_text`) and the agent desktop need no asking. `screen_type` types in chunks of 16
-characters and stops when the focus moves to another window.
+characters and stops when the focus moves to another window (the window manager's active window, else the X input
+focus; with neither it types nothing). It names every key (`xdotool key`: Return, Tab, `shift+h`, `U00E4`, 40 ms
+apart, modifiers cleared): `xdotool type` dropped characters, newlines and case on Xvnc.
 Limit: agents run as the same Unix user as the dialog, so the dialog is a courtesy agents keep, not a boundary
 they cannot cross.
 

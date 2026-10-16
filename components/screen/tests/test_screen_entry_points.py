@@ -74,20 +74,77 @@ def test_the_persons_pointer_and_keyboard_need_their_approval_the_agent_desktops
     assert run.call_args[0][0][:2] == ["xdotool", "mousemove"]
 
 
-def test_typing_stops_when_the_focus_moves_to_another_window():
-    x, atspi, words = calculator()
-    agent = model.Screen("a")
-    agent.fuse(x, atspi, {"0x2": words})
-    active = iter(["0x2", "0x2", "0x2", "0x9", "0x9"])  # someone takes the focus after the second chunk
-    typed = []
+def typing(focus):
+    """A fake subprocess.run: focus queries answer from `focus` (a list of window ids, or "" for none), key
+    presses are recorded."""
+    keys = []
 
     def run(args, **_):
         if args[:2] == ["xdotool", "getactivewindow"]:
-            return mock.Mock(stdout=next(active) + "\n")
-        typed.append(args[-1])
+            return mock.Mock(stdout=focus.pop(0) + "\n" if focus else "0x2\n")
+        if args[:2] == ["xdotool", "getwindowfocus"]:
+            return mock.Mock(stdout="")
+        assert args[:2] == ["xdotool", "key"] and "--clearmodifiers" in args
+        keys.extend(args[args.index("--delay") + 2:])
         return mock.Mock(stdout="")
+    return run, keys
 
+
+def untype(keys):
+    """xdotool key names -> the text they type."""
+    names = {name: char for char, name in live.KEY_NAMES.items()}
+    return "".join(names.get(k) or (k[6:].upper() if k.startswith("shift+") else
+                                    chr(int(k[1:], 16)) if k.startswith("U") else k) for k in keys)
+
+
+def test_type_lossless_names_every_character():
+    text = "Hello, World!\nSecond LINE\twith 12 äö € ~`'\"\\ <tag> {x: [1]}; 50% & #3 @ ^ | ?\r\nend"
+    keys = live.keystrokes(text)
+    assert untype(keys) == text.replace("\r\n", "\n")
+    assert "Return" in keys and "Tab" in keys and "shift+h" in keys and "U00E4" in keys
+    with pytest.raises(ValueError, match="control character"):
+        live.keystrokes("bell\a")
+
+
+def test_type_lossless_sends_all_keys_in_chunks():
+    x, atspi, words = calculator()
+    agent = model.Screen("a")
+    agent.fuse(x, atspi, {"0x2": words})
+    text = "Line ONE\nline two: MiXeD case, 100% ✓\n" * 3
+    run, keys = typing([])
+    with mock.patch.object(live.subprocess, "run", side_effect=run), \
+            mock.patch.object(live, "observe", side_effect=lambda s, **_: s.fuse(x, atspi, {})):
+        assert live.type_text(agent, text, wait_ms=0)["typed"] == len(text)
+    assert untype(keys) == text
+
+
+def test_type_focus_guard_stops_when_the_focus_moves_to_another_window():
+    x, atspi, words = calculator()
+    agent = model.Screen("a")
+    agent.fuse(x, atspi, {"0x2": words})
+    run, keys = typing(["0x2", "0x2", "0x2", "0x9", "0x9"])  # someone takes the focus after the second chunk
     with mock.patch.object(live.subprocess, "run", side_effect=run):
         with pytest.raises(RuntimeError, match=f"stopped after {2 * live.TYPE_CHUNK} of"):
             live.type_text(agent, "x" * (5 * live.TYPE_CHUNK), wait_ms=0)
-    assert "".join(typed) == "x" * (2 * live.TYPE_CHUNK)
+    assert "".join(keys) == "x" * (2 * live.TYPE_CHUNK)
+
+
+def test_type_focus_guard_reports_a_move_during_the_last_chunk():
+    x, atspi, words = calculator()
+    agent = model.Screen("a")
+    agent.fuse(x, atspi, {"0x2": words})
+    run, keys = typing(["0x2", "0x2", "0x9"])
+    with mock.patch.object(live.subprocess, "run", side_effect=run):
+        with pytest.raises(RuntimeError, match="last 5 characters"):
+            live.type_text(agent, "hello", wait_ms=0)
+
+
+def test_type_focus_guard_refuses_without_a_known_focus():
+    x, atspi, words = calculator()
+    agent = model.Screen("a")
+    agent.fuse(x, atspi, {"0x2": words})
+    run, keys = typing(["", ""])  # no window manager answer and no input focus: the guard could not work
+    with mock.patch.object(live.subprocess, "run", side_effect=run):
+        with pytest.raises(RuntimeError, match="no window has the keyboard focus"):
+            live.type_text(agent, "hello", wait_ms=0)
+    assert keys == []
