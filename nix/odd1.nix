@@ -146,11 +146,10 @@ in {
     '';
   };
 
-  # A build on another nixpkgs than nix/nixpkgs.json pins would not be the system the repository describes.
-  assertions = [ {
-    assertion = toString pkgs.path == pinnedNixpkgs;
-    message = "Odd1 builds with the nixpkgs nix/nixpkgs.json pins (${nixpkgsPin.version}): pass -I nixpkgs=${pinnedNixpkgs} (odd1-deploy and odd1-tasks-check do); this build used ${toString pkgs.path}.";
-  } ];
+  # A build on another nixpkgs than nix/nixpkgs.json pins is not the system the repository describes. A warning, not
+  # an error: an odd1-deploy from before the pin builds on the base Desktop's channel (the same tree, another name).
+  warnings = lib.optional (toString pkgs.path != pinnedNixpkgs)
+    "Odd1 builds with the nixpkgs nix/nixpkgs.json pins (${nixpkgsPin.version}): pass -I nixpkgs=${pinnedNixpkgs} (odd1-deploy and odd1-tasks-check do); this build used ${toString pkgs.path}.";
 
   # A plain nixos-rebuild finds this system's configuration (the base Desktop sets only nixpkgs) and the pinned
   # nixpkgs; deploy with odd1-deploy. A store path string, so nothing is copied again (a copy nests the store name).
