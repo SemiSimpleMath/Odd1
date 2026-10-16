@@ -69,6 +69,9 @@ in {
     environment = config.networking.proxy.envVars;
     serviceConfig = { Type = "oneshot"; User = "agent"; RemainAfterExit = true; };
     script = ''
+      # npm's own global folder is the read-only Nix store; with ~/.local as the agent's global prefix, Claude Code's
+      # auto-updater (a plain `npm i -g`) installs where Claude Code lives.
+      npm config set prefix "$HOME/.local"
       if [ ! -x "$HOME/.local/bin/claude" ]; then
         npm install -g --prefix "$HOME/.local" @anthropic-ai/claude-code
       fi
