@@ -321,7 +321,8 @@ class Deployer:
             return None
         for _ in range(2):  # a failure is retried once: one flaky test should not undo a good deploy
             try:
-                code = subprocess.run([str(test), "-q"], capture_output=True, timeout=self.test_timeout).returncode
+                code = subprocess.run([str(test), "-q"], capture_output=True, timeout=self.test_timeout,
+                                      env=dict(os.environ, DISPLAY=os.environ.get("ODD1_TEST_DISPLAY", ":1"))).returncode
             except subprocess.TimeoutExpired:
                 code = 124
             if code in (0, 5):  # 5: no tests collected

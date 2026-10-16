@@ -12,12 +12,14 @@ import sys
 from pathlib import Path
 
 TIMEOUT = float(os.environ.get("ODD1_TASKS_TEST_TIMEOUT", 900))
+# Tests that open windows do it on the agent desktop, never on the person's screen (:0): focus is the person's.
+TEST_ENV = dict(os.environ, DISPLAY=os.environ.get("ODD1_TEST_DISPLAY", ":1"))
 
 
 def run_test(binary: Path) -> int:
     for _ in range(2):  # a failure is retried once: a flaky test is not a regression
         try:
-            code = subprocess.run([str(binary), "-q"], capture_output=True, timeout=TIMEOUT).returncode
+            code = subprocess.run([str(binary), "-q"], capture_output=True, timeout=TIMEOUT, env=TEST_ENV).returncode
         except subprocess.TimeoutExpired:
             code = 124
         if code in (0, 5):  # 5: no tests collected
