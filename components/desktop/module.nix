@@ -58,6 +58,7 @@ in {
         xfce.exo xfce.garcon xfce.libxfce4ui xfce.xfce4-appfinder xfce.xfdesktop xfce.thunar
         colloid-gtk-theme colloid-icon-theme adwaita-icon-theme hicolor-icon-theme
         hsetroot glib gtk3.out desktop-file-utils shared-mime-info
+        xclip  # Claude Code reads pasted images from the clipboard with it
       ]);
       fonts.packages = with pkgs; [ inter jetbrains-mono ];
       programs.xfconf.enable = true;
@@ -94,6 +95,10 @@ in {
         odd1-desktop-panel = afterSettings (session "Odd1 desktop: top bar" "${pkgs.xfce.xfce4-panel}/bin/xfce4-panel");
         odd1-desktop-icons = afterSettings (session "Odd1 desktop: wallpaper and desktop icons"
           "${pkgs.xfce.xfdesktop}/bin/xfdesktop");
+        # The clipboard over Remote Desktop, images included: xrdp's channel server on :0 (base.nix points xrdp at
+        # its socket). It waits for each connection and bridges Windows' clipboard to X's.
+        odd1-desktop-clipboard = session "Odd1 desktop: clipboard over Remote Desktop (xrdp-chansrv)"
+          "${pkgs.xrdp}/bin/xrdp-chansrv";
         # Stopping the shell stops only the shell: chats it opened (and the person's conversations) live on.
         odd1-desktop-shell = lib.recursiveUpdate (afterSettings (session
           "Odd1 desktop: chat column, taskbar, wallpaper, layout" "${cli}/bin/odd1-desktop shell --display :0"))

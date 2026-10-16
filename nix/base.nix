@@ -115,9 +115,15 @@ in {
       awk '/^\[Xorg\]/{exit} {print}' $out/xrdp.ini > $out/xrdp.ini.odd1
       mv $out/xrdp.ini.odd1 $out/xrdp.ini
       sed -i 's/^autorun=.*/autorun=Odd1/' $out/xrdp.ini
-      printf '%s\n' '[Odd1]' 'name=Odd1' 'lib=libvnc.so' 'ip=127.0.0.1' 'port=5900' 'username=na' 'password=' >> $out/xrdp.ini
+      printf '%s\n' '[Odd1]' 'name=Odd1' 'lib=libvnc.so' 'ip=127.0.0.1' 'port=5900' 'username=na' 'password=' \
+        'chansrvport=/run/xrdp/1000/xrdp_chansrv_socket_0' >> $out/xrdp.ini
+      # chansrv (the clipboard bridge, components/desktop) mounts no Windows drives.
+      sed -i 's/^#EnableFuseMount=false/EnableFuseMount=false/' $out/sesman.ini
     '';
   };
+  # The clipboard with images: xrdp hands the clipboard channel to chansrv, which runs as agent on :0 (user unit
+  # odd1-desktop-clipboard) and listens in /run/xrdp/<uid>/; setgid xrdp, so xrdp may connect to its socket.
+  systemd.tmpfiles.rules = lib.mkIf desktop [ "d /run/xrdp/1000 2770 agent xrdp -" ];
 
   environment.sessionVariables = {
     DISPLAY = ":0";
