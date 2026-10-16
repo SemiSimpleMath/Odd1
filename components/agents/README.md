@@ -24,7 +24,9 @@ component). It has no MCP server of its own: its changes are the task manager's 
 `odd1_agents/model.py` reads and writes everything as the person: the task store through `odd1_tasks` (its rules
 apply), role settings by editing `role.toml` lines in place after checking each value (bounds in `LIMITS`), the
 caretaker's `health.json`/`latest.json`, `/etc/odd1/agents.json` and `/etc/odd1/mcp-servers.json`.
-`odd1_agents/app.py` (GTK 4, libadwaita) only shows the model, refreshing every 5 s; open task rows stay open.
+`odd1_agents/app.py` (GTK 4, libadwaita) only shows the model, refreshing every 5 s; open task rows stay open. Its
+application id names the display (`org.odd1.Agents.d1` on `:1`): one instance per display, so starting it on the agent
+desktop opens a window there instead of raising the person's on `:0`.
 
 ## Tests
 `python -m pytest components/agents/tests -q` (on Odd1: `odd1-agents-test`): the model offline, against a temporary

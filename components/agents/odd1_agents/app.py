@@ -7,6 +7,8 @@ GTK 4 is accessible over AT-SPI, so agents can operate this window too (the scre
 """
 from __future__ import annotations
 
+import os
+import re
 import sys
 import threading
 import time
@@ -358,9 +360,17 @@ class Window(Adw.ApplicationWindow):
         threading.Thread(target=run, daemon=True).start()
 
 
+def app_id(display: str | None = None) -> str:
+    """One instance per display: the desktops share a session bus, so a fixed id would hand a start on the agent
+    desktop (:1) off to the person's window on :0. ':1.0' becomes 'org.odd1.Agents.d1_0'."""
+    display = os.environ.get("DISPLAY", "") if display is None else display
+    tail = re.sub(r"[^A-Za-z0-9_]", "_", display.lstrip(":")) or "none"
+    return f"org.odd1.Agents.d{tail}"
+
+
 class App(Adw.Application):
     def __init__(self):
-        super().__init__(application_id="org.odd1.Agents")
+        super().__init__(application_id=app_id())
 
     def do_activate(self):
         window = self.get_active_window() or Window(self)
