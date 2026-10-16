@@ -61,6 +61,7 @@ in {
   odd1.agents.claude = { title = "Claude"; description = "A new conversation with Claude Code"; command = "claude --permission-mode auto"; };
 
   networking.hostName = "odd1";
+  time.timeZone = "America/Los_Angeles";  # the person's local time (the top bar's clock, logs, file times)
 
   # Least friction: programs built for generic Linux run as they are (prebuilt binaries, pip wheels with native
   # code, downloaded tools), not only Nix-built ones.
