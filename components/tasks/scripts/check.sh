@@ -8,7 +8,21 @@ wt=${ODD1_TASKS_WORKTREE:-$PWD}
 cd "$wt"
 python3 tools/check.py
 out="$wt.build"   # beside the worktree, not in it
-nix-build '<nixpkgs/nixos>' -I nixos-config="$(odd1-deploy config-for "$wt")" -A system -o "$out" >/dev/null
+config=$(odd1-deploy config-for "$wt")
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+if ! nix-build '<nixpkgs/nixos>' -I nixos-config="$config" -A system -o "$out" >/dev/null 2>"$log"; then
+  # Why it failed, not what it would have built: Nix's messages without its lists of paths to build or fetch, then
+  # each failed derivation and the end of its build log.
+  echo "system does not build from $(git rev-parse --short HEAD):" >&2
+  grep -Ev "^(these [0-9]+|this) (derivations?|paths?) will be |^  /nix/store/|^building '|^copying path " "$log" \
+    | tail -n 40 >&2 || true
+  for drv in $(grep -oE "builder for '[^']+\.drv' failed" "$log" | grep -oE "/nix/store/[^']+\.drv" | sort -u); do
+    echo "== failed: $drv (nix log $drv), its last lines:" >&2
+    nix log "$drv" 2>/dev/null | tail -n 40 >&2 || true
+  done
+  exit 1
+fi
 echo "system builds from $(git rev-parse --short HEAD)"
 changed=$( { git diff --name-only main...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } \
   | grep -o '^components/[^/]*' | cut -d/ -f2 || true)

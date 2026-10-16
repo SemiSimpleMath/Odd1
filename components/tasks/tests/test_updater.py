@@ -125,7 +125,7 @@ def test_updater_may_apply_a_python_update_and_nothing_broader():
                 "Bash(claude --version)", "Bash(npm install -g @anthropic-ai/claude-code@*)"}
     looking = {"Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
                "Bash(git restore:*)", "Bash(npm view:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)",
-               "Bash(journalctl:*)", "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)"}
+               "Bash(journalctl:*)", "Bash(nix log:*)", "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)"}
     assert bash == applying | looking
     assert {"Bash(python3 -c:*)", "Bash(git push:*)", "Bash(git rebase:*)", "Bash(odd1-deploy:*)",
             "Bash(sudo:*)"} <= set(perms["deny"])

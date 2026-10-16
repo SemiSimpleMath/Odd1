@@ -9,7 +9,7 @@
       "Bash(odd1-tasks-check:*)", "Bash(odd1-tasks-land:*)",
       "Bash(claude --version)", "Bash(npm install -g @anthropic-ai/claude-code@*)",
       "Bash(npm view:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)", "Bash(journalctl:*)",
-      "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)",
+      "Bash(nix log:*)", "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)",
       "mcp__tasks__tasks_show", "mcp__tasks__tasks_list", "mcp__tasks__tasks_log", "mcp__tasks__tasks_create",
       "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish", "mcp__tasks__tasks_escalate"
     ],
