@@ -152,5 +152,10 @@ in {
   nix.settings.flake-registry = "";
 
   services.journald.extraConfig = "SystemMaxUse=200M";
+  # Programs that user services and D-Bus start (Thunar launches desktop icons for xfdesktop) find the system's
+  # programs and the screen; without this their PATH holds only systemd's own directory.
+  systemd.user.extraConfig = ''
+    DefaultEnvironment="PATH=/run/wrappers/bin:/run/current-system/sw/bin" "DISPLAY=:0"
+  '';
   documentation.enable = false;
 }
