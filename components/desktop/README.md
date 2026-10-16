@@ -26,7 +26,8 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
 - Logo: `logo/odd1-logo.svg` (the owl and the wordmark, its "1" in orange); `logo/odd1-icon.svg` is the owl
   alone, installed as the icon `odd1` (the menu button). Traced from the person's artwork with potrace, one layer
   per colour.
-- Look: Colloid (GTK and icons light, window frames dark like the bar), Inter for the interface, JetBrains Mono in the chat, xfwm4's
+- Look: Colloid (GTK and icons light; window frames are the `Odd1` xfwm4 theme, Colloid-Dark with its colours
+  fixed to the bar's, since xfwm4 otherwise takes them from the light GTK theme), Inter for the interface, JetBrains Mono in the chat, xfwm4's
   compositor for soft shadows. Grayscale antialiasing, so text stays crisp over Remote Desktop.
 - The screen follows the viewer: Remote Desktop (xrdp, port 3389) and noVNC (6080) ask Xvnc for their window's
   size; the shell lays everything out again.

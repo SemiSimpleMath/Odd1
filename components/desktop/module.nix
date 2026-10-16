@@ -39,6 +39,19 @@ let
   afterSettings = unit: unit // { after = unit.after ++ [ "odd1-desktop-settings.service" ]; };
   # The Odd1 owl (logo/odd1-icon.svg, the owl from logo/odd1-logo.svg) as the icon `odd1`: the menu button shows it.
   icon = pkgs.runCommand "odd1-icon" { } "install -Dm644 ${./logo/odd1-icon.svg} $out/share/icons/hicolor/scalable/apps/odd1.svg";
+  # Window frames as dark as the top bar, whatever the GTK theme: Colloid-Dark's xfwm4 images, with the colours they
+  # would take from the (light) GTK theme (`c <colour> s active_color_2`, ...) fixed to the bar's.
+  frames = pkgs.runCommand "odd1-xfwm4-theme" { } ''
+    mkdir -p $out/share/themes/Odd1
+    cp -r ${pkgs.colloid-gtk-theme}/share/themes/Colloid-Dark/xfwm4 $out/share/themes/Odd1/
+    chmod -R u+w $out/share/themes/Odd1
+    cd $out/share/themes/Odd1/xfwm4
+    sed -i -e 's/c [^ ]* s active_color_[0-9]*/c #181A1D/' -e 's/c [^ ]* s inactive_color_[0-9]*/c #202227/' \
+      -e 's/\(c [^ ]*\) s [a-z_0-9]*/\1/' *.xpm
+    sed -i -e 's/^active_text_color=.*/active_text_color=#E4E4E8/' -e 's/^inactive_text_color=.*/inactive_text_color=#8A8C96/' \
+      -e 's/^active_text_shadow_color=.*/active_text_shadow_color=#181A1D/' \
+      -e 's/^inactive_text_shadow_color=.*/inactive_text_shadow_color=#202227/' themerc
+  '';
   xfconf = name: { "xdg/xfce4/xfconf/xfce-perchannel-xml/${name}".source = ./xfconf + "/${name}"; };
   # Odd1 owns these settings channels: the repository's defaults (xfconf/) apply at every session start, so a value
   # Xfce once wrote into ~/.config (first-run defaults, an old layout) never shadows them. xfconfd restarts on demand.
@@ -54,7 +67,7 @@ in {
 
   config = lib.mkMerge [
     {
-      environment.systemPackages = [ cli test icon ] ++ (with pkgs; [
+      environment.systemPackages = [ cli test icon frames ] ++ (with pkgs; [
         xfce.xfwm4 xfce.xfce4-panel xfce.xfce4-settings xfce.xfce4-whiskermenu-plugin xfce.xfce4-windowck-plugin
         xfce.xfce4-terminal
         xfce.exo xfce.garcon xfce.libxfce4ui xfce.xfce4-appfinder xfce.xfdesktop xfce.thunar

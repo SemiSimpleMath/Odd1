@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
-    <property name="theme" type="string" value="Colloid-Dark"/>
+    <property name="theme" type="string" value="Odd1"/>  <!-- module.nix: frames -->
     <property name="title_font" type="string" value="Inter Semi-Bold 10"/>
     <property name="title_alignment" type="string" value="center"/>
     <property name="button_layout" type="string" value="|HMC"/>
