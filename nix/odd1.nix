@@ -140,6 +140,13 @@ in {
   nix.nixPath = lib.mkForce [ "nixpkgs=${toString pkgs.path}" "nixos-config=/etc/nixos/configuration.nix" ];
   nix.registry.nixpkgs.to = lib.mkForce { type = "path"; path = toString pkgs.path; };
 
+  # The disk never fills with old builds (it reached 95% on 2026-10-16: 81 generations, ~500 build results): Nix
+  # collects garbage daily keeping a week, and during builds whenever free space falls under 2 GB (up to 6 GB freed).
+  nix.gc = { automatic = true; dates = "daily"; options = "--delete-older-than 7d"; };
+  nix.settings.min-free = 2 * 1024 * 1024 * 1024;
+  nix.settings.max-free = 6 * 1024 * 1024 * 1024;
+  boot.loader.grub.configurationLimit = 10;
+
   # Runtime state for components lives here, never in the repository.
   systemd.tmpfiles.rules = [ "d /var/lib/odd1 0755 agent users -" ];
   };
