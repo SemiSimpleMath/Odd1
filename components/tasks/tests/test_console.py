@@ -49,3 +49,5 @@ def test_console_runs_claude_in_its_folder_as_the_person(store, monkeypatch):
     allowed = settings["permissions"]["allow"]
     assert "mcp__tasks__tasks_approve" not in allowed  # approving always asks the person
     assert not any("release" in a for a in allowed)  # so does stopping a task
+    asked = settings["permissions"]["ask"]  # and they ask even in auto mode, which may otherwise approve on its own
+    assert {"mcp__tasks__tasks_approve", "mcp__tasks__tasks_release", "Bash(odd1-tasks approve:*)"} <= set(asked)

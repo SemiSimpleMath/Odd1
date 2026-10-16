@@ -160,3 +160,18 @@ def test_role_settings_never_bypass_permissions(store, role):
     assert "mcp__tasks__tasks_approve" in perms["deny"] and "mcp__tasks__tasks_approve" not in perms["allow"]
     assert not any(a.startswith(("Bash(rm", "Bash(sudo", "Bash(find")) or a == "Bash" for a in perms["allow"])
     assert "defaultMode" not in perms
+
+
+def test_seed_follows_the_repository_except_where_the_person_edited(store, tmp_path):
+    source = tmp_path / "seed"
+    (source / "r").mkdir(parents=True)
+    (source / "r" / "role.toml").write_text('tags = ["x"]\n')
+    (source / "r" / "CLAUDE.md").write_text("v1")
+    roles.seed(store, "r", source)
+    folder = roles.folder(store, "r")
+    (folder / "role.toml").write_text('tags = ["x", "y"]\n')  # the person edits one file
+    (source / "r" / "role.toml").write_text('tags = ["z"]\n')  # the repository changes both
+    (source / "r" / "CLAUDE.md").write_text("v2")
+    roles.seed(store, "r", source)
+    assert (folder / "role.toml").read_text() == 'tags = ["x", "y"]\n'  # kept
+    assert (folder / "CLAUDE.md").read_text() == "v2"  # followed

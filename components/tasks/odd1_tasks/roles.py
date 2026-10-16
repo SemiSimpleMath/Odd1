@@ -6,6 +6,8 @@ role's permissions name, and reports/ for its output.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shutil
 import tomllib
@@ -31,15 +33,29 @@ def load(store: Store, role: str) -> dict:
 
 
 def copy_missing(src: Path, dst: Path) -> None:
-    """Copy src's files into dst where dst has none yet, writable (files from the Nix store are read-only)."""
+    """Copy src's files into dst where dst has none, or still has the copy made last time (unedited): the person's
+    edits stay, everything else follows the repository. dst/.seeded records each copy's SHA-256."""
     dst.mkdir(parents=True, exist_ok=True)
-    for f in src.rglob("*") if src.is_dir() else []:
-        target = dst / f.relative_to(src)
-        if f.is_dir() or target.exists():
+    record = dst / ".seeded"
+    seeded = json.loads(record.read_text()) if record.exists() else {}
+    for f in sorted(src.rglob("*")) if src.is_dir() else []:
+        rel, target = str(f.relative_to(src)), dst / f.relative_to(src)
+        if f.is_dir():
             continue
+        new = hashlib.sha256(f.read_bytes()).hexdigest()
+        if target.exists():
+            old = hashlib.sha256(target.read_bytes()).hexdigest()
+            if old == new:
+                seeded[rel] = new  # current (also how folders seeded before this record start being followed)
+                continue
+            if seeded.get(rel) != old:
+                continue  # edited by the person
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(f, target)
+        target.unlink(missing_ok=True)
+        shutil.copyfile(f, target)  # not copy2: files from the Nix store are read-only
         target.chmod(0o755 if os.access(f, os.X_OK) else 0o644)
+        seeded[rel] = new
+    record.write_text(json.dumps(seeded, indent=1, sort_keys=True))
 
 
 def seed(store: Store, role: str, source: Path = SEED) -> dict:

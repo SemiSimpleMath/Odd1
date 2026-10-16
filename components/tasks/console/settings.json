@@ -1,11 +1,30 @@
 {
-  "statusLine": { "type": "command", "command": "odd1-tasks status", "refreshInterval": 5 },
+  "statusLine": {
+    "type": "command",
+    "command": "odd1-tasks status",
+    "refreshInterval": 5
+  },
   "permissions": {
     "allow": [
-      "Read", "Glob", "Grep",
-      "Bash(odd1-tasks list:*)", "Bash(odd1-tasks show:*)", "Bash(odd1-tasks status)",
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(odd1-tasks list:*)",
+      "Bash(odd1-tasks show:*)",
+      "Bash(odd1-tasks status)",
       "Bash(journalctl -u odd1-tasks-runner*)",
-      "mcp__tasks__tasks_list", "mcp__tasks__tasks_show", "mcp__tasks__tasks_log", "mcp__tasks__tasks_create"
+      "mcp__tasks__tasks_list",
+      "mcp__tasks__tasks_show",
+      "mcp__tasks__tasks_log",
+      "mcp__tasks__tasks_create"
+    ],
+    "ask": [
+      "mcp__tasks__tasks_approve",
+      "mcp__tasks__tasks_release",
+      "mcp__tasks__tasks_claim",
+      "Bash(odd1-tasks approve:*)",
+      "Bash(odd1-tasks release:*)",
+      "Bash(odd1-tasks claim:*)"
     ]
   }
 }
