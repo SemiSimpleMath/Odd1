@@ -17,6 +17,7 @@ from com.sun.star.beans import PropertyValue
 
 PORT = int(os.environ.get("ODD1_CALC_PORT", "2002"))
 ACCEPT = f"socket,host=127.0.0.1,port={PORT};urp;StarOffice.ComponentContext"
+PROFILE = os.environ.get("ODD1_CALC_PROFILE")  # a separate LibreOffice profile directory (tests use their own)
 
 
 def _props(**kw):
@@ -39,6 +40,8 @@ def _column_name(n: int) -> str:
 
 
 class Calc:
+    process: subprocess.Popen | None = None  # the soffice this process started, if any
+
     def __init__(self, desktop):
         self.desktop = desktop
 
@@ -56,9 +59,12 @@ class Calc:
             except Exception:
                 if start and not started:
                     env = dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))
-                    subprocess.Popen(["soffice", "--calc", "--norestore", "--nologo", f"--accept={ACCEPT}"],
-                                     env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL, start_new_session=True)
+                    args = ["soffice", "--calc", "--norestore", "--nologo", f"--accept={ACCEPT}"]
+                    if PROFILE:
+                        args.append("-env:UserInstallation=" + uno.systemPathToFileUrl(os.path.abspath(PROFILE)))
+                    cls.process = subprocess.Popen(args, env=env, stdin=subprocess.DEVNULL,
+                                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                                   start_new_session=True)
                     started = True
                 if time.monotonic() > deadline:
                     raise RuntimeError(f"Calc did not answer on port {PORT} within {timeout:.0f}s")

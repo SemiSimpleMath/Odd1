@@ -15,6 +15,8 @@ Milestone: ★ (any app, through interfaces agents write themselves). This is th
 ## Tests
 `odd1-calc-test` on Odd1 (needs LibreOffice): loads people and heights, finds the unique people, writes their
 average heights to a Summary sheet, checks them against Calc's own AVERAGEIF, and saves as .ods.
+`tests/conftest.py` starts the tests' own Calc on the agent desktop (`$ODD1_AGENT_DISPLAY`, `:1`), never the
+person's screen, on port 2012 with a fresh profile (`ODD1_CALC_PORT`, `ODD1_CALC_PROFILE`), and stops it afterwards.
 
 ## Next
 Writer and Impress (same UNO session), named ranges and charts, then a screen-model link: which window shows which
