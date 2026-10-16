@@ -51,6 +51,19 @@ let
     sed -i -e 's/^active_text_color=.*/active_text_color=#E4E4E8/' -e 's/^inactive_text_color=.*/inactive_text_color=#8A8C96/' \
       -e 's/^active_text_shadow_color=.*/active_text_shadow_color=#181A1D/' \
       -e 's/^inactive_text_shadow_color=.*/inactive_text_shadow_color=#202227/' themerc
+    # Rounded bottom corners like the top ones: Colloid's are square, and a 2 px bottom edge leaves no room (the
+    # client covers anything inside it), so the bottom edge is 8 px with quarter circles of radius 8.
+    rm -f bottom*.svg
+    xpm() { name=$1; w=$2; colour=$3; shift 3
+      { echo '/* XPM */'; echo "static char *''${name//-/_}[] = {"; echo "\"$w 8 2 1 \","; echo '"  c None",'
+        echo "\". c $colour\","; printf '"%s",\n' "$@" | sed '$ s/,$//'; echo '};'; } > $name.xpm; }
+    for state in active:#181A1D inactive:#202227; do
+      s=''${state%%:*}; c=''${state#*:}
+      xpm bottom-left-$s 8 $c "........" "........" "........" " ......." " ......." "  ......" "   ....." "     ..."
+      xpm bottom-right-$s 8 $c "........" "........" "........" "....... " "....... " "......  " ".....   " "...     "
+      xpm bottom-$s 16 $c "................" "................" "................" "................" \
+        "................" "................" "................" "................"
+    done
     # The same buttons for the maximized window's controls in the top bar (xfce4-windowck-plugin reads unity/).
     mkdir ../unity
     for state in unfocused:inactive focused_normal:active focused_prelight:prelight focused_pressed:pressed; do
