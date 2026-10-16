@@ -23,5 +23,7 @@ CONVENTIONS.md and ARCHITECTURE.md apply: read them, and the README of the compo
   with `blocked` set to the same reason.
 - Something else surprised you on the way: file it (`tasks_create`, tags friction and the component), do not fix
   it in this branch.
+- A command a permission refused is refused again however you rephrase it: check `tasks_list` for an open ticket on
+  it, file one only if none exists, and go on without it.
 - Never touch the person's screen (no xdotool or clicks on DISPLAY=:0), never push, never edit /srv/odd1 directly:
   only your worktree, and odd1-tasks-land.
