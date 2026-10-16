@@ -23,9 +23,11 @@ def rounded_mask(size, radius):
 
 def tile(colours, size):
     """A rounded square icon background, a diagonal gradient between two colours."""
-    from PIL import Image
+    from PIL import Image, ImageChops
     (r1, g1, b1), (r2, g2, b2) = colours
-    gradient = Image.linear_gradient("L").rotate(45, expand=True).resize((size, size))
+    vertical = Image.linear_gradient("L")
+    gradient = ImageChops.add(vertical, vertical.rotate(90), scale=2).transpose(Image.FLIP_LEFT_RIGHT)
+    gradient = gradient.resize((size, size))
     image = Image.composite(Image.new("RGB", (size, size), (r2, g2, b2)), Image.new("RGB", (size, size), (r1, g1, b1)),
                             gradient)
     image.putalpha(rounded_mask((size, size), size // 4))

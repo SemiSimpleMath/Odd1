@@ -58,8 +58,15 @@ def test_desktop_launchers_are_seeded_once_and_executable(tmp_path):
     apps.mkdir()
     (apps / "firefox.desktop").write_text("[Desktop Entry]\nName=Firefox\n")
     home = tmp_path / "home"
-    assert shell.seed_desktop(str(home), str(apps), ("firefox.desktop", "missing.desktop")) == ["firefox.desktop"]
+    assert shell.seed_desktop(str(home), str(apps), {"firefox.desktop": {"Name": "Web"}, "missing.desktop": {}}) == [
+        "firefox.desktop"]
     launcher = home / "Desktop" / "firefox.desktop"
-    assert launcher.stat().st_mode & 0o111
+    assert launcher.stat().st_mode & 0o111 and "Name=Web" in launcher.read_text()
     launcher.unlink()  # the person removed it: it stays removed
     assert shell.seed_desktop(str(home), str(apps), ("firefox.desktop",)) == [] and not launcher.exists()
+
+
+def test_launcher_overrides_replace_keys_and_drop_their_translations():
+    text = "[Desktop Entry]\nName=Thunar File Manager\nName[de]=Thunar\nExec=thunar\n[Desktop Action x]\nName=Keep\n"
+    out = shell.launcher(text, {"Name": "Files"})
+    assert out == "[Desktop Entry]\nName=Files\nExec=thunar\n[Desktop Action x]\nName=Keep\n"

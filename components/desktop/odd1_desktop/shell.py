@@ -21,9 +21,16 @@ from . import layout
 NEW_CHAT = "+  New chat"
 GENERIC_EVENT = 35  # X11 GenericEvent (XInput 2 events arrive as these)
 AGENT_POLL_S = 2  # how often the taskbar recounts the agent desktop's windows
-# Launchers put on the desktop once (the person may remove them): Files, the web, a terminal, documents, notes.
-DESKTOP_APPS = ("thunar.desktop", "firefox.desktop", "xfce4-terminal.desktop", "startcenter.desktop",
-                "org.xfce.mousepad.desktop", "org.gnome.Calculator.desktop")
+# Launchers put on the desktop once (the person may remove them): Files, the web, a terminal, documents, notes,
+# sums; with plain names, and an icon the theme has where the app's own name for it is missing from Colloid.
+DESKTOP_APPS = {
+    "thunar.desktop": {"Name": "Files"},
+    "firefox.desktop": {},
+    "xfce4-terminal.desktop": {"Name": "Terminal"},
+    "startcenter.desktop": {"Name": "LibreOffice", "Icon": "org.libreoffice.LibreOffice-startcenter"},
+    "org.xfce.mousepad.desktop": {"Name": "Text Editor"},
+    "org.gnome.Calculator.desktop": {},
+}
 APPLICATIONS = "/run/current-system/sw/share/applications"
 
 
@@ -47,6 +54,21 @@ def open_chat(cwd=None):
                      start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def launcher(text, overrides):
+    """A .desktop file's text with some [Desktop Entry] keys replaced (and their translations dropped)."""
+    lines, section = [], None
+    for line in text.splitlines():
+        if line.startswith("["):
+            section = line.strip()
+        key = line.split("=", 1)[0].split("[", 1)[0].strip()
+        if section == "[Desktop Entry]" and key in overrides:
+            if "[" not in line.split("=", 1)[0]:
+                lines.append(f"{key}={overrides[key]}")
+            continue
+        lines.append(line)
+    return "\n".join(lines) + "\n"
+
+
 def seed_desktop(home=None, applications=APPLICATIONS, apps=DESKTOP_APPS):
     """Put the default launchers on ~/Desktop, once (a marker remembers it, so removed ones stay removed).
     Launchers there must be executable to be trusted (xfdesktop asks otherwise)."""
@@ -60,7 +82,8 @@ def seed_desktop(home=None, applications=APPLICATIONS, apps=DESKTOP_APPS):
     for name in apps:
         source, target = os.path.join(applications, name), os.path.join(desktop, name)
         if os.path.exists(source) and not os.path.exists(target):
-            shutil.copyfile(source, target)
+            with open(source) as original, open(target, "w") as copy:
+                copy.write(launcher(original.read(), dict(apps).get(name) or {}))
             os.chmod(target, 0o755)
             placed.append(name)
     os.makedirs(os.path.dirname(marker), exist_ok=True)
