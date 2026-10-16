@@ -48,6 +48,9 @@ and ImageMagick; the MCP tests skip without the `mcp` package (1.x, `FastMCP`). 
   multithreaded passes oversubscribed the CPUs and timed out. 0.3-0.6 s per window.
 
 ## Next
+- A full-screen grab (`screenshot --screen`, and an MCP tool), to see a whole desktop's layout at once. Today the root
+  window crashes `capture` (its parent walk gets 0 from the root), and the root has no pixmap of its own under
+  xfwm4's compositor: stack every viewable top-level's composite pixmap in stacking order, or read the overlay window.
 - Calibrate coordinates per toolkit (AT-SPI and OCR boxes to screen pixels) so observations become click targets.
 - A held-out labelled set of app screens to measure OCR recognition and box localization separately.
 - The merged screen model with stable ids now lives in `screen`, which uses this component's readers; grow the
