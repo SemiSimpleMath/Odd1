@@ -11,6 +11,11 @@ from odd1_tasks import roles, runner  # noqa: E402
 from odd1_tasks.store import Store  # noqa: E402
 
 STUB = Path(__file__).resolve().parent / "stub_claude.py"
+# The repository's routines (top level, like the wiki): this checkout's when there is one, else the installed seed.
+ROUTINES = COMPONENT.parents[1] / "routines"
+if not ROUTINES.is_dir():
+    import os
+    ROUTINES = Path(os.environ.get("ODD1_TASKS_ROUTINES_SEED", ROUTINES))
 
 
 @pytest.fixture

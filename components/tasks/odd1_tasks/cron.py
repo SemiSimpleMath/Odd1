@@ -1,7 +1,7 @@
 """The cron manager: pre-planned routines, each run on its schedule by whichever worker agent is free, handed the
 routine's skill.
 
-A routine is a folder, <state>/routines/<name>/ (seeded from the repository's routines/ like role folders: a file the
+A routine is a folder, <state>/routines/<name>/ (seeded from the repository's top-level routines/ like role folders: a file the
 person edited stays theirs; a folder the person adds is a routine too):
     routine.toml   enabled, schedule ("1d"), goal, done_when (run in this folder), max_turns, max_minutes,
                    allow (permission rules the run needs on top of the worker role's)
@@ -29,7 +29,8 @@ from .roles import copy_missing
 from .store import OPEN, Store
 
 ACTOR = "cron"
-SEED = Path(os.environ.get("ODD1_TASKS_ROUTINES_SEED", Path(__file__).resolve().parent.parent / "routines"))
+# The routines are content (a schedule, a skill, helpers), at the repository's top level like the wiki.
+SEED = Path(os.environ.get("ODD1_TASKS_ROUTINES_SEED", Path(__file__).resolve().parents[3] / "routines"))
 DEFAULTS = {"enabled": True, "schedule": "1d", "max_turns": None, "max_minutes": None, "allow": []}
 
 

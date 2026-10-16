@@ -9,7 +9,7 @@ let
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_TASKS_STATE=''${ODD1_TASKS_STATE:-${state}}
-    export ODD1_TASKS_ROLES_SEED=${./roles} ODD1_TASKS_CONSOLE_SEED=${./console} ODD1_TASKS_ROUTINES_SEED=${./routines}
+    export ODD1_TASKS_ROLES_SEED=${./roles} ODD1_TASKS_CONSOLE_SEED=${./console} ODD1_TASKS_ROUTINES_SEED=${../../routines}
   '';
   wrap = name: module: pkgs.writeShellScriptBin name ''
     ${env}
@@ -25,7 +25,7 @@ let
   land = script "odd1-tasks-land" ./scripts/land.sh;
   server = wrap "odd1-tasks-mcp" "odd1_tasks.mcp_server";
   test = pkgs.writeShellScriptBin "odd1-tasks-test" ''
-    export PYTHONPATH=${./.} PYTHONDONTWRITEBYTECODE=1
+    export PYTHONPATH=${./.} PYTHONDONTWRITEBYTECODE=1 ODD1_TASKS_ROUTINES_SEED=${../../routines}
     exec ${python}/bin/python3 -m pytest -q ${./.}/tests -p no:cacheprovider "$@"
   '';
 
@@ -64,7 +64,7 @@ in {
     description = "Odd1 cron manager: routines on their schedules, as tasks for the worker role";
     wantedBy = [ "multi-user.target" ];
     after = [ "systemd-tmpfiles-setup.service" ];
-    environment = { PYTHONPATH = "${./.}"; ODD1_TASKS_STATE = state; ODD1_TASKS_ROUTINES_SEED = "${./routines}"; };
+    environment = { PYTHONPATH = "${./.}"; ODD1_TASKS_STATE = state; ODD1_TASKS_ROUTINES_SEED = "${../../routines}"; };
     serviceConfig = {
       User = "agent";
       ExecStart = "${python}/bin/python3 -m odd1_tasks.cli cron --watch";
@@ -90,7 +90,7 @@ in {
       PYTHONPATH = "${./.}";
       ODD1_TASKS_STATE = state;
       ODD1_TASKS_ROLES_SEED = "${./roles}";
-      ODD1_TASKS_ROUTINES_SEED = "${./routines}";
+      ODD1_TASKS_ROUTINES_SEED = "${../../routines}";
       ODD1_TASKS_PYPKGS = "/etc/odd1/tasks/python-packages.json";
       ODD1_REPO = "/srv/odd1";
       NIX_PATH = lib.concatStringsSep ":" config.nix.nixPath;

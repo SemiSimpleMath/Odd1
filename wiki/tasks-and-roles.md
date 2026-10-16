@@ -9,6 +9,6 @@
 - Work done in a chat closes by its check: `odd1-tasks close-by-check ID` (rule
   [0009](decisions/0009-chats-do-not-claim-tickets.md)).
 - Routines (the cron manager): pre-planned work on a schedule, each a folder with a skill
-  (`components/tasks/routines/`): the journal (`~/Journal`), the dojo (reviews runs; OS faults become tickets, skill
+  (`routines/`): the journal (`~/Journal`), the dojo (reviews runs; OS faults become tickets, skill
   faults become proposed skill changes). A worker role runs them.
 - Details: `components/tasks/README.md`.

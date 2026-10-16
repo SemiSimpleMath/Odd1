@@ -108,7 +108,7 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
   package: `python-installed.py ATTR B`, Odd1's own Python by Nix attribute, never the system python3's
   importlib.metadata, which lacks those packages). It never applies updates; the updater does, once approved.
 - **worker** (`routine` + every routine, `all_routines`): runs the cron manager's routines, any of them.
-Routines (the cron manager, `odd1_tasks/cron.py`): pre-planned work on a schedule. Each is a folder in `routines/`,
+Routines (the cron manager, `odd1_tasks/cron.py`): pre-planned work on a schedule. Each is a folder in the repository's top-level `routines/`,
 seeded to `/var/lib/odd1/tasks/routines/<name>/` (the person's edits kept; a folder added there is a routine too):
 `routine.toml` (enabled, schedule, goal, done_when, budgets, `allow`: permission rules the run needs) and `SKILL.md`,
 the skill that says how, plus its helpers. The `odd1-tasks-cron` service (no model calls) keeps one recurring task

@@ -8,7 +8,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from conftest import COMPONENT, PERSON
+from conftest import PERSON, ROUTINES
 
 from odd1_tasks import cron, roles, runner
 
@@ -99,14 +99,14 @@ def test_a_worker_runs_a_routine_handed_its_skill_and_permissions(store, tmp_pat
 
 
 def test_the_journal_routine_loads(store):
-    cron.seed(store)
+    cron.seed(store, ROUTINES)
     r = cron.load(store, "journal")
     assert r["enabled"] and r["schedule"] == "1d" and "Write(./journal/**)" in r["allow"]
     assert (r["folder"] / "SKILL.md").read_text().startswith("---\nname: journal\n")
 
 
 # -- journal-sources.py -------------------------------------------------------------------------------------------
-SOURCES = COMPONENT / "routines" / "journal" / "journal-sources.py"
+SOURCES = ROUTINES / "journal" / "journal-sources.py"
 
 
 def transcript(folder: Path, lines):
@@ -160,11 +160,11 @@ def test_journal_sources_gather_the_window_and_leave_out_what_is_not_the_persons
 
 
 # -- the dojo --------------------------------------------------------------------------------------------------------
-DOJO = COMPONENT / "routines" / "dojo" / "dojo-material.py"
+DOJO = ROUTINES / "dojo" / "dojo-material.py"
 
 
 def test_the_dojo_routine_loads_and_its_material_shows_where_runs_stumbled(store, tmp_path):
-    cron.seed(store, COMPONENT / "routines")  # this checkout's routines, not the deployed seed a runner's env names
+    cron.seed(store, ROUTINES)  # this checkout's routines, not the deployed seed a runner's env names
     assert cron.load(store, "dojo")["schedule"] == "1d"
     t = store.create("Fix the thing", "true", ["friction", "desktop"], actor=PERSON)
     events = [{"type": "assistant", "message": {"content": [
