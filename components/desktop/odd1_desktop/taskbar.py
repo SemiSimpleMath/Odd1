@@ -220,6 +220,11 @@ class Taskbar:
             image.paste(icon, (x, top), icon)
             if kind == "agents" and self.agent_count:  # badges go over the icon
                 self.badge(image, x + size - 6, top - 3, str(self.agent_count))
+            if kind == "chat" and key.id in self.shell.attention:  # it wants the person: the blinking ball
+                r = layout.ATTENTION_RADIUS + 1
+                draw.ellipse([x + size - 2 - r, top - 1 - r, x + size - 2 + r, top - 1 + r],
+                             fill=layout.ATTENTION_COLOUR if self.shell.blink else layout.ATTENTION_DIM,
+                             outline=layout.TASKBAR_BACKGROUND)
             if kind == "chat" and label[-1:].isdigit() and label.rsplit(" ", 1)[0] in self.shell.chat_titles():
                 self.badge(image, x + size - 6, top + size - 12, label.rsplit(" ", 1)[1],
                            colour=(40, 42, 50))

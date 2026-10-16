@@ -118,14 +118,34 @@ def menu_hit(y, count):
     return index if y >= MENU_PAD and index < count else None
 
 
-def tab_boxes(labels, measure, start=14, pad=12, gap=4):
-    """(x, width) of each tab, given a text-width function; tabs sit left to right from `start`."""
+def tab_boxes(labels, measure, start=14, pad=12, gap=4, extra=None):
+    """(x, width) of each tab, given a text-width function; tabs sit left to right from `start`. extra: more width
+    per tab (room for the attention ball)."""
     boxes, x = [], start
-    for label in labels:
-        width = measure(label) + 2 * pad
+    for index, label in enumerate(labels):
+        width = measure(label) + 2 * pad + (extra[index] if extra else 0)
         boxes.append((x, width))
         x += width + gap
     return boxes
+
+
+# Focus belongs to whoever used a window last. A new chat takes the column and the keyboard only when the person
+# asked for it (+ New chat, a moment ago); one that opens on its own, or rings for the person (Claude Code's
+# terminal bell sets the window's urgency hint), gets a blinking orange ball on its tab until the person opens it.
+ASKED_S = 20  # how long after the person's New chat click a new chat window counts as the one they asked for
+ATTENTION_ROOM, ATTENTION_RADIUS, ATTENTION_BLINK_S = 16, 4, 0.5
+ATTENTION_COLOUR, ATTENTION_DIM = (240, 132, 64), (110, 72, 52)
+URGENCY_HINT = 1 << 8  # WM_HINTS flags: XUrgencyHint
+
+
+def person_asked(requested, now):
+    """Whether a chat opening now is the one the person asked for (they clicked New chat at `requested`)."""
+    return bool(requested) and 0 <= now - requested <= ASKED_S
+
+
+def urgent(wm_hints_flags, net_wm_state, demands_attention):
+    """Whether a window asks for the person: the urgency hint, or _NET_WM_STATE_DEMANDS_ATTENTION."""
+    return bool(wm_hints_flags & URGENCY_HINT) or demands_attention in net_wm_state
 
 
 def hit(boxes, x):

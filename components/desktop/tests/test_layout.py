@@ -87,3 +87,21 @@ def test_new_chat_menu_hangs_under_its_button_inside_the_column():
     assert layout.menu_box(header, (10, 88), 2)[0] == 1880 + 4  # never left of the column
     pad, item = layout.MENU_PAD, layout.MENU_ITEM
     assert [layout.menu_hit(y, 2) for y in (0, pad, pad + item - 1, pad + item, pad + 2 * item)] == [None, 0, 0, 1, None]
+
+
+def test_a_new_chat_takes_the_focus_only_when_the_person_just_asked_for_it():
+    assert layout.person_asked(100.0, 100.0 + layout.ASKED_S)
+    assert not layout.person_asked(100.0, 100.0 + layout.ASKED_S + 1)  # too long ago: it waits as a tab
+    assert not layout.person_asked(0.0, 5.0)  # never asked
+
+
+def test_urgency_comes_from_the_hint_or_demands_attention():
+    assert layout.urgent(layout.URGENCY_HINT | 1, [], 99)
+    assert layout.urgent(0, [5, 99], 99)
+    assert not layout.urgent(1, [5], 99)
+
+
+def test_a_waiting_tab_is_wider_by_room_for_the_ball():
+    plain = layout.tab_boxes(["A", "B"], lambda t: 10)
+    waiting = layout.tab_boxes(["A", "B"], lambda t: 10, extra=[0, layout.ATTENTION_ROOM])
+    assert waiting[0] == plain[0] and waiting[1][1] == plain[1][1] + layout.ATTENTION_ROOM

@@ -22,5 +22,9 @@
     <property name="cycle_preview" type="bool" value="true"/>
     <property name="cycle_workspaces" type="bool" value="false"/>
     <property name="double_click_action" type="string" value="maximize"/>
+    <!-- Focus is the person's: new windows do not take it from whoever is typing, and an app asking to be
+         activated is marked as wanting attention instead (the taskbar and the person's clicks still activate). -->
+    <property name="prevent_focus_stealing" type="bool" value="true"/>
+    <property name="activate_action" type="string" value="none"/>
   </property>
 </channel>

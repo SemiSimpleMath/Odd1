@@ -23,6 +23,11 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
   and the drives the viewer shares (Remote Desktop: Local Resources, More, Drives) appear at `~/Windows`, so
   agents can read a file the person put in their Downloads. Both through `xrdp-chansrv` (unit
   `odd1-desktop-clipboard`).
+- Focus is the person's: whoever used a window last keeps the focus. A new chat takes the column and the keyboard
+  only when the person just clicked + New chat; otherwise it waits as a tab. A chat that needs the person (Claude
+  Code rings the terminal bell: `preferredNotifChannel` in /etc/claude-code/managed-settings.json; the terminal
+  marks itself urgent) gets a blinking orange ball on its tab and taskbar icon until the person opens it. xfwm4
+  prevents focus stealing and turns apps' activation requests into "wants attention".
 - Quiet: the X bell is off (the shell sets its volume to 0), so agents typing into apps make no beeps over Remote
   Desktop.
 - Logo: `logo/odd1-logo.svg` (the owl and the wordmark, its "1" in orange); `logo/odd1-icon.svg` is the owl

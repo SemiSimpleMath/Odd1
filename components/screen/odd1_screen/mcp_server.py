@@ -68,12 +68,15 @@ def screen_find(text: str, role: str = "", display: str = "user") -> list:
 
 
 @mcp.tool()
-def screen_click(id: str, via: str = "auto", button: int = 1, allow_unverified: bool = False) -> dict:
+def screen_click(id: str, via: str = "auto", button: int = 1, allow_unverified: bool = False,
+                 person_approved: bool = False) -> dict:
     """Press an element ("w3.e12" on the person's screen, "a3.e12" on the agent desktop) and return what changed.
     via: "auto" (the app's own accessibility action when the element has one: works on minimized and covered
     windows and leaves the person's mouse alone; else the real pointer), "app", or "pointer" (that display's mouse
-    at the element's centre; refused if minimized, covered or unverified). The agent desktop's pointer is its own."""
-    return live.click(_owner(id), id, via=via, button=button, allow_unverified=allow_unverified)
+    at the element's centre; refused if minimized, covered or unverified). The agent desktop's pointer is its own.
+    On the person's screen the pointer is theirs: ask them first, then pass person_approved=true."""
+    return live.click(_owner(id), id, via=via, button=button, allow_unverified=allow_unverified,
+                      person_approved=person_approved)
 
 
 @mcp.tool()
@@ -84,12 +87,15 @@ def screen_set_text(id: str, text: str) -> dict:
 
 
 @mcp.tool()
-def screen_type(text: str, id: str = "", display: str = "", allow_unverified: bool = False) -> dict:
+def screen_type(text: str, id: str = "", display: str = "", allow_unverified: bool = False,
+                person_approved: bool = False) -> dict:
     """Type text with a display's keyboard into its focused window, clicking element id with the pointer first
-    when given (the display then follows the id). On the person's screen this takes their focus: prefer
-    screen_set_text there, or run the app on the agent desktop."""
+    when given (the display then follows the id); stops if the focus moves to another window. On the person's
+    screen the keyboard is theirs: prefer screen_set_text or the agent desktop; else ask them first, then pass
+    person_approved=true."""
     screen = _owner(id) if id else _screen(display or "user")
-    return live.type_text(screen, text, element_id=id, allow_unverified=allow_unverified)
+    return live.type_text(screen, text, element_id=id, allow_unverified=allow_unverified,
+                          person_approved=person_approved)
 
 
 def main() -> None:

@@ -182,6 +182,10 @@ class Shell:
         self.fitted = set()  # app windows already kept out of the column once
         self.tabs = []  # (x, width) of each tab in the header
         self.new_chat = (0, 0)  # (x, width) of the New chat button
+        self.attention = set()  # chat window ids that want the person (a blinking ball on their tab)
+        self.requested = 0.0  # when the person last clicked New chat (that chat may take the focus)
+        self.blink, self.blinked = True, 0.0
+        self.starting = True  # chats found at start are re-adopted quietly
         self.wallpaper = None  # the current wallpaper image (the taskbar paints over it)
         self.watched = set()  # client windows whose property changes we follow (state, title, icon)
         from .taskbar import Taskbar
@@ -212,7 +216,8 @@ class Shell:
         self.header.map()
 
     def adopt(self, window, agent="claude"):
-        """Take a new chat window into the column (unmap, retype as a dock, map again)."""
+        """Take a new chat window into the column (unmap, retype as a dock, map again). It takes the column and the
+        keyboard only if the person just asked for it; otherwise it waits as a tab with the attention ball."""
         self.chat_agents[window.id] = agent
         window.unmap()
         self.display.sync()
@@ -221,16 +226,42 @@ class Shell:
         window.map()
         self.display.sync()
         time.sleep(0.2)  # focus needs the window viewable
+        window.change_attributes(event_mask=self.X.PropertyChangeMask)  # its urgency hint
         self.chats.append(window)
-        self.show(window)
+        if layout.person_asked(self.requested, time.monotonic()):
+            self.requested = 0.0
+            self.show(window)
+        elif self.shown is None:
+            self.show(window, focus=False)
+        else:
+            if not self.starting:
+                self.attention.add(window.id)
+            self.draw_header()
 
-    def show(self, window):
-        """Put one chat on top of the column and give it the keyboard."""
-        log(f"show {window.id:#x}")
+    def show(self, window, focus=True):
+        """Put one chat on top of the column and (when the person chose it) give it the keyboard."""
+        log(f"show {window.id:#x} focus={focus}")
         self.shown = window
         window.configure(stack_mode=self.X.Above)
-        self.focus()
+        if focus:
+            self.attention.discard(window.id)
+            self.focus()
         self.draw_header()
+
+    def ring(self, window):
+        """A chat's urgency changed: it wants the person, unless they are already in it."""
+        try:
+            hints = window.get_wm_hints()
+            state = window.get_full_property(self.atom("_NET_WM_STATE"), self.X.AnyPropertyType)
+        except Exception:
+            return
+        wants = layout.urgent(hints.flags if hints else 0, list(state.value) if state else [],
+                              self.atom("_NET_WM_STATE_DEMANDS_ATTENTION"))
+        here = window is self.shown and self.display.get_input_focus().focus == window
+        if wants and not here and window.id not in self.attention:
+            self.attention.add(window.id)
+            self.draw_header()
+            self.taskbar.draw()
 
     def focus(self):
         if self.shown is not None:
@@ -248,11 +279,16 @@ class Shell:
         draw = ImageDraw.Draw(image)
         measure = lambda text: round(draw.textlength(text, font=self.font))
         labels = layout.tab_labels(self.chat_titles())
-        self.tabs = layout.tab_boxes(labels, measure)
+        waiting = [chat.id in self.attention for chat in self.chats]
+        self.tabs = layout.tab_boxes(labels, measure, extra=[layout.ATTENTION_ROOM if w else 0 for w in waiting])
         for index, ((x, w), label) in enumerate(zip(self.tabs, labels)):
             active = self.chats[index] is self.shown
             draw.text((x + 12, height // 2), label, font=self.font, anchor="lm",
                       fill=layout.HEADER_TEXT if active else layout.HEADER_TEXT_DIM)
+            if waiting[index]:
+                cx, cy, r = x + 12 + measure(label) + 10, height // 2, layout.ATTENTION_RADIUS
+                draw.ellipse([cx - r, cy - r, cx + r, cy + r],
+                             fill=layout.ATTENTION_COLOUR if self.blink else layout.ATTENTION_DIM)
             if active:
                 draw.rectangle([x + 10, height - 3, x + w - 10, height - 2], fill=layout.HEADER_ACCENT)
         if not labels:
@@ -284,6 +320,7 @@ class Shell:
 
     # The New chat menu: one item per agent system ----------------------------------------------------------------
     def start_chat(self, agent):
+        self.requested = time.monotonic()  # the person asked: this chat may take the column and the keyboard
         open_chat("/srv/odd1" if agent == "claude" and os.path.isdir("/srv/odd1") else None, agent)
 
     def toggle_menu(self):
@@ -500,7 +537,7 @@ class Shell:
             if self.shown in gone:
                 self.shown = None
                 if self.chats:
-                    self.show(self.chats[-1])
+                    self.show(self.chats[-1], focus=False)
             self.draw_header()
         self.taskbar.update(apps, agents)
         self.display.flush()
@@ -550,7 +587,9 @@ class Shell:
         except OSError as error:
             log(f"desktop launchers: {error}")
         self.layout()
+        self.starting = False
         watched = {self.atom("_NET_CLIENT_LIST"), self.atom("_NET_WORKAREA")}
+        ringing = {self.atom("WM_HINTS"), self.atom("_NET_WM_STATE")}
         redraw = {self.atom(name) for name in ("_NET_ACTIVE_WINDOW", "_NET_WM_STATE", "_NET_WM_NAME", "WM_NAME",
                                                "_NET_WM_ICON")}
         taskbar = self.taskbar.window
@@ -558,7 +597,13 @@ class Shell:
         while True:
             if not self.display.pending_events():
                 self.display.flush()
-                select.select([self.display], [], [], AGENT_POLL_S)
+                select.select([self.display], [], [], layout.ATTENTION_BLINK_S if self.attention else AGENT_POLL_S)
+            if self.attention and time.monotonic() - self.blinked >= layout.ATTENTION_BLINK_S:
+                self.blinked, self.blink = time.monotonic(), not self.blink
+                self.draw_header()
+                self.taskbar.draw()
+            elif not self.attention:
+                self.blink = True
             if time.monotonic() - polled >= AGENT_POLL_S:
                 polled = time.monotonic()
                 count = self.taskbar.count_agent_windows()
@@ -577,6 +622,8 @@ class Shell:
                 self.taskbar.motion(event.event_x)
             elif event.type == X.LeaveNotify and event.window == taskbar:
                 self.taskbar.leave()
+            elif event.type == X.PropertyNotify and event.atom in ringing and event.window in self.chats:
+                self.ring(event.window)
             elif event.type == X.PropertyNotify and event.atom in redraw:
                 if event.atom == self.atom("_NET_WM_ICON"):
                     self.taskbar.forget_icon(event.window.id)
@@ -596,6 +643,9 @@ class Shell:
                     self.close_menu()  # a click anywhere else closes the menu
                 if self.pointer_in_chat():
                     self.focus()
+                    if self.shown is not None and self.shown.id in self.attention:
+                        self.attention.discard(self.shown.id)  # the person clicked into it
+                        self.draw_header()
             elif event.type == X.PropertyNotify and event.atom not in watched:
                 continue
             elif event.type == X.ConfigureNotify and event.window != self.root:

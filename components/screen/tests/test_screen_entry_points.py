@@ -43,6 +43,43 @@ def test_click_moves_the_real_mouse_to_the_centre():
     seven = next(e["id"] for e in calc["elements"] if e["name"] == "Seven")
     with mock.patch.object(live.subprocess, "run") as run, \
             mock.patch.object(live, "observe", side_effect=lambda s, **_: s.fuse(x, atspi, {})):
-        result = live.click(screen, seven, via="pointer", wait_ms=0)
+        result = live.click(screen, seven, via="pointer", wait_ms=0, person_approved=True)
     assert run.call_args[0][0][:4] == ["xdotool", "mousemove", "--sync", "555"]
     assert result["clicked"] == {"id": seven, "via": "pointer", "x": 555, "y": 420}
+
+
+def test_the_persons_pointer_and_keyboard_need_their_approval_the_agent_desktops_do_not():
+    x, atspi, words = calculator()
+    person = model.Screen("w")
+    seven = next(e["id"] for e in person.fuse(x, atspi, {"0x2": words})["windows"][0]["elements"] if e["name"] == "Seven")
+    with mock.patch.object(live.subprocess, "run") as run:
+        with pytest.raises(PermissionError, match="ask the person first"):
+            live.click(person, seven, via="pointer")
+        with pytest.raises(PermissionError, match="ask the person first"):
+            live.type_text(person, "hello")
+    assert not run.called  # nothing moved, nothing typed
+    agent = model.Screen("a")
+    seven = next(e["id"] for e in agent.fuse(x, atspi, {"0x2": words})["windows"][0]["elements"] if e["name"] == "Seven")
+    with mock.patch.object(live.subprocess, "run") as run, \
+            mock.patch.object(live, "observe", side_effect=lambda s, **_: s.fuse(x, atspi, {})):
+        live.click(agent, seven, via="pointer", wait_ms=0)
+    assert run.call_args[0][0][:2] == ["xdotool", "mousemove"]
+
+
+def test_typing_stops_when_the_focus_moves_to_another_window():
+    x, atspi, words = calculator()
+    agent = model.Screen("a")
+    agent.fuse(x, atspi, {"0x2": words})
+    active = iter(["0x2", "0x2", "0x2", "0x9", "0x9"])  # someone takes the focus after the second chunk
+    typed = []
+
+    def run(args, **_):
+        if args[:2] == ["xdotool", "getactivewindow"]:
+            return mock.Mock(stdout=next(active) + "\n")
+        typed.append(args[-1])
+        return mock.Mock(stdout="")
+
+    with mock.patch.object(live.subprocess, "run", side_effect=run):
+        with pytest.raises(RuntimeError, match=f"stopped after {2 * live.TYPE_CHUNK} of"):
+            live.type_text(agent, "x" * (5 * live.TYPE_CHUNK), wait_ms=0)
+    assert "".join(typed) == "x" * (2 * live.TYPE_CHUNK)

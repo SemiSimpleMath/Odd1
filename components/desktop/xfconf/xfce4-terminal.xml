@@ -13,6 +13,8 @@
   <property name="misc-confirm-close" type="bool" value="false"/>
   <property name="misc-default-geometry" type="string" value="100x32"/>
   <property name="misc-bell" type="bool" value="false"/>
+  <!-- The bell (Claude Code rings it when it needs the person) marks the window urgent: the chat tab's ball. -->
+  <property name="misc-bell-urgent" type="bool" value="true"/>
   <property name="color-use-theme" type="bool" value="false"/>
   <property name="color-foreground" type="string" value="#E4E4E8"/>
   <property name="color-background" type="string" value="#17181C"/>

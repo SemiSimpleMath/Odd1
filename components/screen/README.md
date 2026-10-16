@@ -52,6 +52,11 @@ window from an offscreen capture (any-app's `screenshot`, XComposite), so covere
 ids, occlusion, contradictions, change events, click refusals). `test_live_screen.py` reads a disposable Tk window
 and skips without DISPLAY and the tools. On Odd1: `odd1-screen-test`.
 
+## The person's pointer and keyboard
+On the person's screen (`w` ids) a pointer click or typing needs `person_approved=true`, which an agent passes only
+after asking them; accessibility actions (`via="app"`, `screen_set_text`) and the agent desktop need no asking.
+`screen_type` types in chunks of 16 characters and stops when the focus moves to another window.
+
 ## Next
 - Hold a permanent offscreen redirect (XComposite) and listen to Damage events: instant captures of any mapped
   window (measured 2 ms) and change events for only the regions that changed.

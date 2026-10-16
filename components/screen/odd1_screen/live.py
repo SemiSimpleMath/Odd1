@@ -88,6 +88,22 @@ def _pointer_problem(screen: model.Screen, window: dict, element: dict, allow_un
     return None
 
 
+def _person_guard(screen: model.Screen, approved: bool, what: str) -> None:
+    """The person's pointer and keyboard focus are theirs: on their screen an agent moves them only after asking
+    (person_approved=True). Accessibility actions (via="app", set_text) and the agent desktop need no asking."""
+    if screen.prefix == "w" and not approved:
+        raise PermissionError(
+            f"{what} on the person's screen moves their pointer or keyboard focus. Prefer via='app' or "
+            "screen_set_text, or run the app on the agent desktop; otherwise ask the person first and call again "
+            "with person_approved=true.")
+
+
+def _active_window(screen: model.Screen) -> str:
+    done = subprocess.run(["xdotool", "getactivewindow"], capture_output=True, text=True, timeout=5,
+                          env=x11.env(screen.display))
+    return done.stdout.strip()
+
+
 def _app_act(address: dict, op: str, value: str | None = None) -> dict:
     """Act through the app's accessibility interface, in a child process (a stuck bus cannot hang the caller)."""
     args = [str(address["pid"]), str(address["frame"]), address["path"], address["role"], address["name"], op]
@@ -104,7 +120,7 @@ def _settle(screen: model.Screen, before: dict, wait_ms: int) -> dict:
 
 
 def click(screen: model.Screen, element_id: str, *, via: str = "auto", button: int = 1,
-          allow_unverified: bool = False, wait_ms: int = 300) -> dict:
+          allow_unverified: bool = False, wait_ms: int = 300, person_approved: bool = False) -> dict:
     """Press an element, then return what changed. via: "app" asks the app itself (accessibility action: works
     minimized or covered, and leaves the person's mouse alone), "pointer" clicks its centre with the real mouse
     (refused when minimized, covered, or its box is contradicted or unverified), "auto" uses the app when the
@@ -122,6 +138,7 @@ def click(screen: model.Screen, element_id: str, *, via: str = "auto", button: i
     problem = _pointer_problem(screen, window, element, allow_unverified)
     if problem:
         raise PermissionError(problem)
+    _person_guard(screen, person_approved, "A pointer click")
     x, y = model.centre(element["box"])
     subprocess.run(["xdotool", "mousemove", "--sync", str(x), str(y), "click", str(button)], check=True,
                    capture_output=True, timeout=5, env=x11.env(screen.display))
@@ -140,12 +157,23 @@ def set_text(screen: model.Screen, element_id: str, text: str, *, wait_ms: int =
     return {"set_text": {"id": element_id, "length": len(text)}, "changes": _settle(screen, before, wait_ms)}
 
 
-def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms: int = 300, **click_args) -> dict:
+TYPE_CHUNK = 16  # characters typed between checks that the focus is still where typing began
+
+
+def type_text(screen: model.Screen, text: str, *, element_id: str = "", wait_ms: int = 300,
+              person_approved: bool = False, **click_args) -> dict:
     """Type with the real keyboard into the focused window, after clicking element_id with the pointer when given
-    (keystrokes go where the focus is; for a minimized or covered field use set_text)."""
+    (keystrokes go where the focus is; for a minimized or covered field use set_text). Typing goes in chunks and
+    stops as soon as the focus moves to another window (a person or another agent took it)."""
+    _person_guard(screen, person_approved, "Typing")
     if element_id:
-        click(screen, element_id, via="pointer", **click_args)
+        click(screen, element_id, via="pointer", person_approved=person_approved, **click_args)
     before = screen.last["view"] if screen.last else observe(screen, ocr="never")
-    subprocess.run(["xdotool", "type", "--delay", "20", "--", text], check=True, capture_output=True,
-                   timeout=5 + len(text) / 20, env=x11.env(screen.display))
+    target = _active_window(screen)
+    for start in range(0, len(text), TYPE_CHUNK):
+        if _active_window(screen) != target:
+            raise RuntimeError(f"stopped after {start} of {len(text)} characters: the focus moved to another window")
+        chunk = text[start:start + TYPE_CHUNK]
+        subprocess.run(["xdotool", "type", "--delay", "20", "--", chunk], check=True, capture_output=True,
+                       timeout=5 + len(chunk) / 20, env=x11.env(screen.display))
     return {"typed": len(text), "changes": _settle(screen, before, wait_ms)}

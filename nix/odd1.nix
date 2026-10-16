@@ -77,6 +77,9 @@ in {
   # Claude Code, operated by the person using Odd1 with their own sign-in (it stays on this VM). Installed with npm
   # for the agent user so it keeps itself current; this unit only installs it when it is missing.
   environment.etc."claude-code/CLAUDE.md".source = ../CLAUDE.md;
+  # Claude Code rings the terminal bell when it needs the person (a permission prompt, waiting for input); the chat's
+  # terminal marks itself urgent and the desktop puts a blinking ball on its tab instead of taking the focus.
+  environment.etc."claude-code/managed-settings.json".text = builtins.toJSON { preferredNotifChannel = "terminal_bell"; };
   systemd.services.odd1-claude-code-install = {
     description = "Install Claude Code for the agent user if missing, and register Odd1's MCP servers with it";
     wantedBy = [ "multi-user.target" ];
