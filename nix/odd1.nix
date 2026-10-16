@@ -123,6 +123,11 @@ in {
       # npm's own global folder is the read-only Nix store; with ~/.local as the agent's global prefix, Claude Code's
       # auto-updater (a plain `npm i -g`) installs where Claude Code lives.
       npm config set prefix "$HOME/.local"
+      # An update in progress (npm recreates Claude Code's folder) hides ~/.local/bin/claude for a moment: when Claude
+      # Code was installed before, wait for claude to come back (up to two minutes) before installing it again.
+      if [ -d "$HOME/.local/lib/node_modules/@anthropic-ai" ]; then
+        for i in $(seq 120); do [ -x "$HOME/.local/bin/claude" ] && break; sleep 1; done
+      fi
       if [ ! -x "$HOME/.local/bin/claude" ]; then
         npm install -g --prefix "$HOME/.local" @anthropic-ai/claude-code
       fi
