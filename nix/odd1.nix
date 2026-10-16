@@ -1,6 +1,6 @@
 # The Odd1 module: everything Odd1 adds to the base Desktop, from this repository. Applied on the work Desktop by
-# /etc/nixos/configuration.nix (the base desktop.nix plus `imports = [ /srv/odd1/nix/odd1.nix ]`), then
-#   sudo nixos-rebuild switch
+# a host file (nix/hosts/) that /etc/nixos/configuration.nix imports from the deployed release, put there by
+#   odd1-deploy            (an exact commit on main, from a clean export; never the development folder)
 # Components join by having a module.nix; it is imported here automatically.
 { config, pkgs, lib, ... }:
 

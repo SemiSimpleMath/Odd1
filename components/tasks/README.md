@@ -88,7 +88,7 @@ tasks; edit freely, no rebuild), helpers, `reports/`. Seeded from `roles/` here:
   in its own git worktree on branch `task/<id>` made from main (`workspace = "git-worktree"`; the repository's
   CLAUDE.md applies there, the role's is appended). `odd1-tasks-check [COMPONENT...]`: fitness check, a full system
   build from the branch, the installed tests of the changed (and named) components. `odd1-tasks-land`: rebase on
-  main, check again, fast-forward main, switch from a clean checkout of main (`scripts/`). `review = true` in the
+  main, check again, fast-forward main, deploy that commit with `odd1-deploy` (components/deploy; `scripts/`). `review = true` in the
   role makes odd1-tasks-land refuse: the next step is review by other agents before
   landing (see Next). Starts at 1 run a day: raise it in the Agents app once its fixes are trusted.
 - **updater** (`apply-update`): applies approved updates, one per run. Claude Code: `npm install -g` the version.

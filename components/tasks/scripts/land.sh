@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # odd1-tasks-land: land a task's branch: rebase it on main, check it again (odd1-tasks-check, with the same COMPONENT
-# names), fast-forward main to it, and switch the system from a clean checkout of main (never from the shared working
-# tree, which may hold other sessions' edits). Refuses while the role's role.toml says review = true.
+# names), fast-forward main to it, and deploy exactly that commit (odd1-deploy: a clean release, never the shared
+# working tree, which may hold other sessions' edits). Refuses while the role's role.toml says review = true.
 #   odd1-tasks-land [COMPONENT...]      (in the task's worktree, with everything committed)
 set -euo pipefail
 wt=${ODD1_TASKS_WORKTREE:?run it from the fixer task}
@@ -18,11 +18,8 @@ odd1-tasks-check "$@"
 branch=$(git rev-parse --abbrev-ref HEAD)
 # Changes nothing and fails if main moved meanwhile or a local edit in the shared checkout is in the way.
 git -C "$repo" merge --ff-only "$branch"
-clean=$(mktemp -d "${TMPDIR:-/tmp}/odd1-land.XXXXXX")
-git -C "$repo" worktree add --detach "$clean" main >/dev/null
-host=$(grep -o '/srv/odd1/[^ ;]*\.nix' /etc/nixos/configuration.nix | head -1)
+landed=$(git rev-parse HEAD)
 status=0
-sudo -n nixos-rebuild switch -I nixos-config="$clean/${host#/srv/odd1/}" || status=$?
-git -C "$repo" worktree remove --force "$clean"
-if [ "$status" != 0 ]; then echo "main is at $(git rev-parse --short HEAD) but the switch failed ($status)" >&2; exit "$status"; fi
+odd1-deploy "$landed" --reason "land $branch" || status=$?
+if [ "$status" != 0 ]; then echo "main is at $(git rev-parse --short HEAD) but the deploy failed ($status)" >&2; exit "$status"; fi
 echo "landed $(git rev-parse --short HEAD) on main; the system runs it"

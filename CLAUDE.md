@@ -8,8 +8,9 @@ that whole class of request easy, and build it.
 - The Odd1 repository (`/srv/odd1`, a git repo) is the source of truth. Read README.md, CONVENTIONS.md and
   ARCHITECTURE.md there before changing the system. Anything that should outlast this session goes into a component
   there and is committed; run `python tools/check.py` first.
-- Install system-wide changes through the repository (`nix/odd1.nix`, then `sudo nixos-rebuild switch`). Per-user
-  experiments (pip, scratch files) are fine anywhere under your home directory.
+- Install system-wide changes through the repository (`nix/odd1.nix`, commit to main, then `odd1-deploy`: it builds
+  that exact commit from a clean export, never your uncommitted edits or anyone else's). Per-user experiments (pip,
+  scratch files) are fine anywhere under your home directory.
 - The graphical session is DISPLAY=:0 (user `agent`). xdotool, AT-SPI (pyatspi) and tesseract are installed; reuse the
   components in the repository for driving apps before writing new ones.
 - To see a window, screenshot it with the any-app MCP tool `app_screenshot` (CLI: `odd1-any-app screenshot WINDOW

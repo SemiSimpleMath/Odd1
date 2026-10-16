@@ -33,8 +33,8 @@ Python by default for components and adapters. Nix for the system, Bash for smal
 required (LD_PRELOAD hooks, eBPF, drivers; Rust preferred for new low-level code). Another language needs a reason.
 
 ## How things get onto a VM
-Only from a commit of this repository, through `nix/odd1.nix` (which imports each component's `module.nix`), applied
-with `nixos-rebuild switch`. No hand-copied files, no `/tmp` staging, no edits that exist only on the VM. If you
+Only from a commit on main of this repository, through `nix/odd1.nix` (which imports each component's `module.nix`),
+applied with `odd1-deploy` (a clean export of that commit, one deploy at a time; `odd1-deploy rollback` undoes one). No hand-copied files, no `/tmp` staging, no edits that exist only on the VM. If you
 experiment on the VM, bring the result back here and commit it.
 
 ## What does not go in

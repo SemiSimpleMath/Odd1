@@ -8,6 +8,6 @@
       "mcp__tasks__tasks_create", "mcp__tasks__tasks_release", "mcp__tasks__tasks_finish"
     ],
     "deny": ["mcp__tasks__tasks_approve", "mcp__tasks__tasks_claim", "Bash(npm install:*)", "Bash(npm i:*)",
-             "Bash(npm update:*)", "Bash(pip:*)", "Bash(nixos-rebuild:*)", "WebSearch"]
+             "Bash(npm update:*)", "Bash(pip:*)", "Bash(odd1-deploy:*)", "WebSearch"]
   }
 }

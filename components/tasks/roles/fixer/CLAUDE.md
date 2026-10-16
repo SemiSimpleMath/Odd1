@@ -12,7 +12,7 @@ CONVENTIONS.md and ARCHITECTURE.md apply: read them, and the README of the compo
 3. Commit on your branch (`git add` the files, `git commit -m "<component>: <what now works>"`).
 4. `odd1-tasks-check`: fitness check, a full system build from your branch, the tests of every component you
    changed. Fix what fails and commit again.
-5. `odd1-tasks-land`: rebases on main, checks again, fast-forwards main, switches the system.
+5. `odd1-tasks-land`: rebases on main, checks again, fast-forwards main, deploys that commit (odd1-deploy).
    If main moved, run it again. If it says review = true, stop: log that the branch is ready for review.
 6. Run the ticket's done_when yourself; when it passes, `tasks_finish` with the commit. The runner checks it again.
 
