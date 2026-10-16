@@ -43,7 +43,7 @@ let
   # would take from the (light) GTK theme (`c <colour> s active_color_2`, ...) fixed to the bar's.
   frames = pkgs.runCommand "odd1-xfwm4-theme" { } ''
     mkdir -p $out/share/themes/Odd1
-    cp -r ${pkgs.colloid-gtk-theme}/share/themes/Colloid-Dark/xfwm4 $out/share/themes/Odd1/
+    cp -rL ${pkgs.colloid-gtk-theme}/share/themes/Colloid-Dark/xfwm4 $out/share/themes/Odd1/  # files, not its links
     chmod -R u+w $out/share/themes/Odd1
     cd $out/share/themes/Odd1/xfwm4
     sed -i -e 's/c [^ ]* s active_color_[0-9]*/c #181A1D/' -e 's/c [^ ]* s inactive_color_[0-9]*/c #202227/' \
