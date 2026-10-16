@@ -32,7 +32,8 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
 - Quiet: the X bell is off (the shell sets its volume to 0), so agents typing into apps make no beeps over Remote
   Desktop.
 - Logo: `logo/odd1-logo.svg` (the owl and the wordmark, its "1" in orange); `logo/odd1-icon.svg` is the owl
-  alone, installed as the icon `odd1` (the menu button). Traced from the person's artwork with potrace, one layer
+  alone, installed as the icon `odd1` (the menu button, launchers with `Icon=odd1`; each theme gets its
+  `icon-theme.cache`, `gtk.iconCache.enable`, or xfdesktop draws a generic icon). Traced from the person's artwork with potrace, one layer
   per colour.
 - Look: Colloid (GTK and icons light; window frames are the `Odd1` xfwm4 theme, Colloid-Dark with its colours
   fixed to the bar's, since xfwm4 otherwise takes them from the light GTK theme; its `unity/` holds the same

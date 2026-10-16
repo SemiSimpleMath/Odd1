@@ -12,6 +12,11 @@ def test_module_installs_window_manager_panel_theme_and_fonts():
         assert package in MODULE
 
 
+def test_owl_is_installed_as_icon_odd1_with_icon_caches():
+    assert "share/icons/hicolor/scalable/apps/odd1.svg" in MODULE
+    assert "gtk.iconCache.enable = true" in MODULE  # xfdesktop finds `Icon=odd1` through hicolor's cache
+
+
 def test_session_and_settings_only_when_enabled():
     enabled = MODULE[MODULE.index("lib.mkIf cfg.enable"):]
     for unit in ("odd1-desktop-settings", "odd1-desktop-wm", "odd1-desktop-panel", "odd1-desktop-icons",

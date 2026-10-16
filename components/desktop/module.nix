@@ -84,6 +84,9 @@ in {
       ]);
       fonts.packages = with pkgs; [ inter jetbrains-mono ];
       programs.xfconf.enable = true;
+      # An icon-theme.cache per theme in the system profile (NixOS builds them only with services.xserver, which Odd1
+      # does not use): without hicolor's, xfdesktop drew a generic icon for `Icon=odd1` while the menu showed the owl.
+      gtk.iconCache.enable = true;
       # Panel plugins and their data are found through the system profile, as NixOS's Xfce module does.
       environment.pathsToLink = [ "/share/xfce4" "/lib/xfce4" ];
     }
