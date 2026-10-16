@@ -16,6 +16,7 @@ let
   '';
   test = pkgs.writeShellScriptBin "odd1-backup-test" ''
     ${env}
+    export PYTHONPATH=$PYTHONPATH:${../tasks}  # a restored task store is opened by the real one
     export PYTHONDONTWRITEBYTECODE=1
     exec ${python}/bin/python3 -m pytest -q ${./.}/tests -p no:cacheprovider "$@"
   '';

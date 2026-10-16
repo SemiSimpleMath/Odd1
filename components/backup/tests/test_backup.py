@@ -44,7 +44,8 @@ def test_state_snapshot_restores_and_the_task_store_opens_it(world, tmp_path):
     assert out["moved_aside"] is None
     assert sqlite3.connect(scratch / "tasks" / "tasks.db").execute("SELECT x FROM t").fetchall() == [(42,)]
     assert (scratch / "tasks" / "roles" / "fixer" / "role.toml").read_text() == "tags = ['friction']\n"
-    sys.path.insert(0, str(TASKS))
+    if TASKS.is_dir():  # in the repository; installed, the test wrapper puts the task manager on PYTHONPATH
+        sys.path.insert(0, str(TASKS))
     from odd1_tasks.store import Store
     Store(scratch / "tasks")  # the real task store opens (and migrates) a restored database
 
