@@ -28,7 +28,8 @@ FIXED = "goal, done_when, tags, resources, depends_on, schedule, run_if, max_tur
 MOVES = ("proposed>ready", "ready>claimed", "claimed>ready", "claimed>blocked", "claimed>verifying",
          "blocked>ready", "verifying>ready", "verifying>parked", "verifying>done", "proposed>declined",
          "ready>cancelled", "claimed>cancelled", "blocked>cancelled", "verifying>cancelled", "parked>cancelled",
-         "done>cancelled")
+         "done>cancelled", "ready>done", "blocked>done", "parked>done", "done>ready")
+# ready>done: closed by its check (closing.py) or by a person; blocked/parked>done: by a person; done>ready: reopened
 
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS tasks(
@@ -106,11 +107,14 @@ WHEN NEW.status = 'claimed' AND OLD.status != 'claimed' AND EXISTS (
   WHERE o.id != NEW.id AND o.status IN ('claimed', 'verifying')
     AND (a.value = b.value OR a.value LIKE b.value || '/%' OR b.value LIKE a.value || '/%'))
 BEGIN SELECT RAISE(ABORT, 'a resource is held by another claimed task'); END;
-CREATE TRIGGER IF NOT EXISTS done_needs_check BEFORE UPDATE OF status ON tasks
+CREATE TRIGGER IF NOT EXISTS done_needs_check_2 BEFORE UPDATE OF status ON tasks
 WHEN NEW.status = 'done' AND NOT EXISTS (
-  SELECT 1 FROM log c WHERE c.task_id = NEW.id AND c.kind = 'check' AND json_extract(c.data, '$.exit') = 0
-    AND c.id > (SELECT max(f.id) FROM log f WHERE f.task_id = NEW.id AND f.kind = 'finish'))
-BEGIN SELECT RAISE(ABORT, 'done only when done_when passed after the last finish'); END;
+  SELECT 1 FROM log c WHERE c.task_id = NEW.id
+    AND ((c.kind = 'check' AND json_extract(c.data, '$.exit') = 0)
+         OR (c.kind = 'close' AND c.actor LIKE 'person:%'))
+    AND c.id > (SELECT max(f.id) FROM log f WHERE f.task_id = NEW.id
+                AND f.kind IN ('finish', 'close-request', 'reopen', 'close')) - (c.kind = 'close'))
+BEGIN SELECT RAISE(ABORT, 'done only when done_when passed after the last finish or close request, or a person closed it'); END;
 CREATE TRIGGER IF NOT EXISTS cancel_done_series_only BEFORE UPDATE OF status ON tasks
 WHEN OLD.status = 'done' AND NEW.status = 'cancelled' AND OLD.schedule IS NULL
 BEGIN SELECT RAISE(ABORT, 'a done task stays done (only a recurring task is cancelled after it is done)'); END;
@@ -157,6 +161,18 @@ def interval_seconds(schedule: str) -> float:
     return n * units[s[-1]]
 
 
+def run_check(task: dict, cwd=None, env: dict | None = None) -> tuple[int, str]:
+    """Run a task's done_when (bash, in cwd, with env or this process's): (exit code, the output's last 2,000 chars)."""
+    env = dict(os.environ if env is None else env, ODD1_TASKS_TASK=str(task["id"]))
+    env.pop("ODD1_TASKS_AGENT", None)
+    try:
+        p = subprocess.run(["bash", "-c", task["done_when"]], cwd=cwd, env=env, capture_output=True, text=True,
+                           timeout=CHECK_TIMEOUT)
+        return p.returncode, (p.stdout + p.stderr)[-2000:]
+    except subprocess.TimeoutExpired:
+        return 124, f"done_when took over {CHECK_TIMEOUT} s"
+
+
 def _row(r: sqlite3.Row) -> dict:
     t = dict(r)
     for k in ("tags", "depends_on", "resources"):
@@ -173,7 +189,24 @@ class Store:
         self.db.execute("PRAGMA journal_mode=WAL")
         self._migrate()
         self.db.executescript(SCHEMA)
+        self._refresh_triggers()
         self.db.execute(f"PRAGMA user_version = {VERSION}")
+
+    def _refresh_triggers(self) -> None:
+        """Make the store's triggers exactly SCHEMA's: a trigger whose rule changed is replaced, one SCHEMA no longer
+        has is dropped (CREATE ... IF NOT EXISTS alone would keep an old rule forever). One transaction."""
+        fresh = sqlite3.connect(":memory:")
+        fresh.executescript(SCHEMA)
+        want = dict(fresh.execute("SELECT name, sql FROM sqlite_master WHERE type = 'trigger'"))
+        have = dict(self.db.execute("SELECT name, sql FROM sqlite_master WHERE type = 'trigger'"))
+        stale = [n for n in have if have[n] != want.get(n)]
+        if not stale:
+            return
+        with self._tx():
+            for name in stale:
+                self.db.execute(f"DROP TRIGGER {name}")
+                if name in want:
+                    self.db.execute(want[name])
 
     def _migrate(self) -> None:
         """Bring an older store to this schema. Version 0 -> 1: the status column's CHECK gains declined and
@@ -493,14 +526,7 @@ class Store:
         t = self._get(task_id)
         if t["status"] != "verifying":
             raise TaskError(f"task {task_id} is {t['status']}, not verifying")
-        env = dict(os.environ, ODD1_TASKS_TASK=str(task_id))
-        env.pop("ODD1_TASKS_AGENT", None)
-        try:
-            p = subprocess.run(["bash", "-c", t["done_when"]], cwd=cwd, env=env, capture_output=True, text=True,
-                               timeout=CHECK_TIMEOUT)
-            code, out = p.returncode, (p.stdout + p.stderr)[-2000:]
-        except subprocess.TimeoutExpired:
-            code, out = 124, f"done_when took over {CHECK_TIMEOUT} s"
+        code, out = run_check(t, cwd)
         with self._tx():
             self._log(task_id, actor, "check", f"done_when exited {code}", exit=code, output=out)
             if code == 0:
@@ -513,6 +539,53 @@ class Store:
                 self._log(task_id, actor, "result", f"check failed ({attempts}/{t['max_attempts']}): " +
                           ("retry" if status == "ready" else "parked, retries used up"))
         return self._get(task_id)
+
+    # -- closing outside the runners (closing.py runs the check; these record it under the store's rules)
+    def close_checked(self, task_id: int, actor: str, source: str, where: str, code: int, out: str) -> dict:
+        """A ready ticket worked outside the runners: done if its approved done_when, run by the task system in a
+        runner's environment, passed. No claimant, no attempt used either way."""
+        with self._tx():
+            t = self._get(task_id)
+            if t["status"] != "ready" or not t["approved_at"]:
+                raise TaskError(f"task {task_id} is {t['status']}: only an approved, ready task closes by its check")
+            self._log(task_id, actor, "close-request", f"close by check asked from {source}", source=source)
+            self._log(task_id, "tasks", "check", f"done_when exited {code} ({where})", exit=code, output=out)
+            if code == 0:
+                self._set(task_id, status="done", claim_agent=None)
+                self._log(task_id, "tasks", "result", f"done (closed by check, from {source})", closed_by_check=True,
+                          source=source)
+            else:
+                self._log(task_id, "tasks", "result", f"not closed: done_when exited {code}; the ticket stays ready")
+        return self.show(task_id)
+
+    def close(self, task_id: int, actor: str, reason: str) -> dict:
+        """A person closes a ticket as done themselves (its check could not show it), with the reason."""
+        if not is_person(actor):
+            raise TaskError("only a person closes a ticket without its check (agents finish, or close by check)")
+        if not reason.strip():
+            raise TaskError("say why it is done (the reason stays in its log)")
+        with self._tx():
+            t = self._get(task_id)
+            if t["status"] not in ("ready", "blocked", "parked"):
+                raise TaskError(f"task {task_id} is {t['status']}; a person closes a ready, blocked or parked task")
+            self._log(task_id, actor, "close", f"closed by a person: {reason.strip()}")
+            self._set(task_id, status="done", claim_agent=None, lease_until=None)
+            self._log(task_id, actor, "result", "done (closed by a person)")
+        return self.show(task_id)
+
+    def reopen(self, task_id: int, actor: str, reason: str) -> dict:
+        """A person reopens a done ticket: ready again, with the reason."""
+        if not is_person(actor):
+            raise TaskError("only a person reopens a ticket")
+        if not reason.strip():
+            raise TaskError("say why it is reopened (the reason stays in its log)")
+        with self._tx():
+            t = self._get(task_id)
+            if t["status"] != "done":
+                raise TaskError(f"task {task_id} is {t['status']}; only a done task is reopened")
+            self._set(task_id, status="ready")
+            self._log(task_id, actor, "reopen", f"reopened: {reason.strip()}")
+        return self.show(task_id)
 
     def runs_since(self, agent: str, since: float) -> int:
         return self.db.execute("SELECT count(*) FROM log WHERE kind = 'run' AND actor = ? AND at >= ?",

@@ -51,6 +51,26 @@ def tasks_approve(task_id: int) -> dict:
 
 
 @mcp.tool()
+def tasks_close_by_check(task_id: int) -> dict:
+    """A ticket you worked on outside a runner (in a chat): the task system reruns its approved done_when where a
+    runner would and closes it if it passes. Not for role agents (they use tasks_finish)."""
+    from . import closing
+    return _do(closing.close_by_check, Store(), task_id, actor_from_env())
+
+
+@mcp.tool()
+def tasks_close(task_id: int, reason: str) -> dict:
+    """A person closes a ready, blocked or parked ticket as done themselves, with the reason. Refused for agents."""
+    return _do(Store().close, task_id, actor_from_env(), reason)
+
+
+@mcp.tool()
+def tasks_reopen(task_id: int, reason: str) -> dict:
+    """A person reopens a done ticket (ready again), with the reason. Refused for agents."""
+    return _do(Store().reopen, task_id, actor_from_env(), reason)
+
+
+@mcp.tool()
 def tasks_claim(agent: str = "", task_id: int = 0) -> dict:
     """Claim task_id, or the best ready task the agent holds every tag for. A claim is a lease (10 min)."""
     return _do(Store().claim, agent or actor_from_env(), task_id or None) or {"claimed": None}

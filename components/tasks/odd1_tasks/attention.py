@@ -89,6 +89,13 @@ def items(store: Store, now: float | None = None) -> list[dict]:
             text += f" ({manager['name']} has not answered in {round((now - m['at']) / 3600, 1):g} h)"
         out.append({"key": f"message:{m['id']}", "who": who, "kind": "message", "task": m["task_id"],
                     "text": text, "since": m["at"]})
+    flags = store.db.execute(
+        "SELECT f.task_id, f.text, f.at FROM log f JOIN tasks t ON t.id = f.task_id WHERE t.status = 'done'"
+        " AND f.kind = 'flag' AND f.id = (SELECT max(id) FROM log WHERE task_id = f.task_id AND kind IN"
+        " ('flag', 'result', 'reopen', 'close')) AND NOT EXISTS (SELECT 1 FROM log p WHERE p.task_id = f.task_id"
+        " AND p.id > f.id AND p.actor LIKE 'person:%')").fetchall()
+    for f in flags:  # a ticket closed by its check whose check fails now
+        out.append(_item(store.show(f["task_id"]), PERSON, "flagged", f["text"], f["at"]))
     for c in cfgs:
         if c["runner"]:
             out.append({"key": f"runner:{c['name']}", "who": PERSON, "kind": "runner", "task": None,

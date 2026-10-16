@@ -22,6 +22,10 @@
     odd1-tasks watch                     tell the person (desktop notification) what needs them, once each
     odd1-tasks status                    one line: what each role is doing, what waits for a person
     odd1-tasks console                   talk to the task manager (Claude Code with its console instructions)
+    odd1-tasks close-by-check ID         a ticket worked in a chat: the task system reruns its check and closes it if it passes
+    odd1-tasks close ID REASON           a person closes a ready, blocked or parked ticket as done
+    odd1-tasks reopen ID REASON          a person reopens a done ticket
+    odd1-tasks recheck [ID]              check tickets closed by check again; flag those failing now
     odd1-tasks routines [--json]         the cron manager's routines, their schedules and tasks
     odd1-tasks cron [--watch]            sync routines with their recurring tasks (the cron manager; no model calls)
 
@@ -57,8 +61,37 @@ def _print_task(t: dict) -> None:
             print("      " + e["data"]["output"].strip()[-400:].replace("\n", "\n      "))
 
 
+def _closing(args: list[str]) -> int:
+    from . import closing
+    from .store import Store, TaskError, actor_from_env
+    store, cmd = Store(), args[0]
+    try:
+        if cmd == "recheck":
+            flagged = closing.recheck(store, int(args[1]) if len(args) > 1 else None)
+            print("\n".join(f"#{t['id']} flagged: its check fails now" for t in flagged) or "all checks pass")
+            return 0
+        if len(args) < 2 or (cmd != "close-by-check" and len(args) < 3):
+            print(f"usage: odd1-tasks {cmd} ID" + ("" if cmd == "close-by-check" else " REASON"), file=sys.stderr)
+            return 2
+        tid = int(args[1])
+        if cmd == "close-by-check":
+            t = closing.close_by_check(store, tid, actor_from_env())
+        elif cmd == "close":
+            t = store.close(tid, actor_from_env(), " ".join(args[2:]))
+        else:
+            t = store.reopen(tid, actor_from_env(), " ".join(args[2:]))
+    except TaskError as e:
+        print(f"odd1-tasks: {e}", file=sys.stderr)
+        return 1
+    print(f"task {t['id']} {t['status']}" + ("" if t["status"] != "ready" or cmd != "close-by-check"
+                                             else ": its check failed, see odd1-tasks show"))
+    return 0 if t["status"] == "done" or cmd == "reopen" else 1
+
+
 def main(argv=None) -> int:
     args = sys.argv[1:] if argv is None else list(argv)
+    if args[:1] in (["close-by-check"], ["close"], ["reopen"], ["recheck"]):
+        return _closing(args)
     if args[:1] in (["cron"], ["routines"]):
         from . import cron
         return cron.main(args if args[0] == "routines" else args[1:])

@@ -114,6 +114,12 @@ worker's instructions; done_when runs in that folder. `odd1-tasks routines` list
   (the person's and the agents'), tickets, what shipped. `journal-sources.py` gathers the material since the last
   entry: the task log, commits on main, deploys, and the person's own messages in their chats (`~/.claude/projects`,
   each with the end of the answer it replied to; roles' and scratch folders skipped).
+Closing work done outside the runners (`closing.py`): chats don't claim tickets, so `odd1-tasks close-by-check ID`
+(MCP `tasks_close_by_check`) has the task system rerun an approved, ready ticket's done_when where a runner would
+(the folder and systemd environment of the role holding its tags) and closes it only if it passes (no claimant, no
+attempt used; the log says closed by check and from which chat). The cron manager rechecks those hourly and flags one
+whose check fails later (the person sees it in attention). `close ID REASON` and `reopen ID REASON` are the
+person's (refused for role agents). The store's triggers are refreshed from SCHEMA at startup when a rule changed.
 Permission rules in a role's settings.json (checked with dontAsk): `Bash(cmd:*)` matches `cmd` followed by a space
 and arguments, not `cmd@1.2`; `Bash(cmd*)` matches any suffix. Every command of a chain (`a && b`, `a | b`) must be
 allowed; read-only ones (echo, tail, ls) always are. Each role proposes one starter task when its runner first starts; approve it to begin.

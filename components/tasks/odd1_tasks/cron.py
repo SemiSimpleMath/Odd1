@@ -131,11 +131,20 @@ def routine_of(store: Store, task: dict) -> dict | None:
     return None
 
 
+RECHECK_S = 3600  # tickets closed by check are checked again this often (closing.recheck)
+
+
 def watch(store: Store, interval: float = 60) -> None:
+    from . import closing
+    rechecked = 0.0
     while True:
         try:
             for line in sync(store):
                 print(f"odd1-tasks cron: {line}", flush=True)
+            if time.monotonic() - rechecked > RECHECK_S:
+                rechecked = time.monotonic()
+                for t in closing.recheck(store):
+                    print(f"odd1-tasks cron: #{t['id']} flagged: its check fails now", flush=True)
         except Exception as e:  # keep going; say what went wrong
             print(f"odd1-tasks cron: {e}", flush=True)
         time.sleep(interval)
