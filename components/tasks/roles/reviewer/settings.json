@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep",
+      "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git status:*)",
+      "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(grep:*)", "Bash(wc:*)",
+      "Bash(python3 tools/check.py)", "Bash(python3 -m pytest:*)"
+    ],
+    "deny": ["mcp__tasks__tasks_approve", "Edit", "Write", "Bash(git commit:*)", "Bash(git push:*)", "Bash(git checkout:*)", "Bash(git reset:*)",
+             "Bash(git rebase:*)", "Bash(git merge:*)", "Bash(rm:*)", "Bash(sudo:*)", "Bash(odd1-deploy:*)",
+             "WebFetch", "WebSearch"]
+  }
+}

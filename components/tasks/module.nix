@@ -5,7 +5,7 @@
 let
   python = pkgs.odd1Python.withPackages (p: [ p.pytest p.mcp ]);
   state = "/var/lib/odd1/tasks";
-  roles = [ "housekeeper" "update-watcher" "manager" "fixer" "updater" "worker" ];
+  roles = [ "housekeeper" "update-watcher" "manager" "fixer" "updater" "worker" "reviewer" ];
   env = ''
     export PYTHONPATH=${./.}''${PYTHONPATH:+:$PYTHONPATH}
     export ODD1_TASKS_STATE=''${ODD1_TASKS_STATE:-${state}}

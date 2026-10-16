@@ -67,18 +67,32 @@ def test_closed_tasks_lose_their_worktrees_on_the_next_loop(store, repo):
     assert not workspace.path(store.state, t["id"]).exists()
 
 
-def test_land_refuses_while_the_role_asks_for_review(store, repo, tmp_path):
+def test_land_with_review_on_lands_only_the_reviewers_approval(store, repo, tmp_path):
     roles.seed(store, "fixer")
     folder = roles.folder(store, "fixer")
-    toml = folder / "role.toml"
-    toml.write_text(toml.read_text().replace("review = false", "review = true"))
+    assert "review = true" in (folder / "role.toml").read_text()  # the fixer's branches are reviewed
     where = workspace.prepare(store.state, 9, repo)
-    land = Path(__file__).resolve().parents[1] / "scripts" / "land.sh"
-    done = subprocess.run(["bash", str(land)], cwd=where, capture_output=True, text=True,
-                          env={"PATH": "/run/current-system/sw/bin:/usr/bin:/bin", "ODD1_TASKS_WORKTREE": str(where),
-                               "ODD1_TASKS_ROLE_FOLDER": str(folder), "ODD1_REPO": str(repo)})
-    assert done.returncode == 3 and "review" in done.stderr
-    assert git("rev-parse", "main", cwd=repo) == git("rev-parse", "HEAD", cwd=where)  # nothing landed
+    (where / "fix.txt").write_text("fixed\n")
+    git("add", "fix.txt", cwd=where)
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "fix", cwd=where)
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    verdict = tmp_path / "verdict"
+    for name, body in (("odd1-tasks", f'[ "$1" = review ] && exit $(cat {verdict}); exit 0'),
+                       ("odd1-tasks-check", "echo check passed"), ("odd1-deploy", "echo deployed")):
+        (tools / name).write_text(f"#!/bin/sh\n{body}\n")
+        (tools / name).chmod(0o755)
+    env = {"PATH": f"{tools}:/run/current-system/sw/bin:/usr/bin:/bin", "ODD1_TASKS_WORKTREE": str(where),
+           "ODD1_TASKS_ROLE_FOLDER": str(folder), "ODD1_REPO": str(repo), "ODD1_TASKS_TASK": "9"}
+    verdict.write_text("6")  # the reviewer asks for changes: nothing lands
+    done = subprocess.run(["bash", str(Path(__file__).resolve().parents[1] / "scripts" / "land.sh")], cwd=where,
+                          capture_output=True, text=True, env=env)
+    assert done.returncode == 6 and git("rev-parse", "main", cwd=repo) != git("rev-parse", "HEAD", cwd=where)
+    verdict.write_text("0")  # approved: it lands
+    done = subprocess.run(["bash", str(Path(__file__).resolve().parents[1] / "scripts" / "land.sh")], cwd=where,
+                          capture_output=True, text=True, env=env)
+    assert done.returncode == 0, done.stderr
+    assert git("rev-parse", "main", cwd=repo) == git("rev-parse", "HEAD", cwd=where)
 
 
 def test_a_repository_roles_check_runs_in_the_task_worktree(store, repo, monkeypatch, tmp_path):

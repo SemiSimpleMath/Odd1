@@ -27,6 +27,7 @@
     odd1-tasks reopen ID REASON          a person reopens a done ticket
     odd1-tasks recheck [ID]              check tickets closed by check again; flag those failing now
     odd1-tasks regressions BRANCH_BIN MAIN_BIN [COMPONENT...]   every component's tests; refuse new failures
+    odd1-tasks review ID [CHECK_OUTPUT]  the reviewer reads the task's branch (from odd1-tasks-land): approve/changes/escalate
     odd1-tasks may-land ID FILE...       may a branch with these changed files land for task ID (decision records)
     odd1-tasks routines [--json]         the cron manager's routines, their schedules and tasks
     odd1-tasks cron [--watch]            sync routines with their recurring tasks (the cron manager; no model calls)
@@ -92,6 +93,9 @@ def _closing(args: list[str]) -> int:
 
 def main(argv=None) -> int:
     args = sys.argv[1:] if argv is None else list(argv)
+    if args[:1] == ["review"]:
+        from . import review
+        return review.main(args[1:])
     if args[:1] == ["regressions"]:
         from . import regressions
         return regressions.main(args[1:])

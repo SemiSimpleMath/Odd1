@@ -1,0 +1,8 @@
+# The reviewer role: reads every branch of a role with review = true before it lands (odd1-tasks-land runs it; it
+# claims no tasks of its own). Edit freely (or in Agent Settings); read before each review.
+enabled = true            # (the review step runs while the author lands; pausing the role does not skip reviews)
+tags = ["review"]
+runs_per_day = 40
+max_turns = 30            # turns for one review
+max_minutes = 15          # time for one review
+model = ""                # empty: Claude Code's default model

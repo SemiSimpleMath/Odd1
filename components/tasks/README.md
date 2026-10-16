@@ -129,6 +129,10 @@ The person first (rule 1): their tasks are claimed before agents' own of the sam
 running task's status every few seconds, so a person's cancel or stop reaches the agent at once. No landing makes
 Odd1 worse (rule 4): odd1-tasks-check runs every component's installed tests (`regressions.py`): the changed ones
 must pass, and any other failure blocks unless the running system's test fails the same way (then it is reported).
+- **reviewer** (no tasks of its own): when a role says `review = true` (fixer and updater do), odd1-tasks-land has the
+  reviewer read the branch (`review.py`: the ticket, its log, the diff, the check output; read-only permissions,
+  never the author) and only an approval lands; "changes" sends its notes back to the author, "escalate" to the
+  person. Each review is logged on the task.
 Closing work done outside the runners (`closing.py`): chats don't claim tickets, so `odd1-tasks close-by-check ID`
 (MCP `tasks_close_by_check`) has the task system rerun an approved, ready ticket's done_when where a runner would
 (the folder and systemd environment of the role holding its tags) and closes it only if it passes (no claimant, no

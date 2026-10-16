@@ -20,7 +20,8 @@ as its own command. Nothing in the repository changes; nothing to land.
    it, and escalate: do not patch packages or components to make an update fit. A pin only
    swaps the version under nixpkgs' recipe; when the recipe no longer fits (its patches do not apply, a dependency is
    older than the new version needs), say so: the way forward is a newer nixpkgs, which is the person's decision.
-4. `odd1-tasks-land COMPONENT...`: rebases, checks again, fast-forwards main, deploys that commit (odd1-deploy).
+4. `odd1-tasks-land COMPONENT...`: rebases, checks again, fast-forwards main, deploys that commit (odd1-deploy). The reviewer reads the branch first: on "changes", do
+   what its notes say and land again; on "escalate", escalate with its notes and release blocked.
 
 ## Then
 Run the task's done_when yourself; when it passes, `tasks_finish` with what changed (the commit, for Python).

@@ -23,4 +23,4 @@ if plan.get("blocked"):
 elif plan.get("finish"):
     subprocess.run(cli + ["finish", task, "stub finished"], check=True)
 print(json.dumps({"type": "result", "subtype": plan.get("subtype", "success"), "num_turns": plan.get("turns", 1),
-                  "total_cost_usd": 0.0, "result": "stub"}))
+                  "total_cost_usd": 0.0, "result": plan.get("result", "stub")}))
