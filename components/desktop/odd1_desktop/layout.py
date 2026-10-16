@@ -15,9 +15,9 @@ WALLPAPER_FIELDS = (
     ((1.00, 0.85, 0.50), (200, 110, 90), 0.24),  # a warm glow, low right
     ((0.45, 0.45, 0.50), (60, 90, 170), 0.30),  # blue, centre
 )
-# The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (80% brightness), 85%
+# The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (80% brightness), fully
 # opaque, 39% of the screen's height.
-WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.80, 0.85, 0.39
+WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.80, 1.00, 0.39
 # The night palette: the column, the top bar and the taskbar are deep navy from the wallpaper's own sky, so the
 # column reads as a panel floating over the desktop: a soft shadow falls on the wallpaper beside it, and a faint
 # lighter rim marks its edge.
