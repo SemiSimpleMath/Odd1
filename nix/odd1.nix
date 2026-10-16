@@ -100,14 +100,12 @@ in {
   # for the agent user so it keeps itself current; this unit only installs it when it is missing.
   environment.etc."claude-code/CLAUDE.md".source = ../CLAUDE.md;
   # Claude Code in the person's chats, for every session: it rings the terminal bell when it needs the person (the
-  # chat's tab gets a blinking ball instead of taking the focus); it opens in the focus view (the conversation, not
-  # the commands and code behind it; /focus toggles); it draws with the terminal's palette (the desktop's night
+  # chat's tab gets a blinking ball instead of taking the focus); it draws with the terminal's palette (the desktop's night
   # palette) and shows no tips; it starts knowing who the person is (their About you, components/person). Managed
   # settings override every session's own, so only what suits every chat.
   environment.etc."claude-code/managed-settings.json".text = builtins.toJSON {
     hooks.SessionStart = [ { hooks = [ { type = "command"; command = "odd1-person context"; } ]; } ];
     preferredNotifChannel = "terminal_bell";
-    viewMode = "focus";
     theme = "dark-ansi";
     spinnerTipsEnabled = false;
   };
@@ -131,11 +129,15 @@ in {
       if [ ! -x "$HOME/.local/bin/claude" ]; then
         npm install -g --prefix "$HOME/.local" @anthropic-ai/claude-code
       fi
+      # An update can also start while the servers below are registered (each call takes seconds): every call waits
+      # for claude to be there, and one that fails is tried again once it is back.
+      present() { for i in $(seq 120); do [ -x "$HOME/.local/bin/claude" ] && break; sleep 1; done; }
+      claude() { present; "$HOME/.local/bin/claude" "$@" || { sleep 5; present; "$HOME/.local/bin/claude" "$@"; }; }
       # registry: ${registry}
       ${lib.concatStringsSep "
 " (lib.mapAttrsToList (name: server: ''
-        "$HOME/.local/bin/claude" mcp remove -s user ${name} >/dev/null 2>&1 || true
-        "$HOME/.local/bin/claude" mcp add-json -s user ${name} ${lib.escapeShellArg (builtins.toJSON server)}
+        present; "$HOME/.local/bin/claude" mcp remove -s user ${name} >/dev/null 2>&1 || true
+        claude mcp add-json -s user ${name} ${lib.escapeShellArg (builtins.toJSON server)}
       '') servers)}
     '';
   };
