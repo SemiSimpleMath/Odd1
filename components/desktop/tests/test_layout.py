@@ -105,3 +105,12 @@ def test_a_waiting_tab_is_wider_by_room_for_the_ball():
     plain = layout.tab_boxes(["A", "B"], lambda t: 10)
     waiting = layout.tab_boxes(["A", "B"], lambda t: 10, extra=[0, layout.ATTENTION_ROOM])
     assert waiting[0] == plain[0] and waiting[1][1] == plain[1][1] + layout.ATTENTION_ROOM
+
+
+def test_a_soft_shadow_falls_on_the_wallpaper_beside_the_column():
+    pytest.importorskip("PIL")
+    plain_edge = layout.COLUMN_SHADOW_DEPTH
+    image = layout.wallpaper((1280, 800), 461)
+    edge = 1280 - 461
+    near, far = sum(image.getpixel((edge - 2, 400))), sum(image.getpixel((edge - layout.COLUMN_SHADOW - 4, 400)))
+    assert near < far * (1 - plain_edge / 2)  # darkest against the column, gone a shadow's width away

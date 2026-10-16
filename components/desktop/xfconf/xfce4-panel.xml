@@ -12,9 +12,9 @@
       <property name="icon-size" type="uint" value="22"/>
       <property name="background-style" type="uint" value="1"/>
       <property name="background-rgba" type="array">
-        <value type="double" value="0.094"/>
-        <value type="double" value="0.098"/>
-        <value type="double" value="0.114"/>
+        <value type="double" value="0.063"/>
+        <value type="double" value="0.075"/>
+        <value type="double" value="0.122"/>
         <value type="double" value="1"/>
       </property>
       <property name="plugin-ids" type="array">

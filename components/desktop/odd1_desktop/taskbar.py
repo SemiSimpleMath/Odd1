@@ -99,13 +99,13 @@ class Taskbar:
         X = shell.X
         self.shell, self.X = shell, X
         self.window = shell.root.create_window(
-            0, 0, 1, 1, 0, X.CopyFromParent, X.InputOutput, X.CopyFromParent, background_pixel=0x12141C,
+            0, 0, 1, 1, 0, X.CopyFromParent, X.InputOutput, X.CopyFromParent, background_pixel=0x10131F,
             event_mask=X.ExposureMask | X.ButtonPressMask | X.PointerMotionMask | X.LeaveWindowMask)
         self.window.set_wm_name("Odd1 taskbar")
         self.window.set_wm_class("odd1-desktop", "Odd1-desktop")
         self.gc = self.window.create_gc()
         self.tip = shell.root.create_window(
-            0, 0, 1, 1, 0, X.CopyFromParent, X.InputOutput, X.CopyFromParent, background_pixel=0x12141C,
+            0, 0, 1, 1, 0, X.CopyFromParent, X.InputOutput, X.CopyFromParent, background_pixel=0x10131F,
             override_redirect=True)
         self.tip_gc = self.tip.create_gc()
         self.label_font = shell.font

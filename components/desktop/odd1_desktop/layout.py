@@ -18,7 +18,11 @@ WALLPAPER_FIELDS = (
 # The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (65% brightness), 85%
 # opaque, 39% of the screen's height.
 WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.65, 0.85, 0.39
-CHAT_BACKGROUND, CHAT_EDGE = (23, 24, 28), (44, 46, 54)  # the chat column and its 1px left edge
+# The night palette: the column, the top bar and the taskbar are deep navy from the wallpaper's own sky, so the
+# column reads as a panel floating over the desktop: a soft shadow falls on the wallpaper beside it, and a faint
+# lighter rim marks its edge.
+CHAT_BACKGROUND, CHAT_EDGE = (20, 24, 39), (38, 44, 68)  # the chat column (= the terminal's background) and its rim
+COLUMN_SHADOW, COLUMN_SHADOW_DEPTH = 44, 0.5  # px of shadow on the wallpaper left of the column, darkest at the edge
 HEADER_HEIGHT = 34
 HEADER_TEXT, HEADER_TEXT_DIM, HEADER_ACCENT = (228, 228, 232), (138, 140, 150), (217, 119, 87)
 DOCK_SHARE, DOCK_MIN, DOCK_MAX = 0.36, 460, 680
@@ -95,7 +99,7 @@ def tab_labels(titles):
 # carries the role "odd1-agent:<name>", so the column knows whose chat it is whatever title the agent sets.
 AGENT_ROLE = "odd1-agent:"
 MENU_WIDTH, MENU_ITEM, MENU_PAD = 340, 52, 6
-MENU_BACKGROUND, MENU_HOVER = (32, 34, 41), (44, 47, 56)
+MENU_BACKGROUND, MENU_HOVER = (28, 33, 52), (40, 47, 72)
 
 
 def agent_name(role):
@@ -199,6 +203,11 @@ def wallpaper(size, dock, mark=None):
         image = image.convert("RGBA")
         image.alpha_composite(faint, ((area - faint.width) // 2, max((height - faint.height) // 2 - height // 36, 0)))
         image = image.convert("RGB")
+    shade = Image.linear_gradient("L").rotate(90).transpose(Image.FLIP_LEFT_RIGHT)  # 0 at the right: the edge
+    shade = shade.resize((min(COLUMN_SHADOW, area), height))
+    shade = shade.point(lambda v: round(255 * COLUMN_SHADOW_DEPTH * (1 - v / 255) ** 2))
+    edge = image.crop((area - shade.width, 0, area, height))
+    image.paste(Image.composite(Image.new("RGB", edge.size, (4, 6, 14)), edge, shade), (area - shade.width, 0))
     canvas = Image.new("RGB", (width, height), CHAT_BACKGROUND)
     canvas.paste(image, (0, 0))
     draw = ImageDraw.Draw(canvas)
@@ -211,7 +220,7 @@ def wallpaper(size, dock, mark=None):
 # one item for everything agents run (the agent desktop), then one item per chat in the column.
 TASKBAR_ICON, TASKBAR_PAD, TASKBAR_GAP, TASKBAR_MARGIN = 40, 10, 8, 10
 TASKBAR_HEIGHT = TASKBAR_ICON + 2 * TASKBAR_PAD + 4  # room for the running dot under the icons
-TASKBAR_BACKGROUND, TASKBAR_ALPHA = (18, 20, 28), 0.72  # dark glass over the wallpaper
+TASKBAR_BACKGROUND, TASKBAR_ALPHA = (16, 19, 31), 0.72  # dark navy glass over the wallpaper
 TASKBAR_SEPARATOR = 12  # the gap (with a hairline) between apps, agents and chats
 
 

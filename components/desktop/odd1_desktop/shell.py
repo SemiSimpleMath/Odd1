@@ -207,7 +207,7 @@ class Shell:
         if self.header is None:
             self.header = self.root.create_window(
                 0, 0, 1, 1, 0, X.CopyFromParent, X.InputOutput, X.CopyFromParent,
-                background_pixel=0x17181C, event_mask=X.ExposureMask | X.ButtonPressMask)
+                background_pixel=0x141827, event_mask=X.ExposureMask | X.ButtonPressMask)
             self.header.set_wm_name("Odd1 chat")
             self.header.set_wm_class("odd1-desktop", "Odd1-desktop")
             self.gc = self.header.create_gc()
@@ -335,7 +335,7 @@ class Shell:
         x, y, width, height = layout.menu_box(layout.header_box(self.size), self.new_chat, len(self.agents))
         self.menu = self.root.create_window(
             x, y, width, height, 0, X.CopyFromParent, X.InputOutput, X.CopyFromParent, override_redirect=True,
-            background_pixel=0x202229,
+            background_pixel=0x1C2134,
             event_mask=X.ExposureMask | X.ButtonPressMask | X.PointerMotionMask | X.LeaveWindowMask)
         self.menu_gc, self.menu_hover = self.menu.create_gc(), None
         self.menu.map()
