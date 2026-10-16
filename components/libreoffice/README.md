@@ -10,13 +10,16 @@ Milestone: ★ (any app, through interfaces agents write themselves). This is th
 - Python: `PYTHONPATH=$ODD1_OFFICE_PYTHONPATH python3`, then `from odd1_office.calc import Calc`;
   `Calc.connect()` attaches to the running Calc (UNO on 127.0.0.1:2002) or starts one on DISPLAY :0.
   `open`, `new`, `read`, `write`, `formula`, `save`, `close`.
+- Before starting soffice, `connect` removes a profile `.lock` written under another host name (the machine was
+  renamed): LibreOffice would otherwise wait on a 'personal settings are locked' dialog. If Calc does not answer in
+  time, the soffice it started is killed, not left queued.
 - Documents open visibly unless `hidden=True`, so a person can watch at the desktop's live view.
 
 ## Tests
 `odd1-calc-test` on Odd1 (needs LibreOffice): loads people and heights, finds the unique people, writes their
 average heights to a Summary sheet, checks them against Calc's own AVERAGEIF, and saves as .ods.
 `tests/conftest.py` starts the tests' own Calc on the agent desktop (`$ODD1_AGENT_DISPLAY`, `:1`), never the
-person's screen, on port 2012 with a fresh profile (`ODD1_CALC_PORT`, `ODD1_CALC_PROFILE`), and stops it afterwards.
+person's screen, on port 2012 (`test_stale_lock`: 2013, with a lock from another host) with a fresh profile (`ODD1_CALC_PORT`, `ODD1_CALC_PROFILE`), and stops it afterwards.
 
 ## Next
 Writer and Impress (same UNO session), named ranges and charts, then a screen-model link: which window shows which

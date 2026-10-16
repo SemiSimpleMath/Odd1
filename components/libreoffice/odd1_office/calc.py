@@ -10,6 +10,8 @@
 Values come back as Python strings and floats exactly as Calc holds them; nothing is read off the screen.
 """
 import os
+import signal
+import socket
 import subprocess
 import time
 import uno
@@ -27,6 +29,28 @@ def _props(**kw):
         p.Name, p.Value = k, v
         out.append(p)
     return tuple(out)
+
+
+def _profile_dir() -> str:
+    if PROFILE:
+        return os.path.abspath(PROFILE)
+    config = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.join(config, "libreoffice", "4")
+
+
+def clear_foreign_lock(profile: str | None = None) -> bool:
+    """Remove the profile's .lock if another host name wrote it (the machine was renamed, or the profile copied):
+    LibreOffice would wait on its 'personal settings are locked' dialog, with nobody to answer it."""
+    lock = os.path.join(profile or _profile_dir(), ".lock")
+    try:
+        with open(lock) as f:
+            host = next((line.split("=", 1)[1].strip() for line in f if line.startswith("Host=")), None)
+    except OSError:
+        return False
+    if host is None or host == socket.gethostname():
+        return False  # this host's lock: LibreOffice itself treats it as stale or finds the running instance
+    os.remove(lock)
+    return True
 
 
 def _column_name(n: int) -> str:
@@ -58,6 +82,7 @@ class Calc:
                 return cls(desktop)
             except Exception:
                 if start and not started:
+                    clear_foreign_lock()
                     env = dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))
                     args = ["soffice", "--calc", "--norestore", "--nologo", f"--accept={ACCEPT}"]
                     if PROFILE:
@@ -67,6 +92,9 @@ class Calc:
                                                    start_new_session=True)
                     started = True
                 if time.monotonic() > deadline:
+                    if started:  # don't leave a launcher behind to queue up with the next connect's
+                        os.killpg(cls.process.pid, signal.SIGKILL)  # soffice.bin shares the launcher's session
+                        cls.process.wait()
                     raise RuntimeError(f"Calc did not answer on port {PORT} within {timeout:.0f}s")
                 time.sleep(0.5)
 
