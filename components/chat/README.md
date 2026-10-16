@@ -11,8 +11,8 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person's c
 ## How it works
 - `protocol.py`: Claude Code's stream-json protocol as pure functions (the one the Claude Agent SDK speaks, without
   the SDK: it needs `mcp` >= 1.23 and bundles its own 250 MB CLI). `claude --input-format stream-json
-  --output-format stream-json --include-partial-messages --permission-prompt-tool stdio`: permission requests
-  arrive as `control_request` (`can_use_tool`), answered with a `control_response` (allow + input, or deny).
+  --output-format stream-json --include-partial-messages --permission-prompt-tool stdio --permission-mode auto`:
+  auto mode approves routine actions itself; the permission requests it leaves to the person arrive as `control_request` (`can_use_tool`), answered with a `control_response` (allow + input, or deny).
 - `session.py`: the process and a reader thread; `app.py`: GTK window, WebKit transcript (`page.html`), native text
   field. `render.py`: Markdown with raw HTML shown as text; code longer than 6 lines folds.
 - The conversation is the person's own session: Claude Code's session variables are not inherited.

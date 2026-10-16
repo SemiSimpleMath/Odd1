@@ -14,12 +14,13 @@ import json
 import os
 
 PERMISSION_PROMPT = "stdio"  # permission requests come to us as control requests
+PERMISSION_MODE = "auto"  # Claude approves routine actions itself; the rest come to the person as cards
 
 
 def command(claude="claude", resume=None, model=None):
     """The CLI's arguments for a streamed conversation whose permission prompts come to us."""
     args = [claude, "--output-format", "stream-json", "--input-format", "stream-json", "--verbose",
-            "--include-partial-messages", "--permission-prompt-tool", PERMISSION_PROMPT]
+            "--include-partial-messages", "--permission-prompt-tool", PERMISSION_PROMPT, "--permission-mode", PERMISSION_MODE]
     if resume:
         args += ["--resume", resume]
     if model:

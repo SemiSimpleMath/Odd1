@@ -9,6 +9,7 @@ def test_command_streams_both_ways_and_takes_permission_prompts():
     args = protocol.command("claude", resume="abc")
     assert args[0] == "claude" and "--include-partial-messages" in args
     assert args[args.index("--permission-prompt-tool") + 1] == "stdio"
+    assert args[args.index("--permission-mode") + 1] == "auto"
     assert args[args.index("--input-format") + 1] == args[args.index("--output-format") + 1] == "stream-json"
     assert args[args.index("--resume") + 1] == "abc"
 
