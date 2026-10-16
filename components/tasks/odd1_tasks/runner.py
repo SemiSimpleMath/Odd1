@@ -90,7 +90,11 @@ def routine_run(cfg: dict, routine: dict) -> Path:
 
 
 def task_folder(store: Store, cfg: dict, task: dict) -> Path:
-    """Where a task's agent starts and its done_when runs: its routine's folder, else the role's."""
+    """Where a task's done_when runs: a repository role's task worktree (the checkout the work is in; after it is
+    gone, the repository), else its routine's folder, else the role's."""
+    if cfg["workspace"] == "git-worktree":
+        where = workspace.path(store.state, task["id"])
+        return where if (where / ".git").exists() else workspace.REPO
     routine = cron.routine_of(store, task) if cfg["all_routines"] else None
     return routine["folder"] if routine else cfg["folder"]
 
@@ -163,7 +167,7 @@ def run_task(store: Store, cfg: dict, task: dict) -> dict:
     if task["status"] == "claimed" and task["claim_agent"] == role:
         task = store.finish(tid, f"runner:{role}", "run ended without tasks_finish; checking done_when anyway")
     if task["status"] == "verifying":
-        task = store.verify(tid, f"runner:{role}", cwd=routine["folder"] if routine else cfg["folder"])
+        task = store.verify(tid, f"runner:{role}", cwd=task_folder(store, cfg, task))
     if workdir and task["status"] in CLOSED:
         workspace.remove(store.state, tid)
     say(role, f"task {tid}: {task['status']}")

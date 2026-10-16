@@ -79,3 +79,15 @@ def test_land_refuses_while_the_role_asks_for_review(store, repo, tmp_path):
                                "ODD1_TASKS_ROLE_FOLDER": str(folder), "ODD1_REPO": str(repo)})
     assert done.returncode == 3 and "review" in done.stderr
     assert git("rev-parse", "main", cwd=repo) == git("rev-parse", "HEAD", cwd=where)  # nothing landed
+
+
+def test_a_repository_roles_check_runs_in_the_task_worktree(store, repo, monkeypatch, tmp_path):
+    roles.seed(store, "fixer")
+    # A check that only works in a checkout (as odd1-tasks-check needs tools/check.py), plus where it ran.
+    ticket = approved(store, "Fix it", tags=["friction", "desktop"],
+                      done_when=f"pwd > {tmp_path}/check-cwd && test -f components/desktop/README.md")
+    monkeypatch.setenv("STUB_PLAN", json.dumps({"finish": True}))
+    assert runner.run_once(store, "fixer")["status"] == "done"
+    assert (tmp_path / "check-cwd").read_text().strip() == str(workspace.path(store.state, ticket["id"]))
+    later = store.show(ticket["id"])  # once the worktree is gone (rechecks), the repository stands in
+    assert runner.task_folder(store, roles.load(store, "fixer"), later) == repo
