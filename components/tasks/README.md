@@ -157,7 +157,8 @@ boundary. Backups (`odd1-backup`), review, the tests at landing and deploy rollb
 `python -m pytest components/tasks/tests -q` (on Odd1: `odd1-tasks-test`), offline, with a stub `claude`
 (`tests/stub_claude.py`): roles claim only their tags, proposals wait, recurring runs start alone, a killed runner's
 task returns after its lease with its log, checks decide done/retry/park, turn/time/runs-per-day budgets, the
-rules against raw SQL. The MCP client test needs the `mcp` package (it skips otherwise).
+rules against raw SQL. The MCP client test needs the `mcp` package (it skips otherwise). They test the checkout's
+roles, routines and console: `tests/conftest.py` drops the `ODD1_TASKS_*_SEED` variables a runner sets.
 
 ## Next
 - Tickets as pull requests (`review = true`): the fixer's checked branch becomes a review task for reviewer roles
