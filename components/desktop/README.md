@@ -7,7 +7,8 @@ Milestone: M4 (agent-native OS): the user-facing assistant layer; the person tal
   right, at the work area's corner beside the chat column, the maximized window's minimize/maximize/close buttons
   and the date and time. A maximized window has no title bar of its own (xfwm4 `titleless_maximize`): its title
   follows the menu and its buttons sit in the bar (xfce4-windowck-plugin). Other windows keep a dark title bar.
-- Desktop: a dark wallpaper (navy lit by soft colour fields, drawn per screen size) and launcher icons from
+- Desktop: a dark wallpaper (navy lit by soft colour fields, drawn per screen size, the Odd1 owl dimmed into its
+  middle) and launcher icons from
   `~/Desktop` (xfdesktop). Files, Firefox, Terminal, LibreOffice, Text Editor and Calculator are put there once.
 - Taskbar (floating, bottom of the work area): what is running. One item per app of the person's; **one Agents
   item** for everything agents run on the agent desktop (badge: how many windows; click shows or hides it); one

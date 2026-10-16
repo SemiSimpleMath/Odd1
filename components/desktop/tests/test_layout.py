@@ -62,11 +62,12 @@ def test_wallpaper_paints_the_chat_column():
 def test_watermark_is_a_faint_owl_in_the_middle_of_the_work_area():
     pytest.importorskip("PIL")
     from PIL import Image
-    mark = Image.new("RGBA", (100, 100), (248, 245, 242, 255))  # a light square stands in for the owl
+    mark = Image.new("RGBA", (100, 100), (248, 245, 242, 255))  # a light square stands in for the owl's face
     plain = layout.wallpaper((1280, 800), 461)
     marked = layout.wallpaper((1280, 800), 461, mark)
     centre = ((1280 - 461) // 2, 800 // 2 - 800 // 36)
-    lift = sum(marked.getpixel(centre)) - sum(plain.getpixel(centre))
-    assert 0 < lift < 3 * 255 * layout.WATERMARK[1] + 6  # brighter, but faint
+    dimmed = 248 * layout.WATERMARK_BRIGHTNESS  # the face, darkened, then mixed into the night at the opacity
+    expected = plain.getpixel(centre)[0] * (1 - layout.WATERMARK_OPACITY) + dimmed * layout.WATERMARK_OPACITY
+    assert abs(marked.getpixel(centre)[0] - expected) <= 3
     assert marked.getpixel((20, 20)) == plain.getpixel((20, 20))  # nowhere else
     assert layout.watermark_height(1440) == 562

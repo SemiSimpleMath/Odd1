@@ -15,9 +15,9 @@ WALLPAPER_FIELDS = (
     ((1.00, 0.85, 0.50), (200, 110, 90), 0.24),  # a warm glow, low right
     ((0.45, 0.45, 0.50), (60, 90, 170), 0.30),  # blue, centre
 )
-# The Odd1 owl, a faint emboss in the middle of the work area: white at 4% (its dark body) to 10% (its light face)
-# opacity, 39% of the screen's height.
-WATERMARK, WATERMARK_HEIGHT = (0.04, 0.10), 0.39
+# The Odd1 owl in the middle of the work area, in its own colours dimmed into the night (40% brightness), 55%
+# opaque, 39% of the screen's height.
+WATERMARK_BRIGHTNESS, WATERMARK_OPACITY, WATERMARK_HEIGHT = 0.40, 0.55, 0.39
 CHAT_BACKGROUND, CHAT_EDGE = (23, 24, 28), (44, 46, 54)  # the chat column and its 1px left edge
 HEADER_HEIGHT = 34
 HEADER_TEXT, HEADER_TEXT_DIM, HEADER_ACCENT = (228, 228, 232), (138, 140, 150), (217, 119, 87)
@@ -108,14 +108,11 @@ def watermark_height(screen_height):
 
 
 def ghost(mark):
-    """The owl (RGBA) as a faint white emboss: brighter where the owl is light, fainter where it is dark."""
-    from PIL import Image
-    low, high = WATERMARK
-    alpha = Image.eval(mark.convert("L"), lambda v: round(255 * (low + (high - low) * v / 255)))
-    alpha = Image.composite(alpha, Image.new("L", mark.size, 0), mark.getchannel("A"))
-    faint = Image.new("RGBA", mark.size, (235, 238, 255, 0))
-    faint.putalpha(alpha)
-    return faint
+    """The owl (RGBA) dimmed into the wallpaper: its own colours, darkened, partly see-through."""
+    from PIL import Image, ImageEnhance
+    dim = ImageEnhance.Brightness(mark.convert("RGB")).enhance(WATERMARK_BRIGHTNESS).convert("RGBA")
+    dim.putalpha(Image.eval(mark.getchannel("A"), lambda v: round(v * WATERMARK_OPACITY)))
+    return dim
 
 
 def wallpaper(size, dock, mark=None):
