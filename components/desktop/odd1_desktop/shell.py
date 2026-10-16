@@ -75,7 +75,13 @@ def open_chat(cwd=None, agent="claude"):
     title = layout.CHAT_TITLES[0] if agent == "claude" else entry["title"]
     command = f"{entry['command']}; exec bash"
     scope = ["systemd-run", "--user", "--scope", "--collect", "--quiet", f"--unit=odd1-chat-{time.time_ns()}"]
-    subprocess.Popen((scope if shutil.which("systemd-run") else []) + [
+    scope = scope if shutil.which("systemd-run") else []
+    if entry.get("window"):  # it opens its own window, carrying the role the column docks by
+        env = {**chat_env(os.environ), "ODD1_AGENT_ROLE": f"{layout.AGENT_ROLE}{agent}"}
+        subprocess.Popen(scope + ["bash", "-lc", entry["command"]], cwd=cwd or os.path.expanduser("~"), env=env,
+                         start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return
+    subprocess.Popen(scope + [
         "xfce4-terminal", "--disable-server", f"--title={title}", f"--role={layout.AGENT_ROLE}{agent}",
         f"--working-directory={cwd or os.path.expanduser('~')}", "-x", "bash", "-lc", command],
         start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=chat_env(os.environ))

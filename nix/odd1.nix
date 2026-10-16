@@ -32,6 +32,7 @@ in {
         title = lib.mkOption { type = lib.types.str; description = "Its name in the chat column, e.g. \"Task manager\"."; };
         description = lib.mkOption { type = lib.types.str; default = ""; description = "One line: what talking to it is for."; };
         command = lib.mkOption { type = lib.types.str; description = "Shell command that opens a conversation in a terminal."; };
+        window = lib.mkOption { type = lib.types.bool; default = false; description = "The command opens its own window (carrying the role odd1-agent:<name> from $ODD1_AGENT_ROLE) instead of running in a terminal."; };
       };
     });
     default = { };

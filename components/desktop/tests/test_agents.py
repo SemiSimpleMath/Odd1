@@ -32,3 +32,16 @@ def test_open_chat_tags_the_terminal_with_its_agent_system(tmp_path, monkeypatch
     args = started[0][started[0].index("xfce4-terminal"):]
     assert "--role=odd1-agent:tasks" in args and "--title=Task manager" in args
     assert args[-1] == "odd1-tasks console; exec bash"
+
+
+def test_a_window_agent_opens_its_own_window_with_its_role_and_no_terminal(tmp_path, monkeypatch):
+    path = tmp_path / "agents.json"
+    path.write_text(json.dumps({"chat": {"title": "Chat", "command": "odd1-chat", "window": True}}))
+    monkeypatch.setenv("ODD1_AGENTS", str(path))
+    monkeypatch.setenv("CLAUDE_CODE_CHILD_SESSION", "1")
+    started = []
+    monkeypatch.setattr(shell.subprocess, "Popen", lambda args, **kw: started.append((args, kw)))
+    shell.open_chat(agent="chat")
+    args, kw = started[0]
+    assert "xfce4-terminal" not in args and args[-1] == "odd1-chat"
+    assert kw["env"]["ODD1_AGENT_ROLE"] == "odd1-agent:chat" and "CLAUDE_CODE_CHILD_SESSION" not in kw["env"]
